@@ -1,5 +1,4 @@
 // src/components/Background.tsx
-import React from 'react'
 
 const Background = () => {
   return (

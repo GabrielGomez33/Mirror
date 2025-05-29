@@ -1,6 +1,5 @@
 // src/pages/Results
 
-import React from 'react'
 
 
 const Results = () => {
