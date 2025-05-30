@@ -4,7 +4,8 @@ import { Routes, Route } from 'react-router-dom'
 import WelcomeStep from '../components/intake/WelcomeStep'
 import VisualStep from '../components/intake/VisualStep'
 import VocalStep from '../components/intake/VocalStep'
-// Add future steps here...
+import PersonalityStep from '../components/intake/PersonalityStep'
+import SubmitStep from '../components/intake/SubmitStep'
 
 const IntakeFlow = () => {
   return (
@@ -12,7 +13,8 @@ const IntakeFlow = () => {
       <Route path="welcome" element={<WelcomeStep />} />
       <Route path="visual" element={<VisualStep />} />
       <Route path="vocal" element={<VocalStep />} />
-      {/* Add more steps: vocal, personality, emotional, etc */}
+      <Route path="personality" element={<PersonalityStep />} />
+      <Route path="submit" element={<SubmitStep />} />
     </Routes>
   )
 }

@@ -11,21 +11,21 @@ type IntakeData = {
 }
 
 type IntakeContextType = {
-	intake: IntakeData
+	getIntake: IntakeData
 	updateIntake: (data: Partial<IntakeData>) => void
 }
 
 const IntakeContext = createContext<IntakeContextType | undefined>(undefined)
 
 export const IntakeProvider = ({children}: {children: ReactNode}) => {
-	const [intake, setIntake] = useState<IntakeData>({})
+	const [getIntake, setIntake] = useState<IntakeData>({})
 
 	const updateIntake = (data: Partial<IntakeData>) => {
 		setIntake((prev) => ({...prev, ...data}))
 	}
 
 	return (
-		<IntakeContext.Provider value={{intake, updateIntake}}>
+		<IntakeContext.Provider value={{getIntake, updateIntake}}>
 			{children}
 		</IntakeContext.Provider>
 	)
