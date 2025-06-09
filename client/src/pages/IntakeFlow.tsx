@@ -5,6 +5,7 @@ import WelcomeStep from '../components/intake/WelcomeStep'
 import VisualStep from '../components/intake/VisualStep'
 import VocalStep from '../components/intake/VocalStep'
 import PersonalityStep from '../components/intake/PersonalityStep'
+import RegistrationStep from '../components/intake/RegistrationStep'
 import SubmitStep from '../components/intake/SubmitStep'
 
 const IntakeFlow = () => {
@@ -14,6 +15,7 @@ const IntakeFlow = () => {
       <Route path="visual" element={<VisualStep />} />
       <Route path="vocal" element={<VocalStep />} />
       <Route path="personality" element={<PersonalityStep />} />
+      <Route path="registration" element={<RegistrationStep />} />
       <Route path="submit" element={<SubmitStep />} />
     </Routes>
   )

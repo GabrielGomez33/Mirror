@@ -1,24 +1,40 @@
-# Logs
-logs
-*.log
+# Node
+node_modules/
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Build artifacts
+dist/
+build/
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# Environment variables
+.env
+.env.*  # catch .env.local, .env.production, etc.
+
+# Logs
+*.log
+logs/
+*.log.*
+*.gz
+
+# OS / IDE junk
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+.vscode/
+.idea/
+
+# TypeScript build files
+*.tsbuildinfo
+
+# Optional: PM2 state dumps
+pids/
+dump.pm2
+
+# Optional: SSL secrets (if not using env vars)
+certs/
+*.pem
+
+# Optional: Local database files
+*.sqlite
+*.db
+
+# Optional: Coverage reports
+coverage/

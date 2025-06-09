@@ -9,7 +9,7 @@ const PersonalityStep = () => {
 
 	const handleNext = () => {
 		updateIntake({personality: 'placeholder'})
-		navigate('/intake/submit')
+		navigate('/intake/registration')
 	}
 
 	return(

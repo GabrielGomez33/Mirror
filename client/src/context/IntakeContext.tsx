@@ -1,3 +1,5 @@
+// src/context/IntakeContext.tsx
+
 import {createContext, useContext, useState} from 'react'
 
 import type {ReactNode} from 'react'
@@ -8,6 +10,8 @@ type IntakeData = {
 	personality?: string
 	fears?: string
 	voice?: Blob
+	userRegistered?: boolean
+	userLoggedIn?: boolean
 }
 
 type IntakeContextType = {
