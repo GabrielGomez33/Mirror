@@ -9,7 +9,6 @@ const LogUserIn = () =>{
 	const navigate = useNavigate();
 	const {updateIntake} = useIntake();
 
-	//const [username, setUsername] = useState('');
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
 	const [message, setMessage] = useState('');
@@ -22,12 +21,12 @@ const LogUserIn = () =>{
 		setMessage('');
 
 		try {
-			await loginUser({email, password});
-
+			const result = await loginUser({email, password});
+			console.log(result);			
 			updateIntake({userLoggedIn:true});
-			setMessage('LOGIN SUCCESSFUL');
+			setMessage('LOGIN SUCCESSFUL: ');
 
-			navigate('/home')
+			navigate('/home');
 
 			
 		}catch(err:any){
@@ -62,11 +61,11 @@ const LogUserIn = () =>{
 				required
 			 />
 
-			 <button>
+			 <button
 			    type="submit"
 			    disabled={loading}
 			    className="bg-indigo-500 hover:bg-indigo-600 text-white py-2 px-4 rounded w-full disabled:opacity-50"
-
+			 >
 				{loading ? 'Logging In': 'Log in'}
 			 </button>
 

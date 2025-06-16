@@ -1,0 +1,144 @@
+/* glass.css - Glass Morphism Styles */
+
+/* Glass morphism card component */
+.glass-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.glass-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+}
+
+/* Glass button component */
+.glass-button {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 12px;
+    padding: 12px 24px;
+    color: black;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.glass-button:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15);
+}
+
+.glass-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.glass-button:hover::before {
+    left: 100%;
+}
+
+/* Breathing animation */
+.breathing {
+    animation: breathing 3s ease-in-out infinite;
+}
+
+@keyframes breathing {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+    50% {
+        transform: scale(1.02);
+        box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15);
+    }
+}
+
+/* Sakura gradient overlay */
+.sakura-gradient {
+    background: linear-gradient(135deg, 
+        rgba(255, 182, 193, 0.2) 0%,
+        rgba(255, 192, 203, 0.15) 25%,
+        rgba(255, 160, 180, 0.2) 50%,
+        rgba(255, 105, 135, 0.15) 75%,
+        rgba(255, 20, 147, 0.2) 100%
+    );
+}
+
+/* Text shadow utility */
+.text-shadow-soft {
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Three.js canvas styling */
+#three-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* Enhanced glass effects for better visibility */
+.glass-card-enhanced {
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Glass overlay for dashboard */
+.glass-overlay {
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+/* Progress bar glass effect */
+.glass-progress-bg {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.glass-progress-fill {
+    background: linear-gradient(to right, #f472b6, #fb7185);
+    border-radius: 9999px;
+    transition: width 0.3s ease;
+}
+
+/* Interactive glass elements */
+.glass-interactive {
+    transition: all 0.3s ease;
+}
+
+.glass-interactive:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+}
