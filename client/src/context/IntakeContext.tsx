@@ -6,10 +6,13 @@ import type {ReactNode} from 'react'
 
 type IntakeData = {
 	photo?: File
+	faceAnalysis?: any
 	name?: string
 	personality?: string
 	fears?: string
 	voice?: Blob
+	voicePromptIndex?: any
+	voicePromptText?: any
 	userRegistered?: boolean
 	userLoggedIn?: boolean
 }
