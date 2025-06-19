@@ -11,8 +11,9 @@ type IntakeData = {
 	personality?: string
 	fears?: string
 	voice?: Blob
-	voicePromptIndex?: any
-	voicePromptText?: any
+	voicePrompt?: string
+	voiceDuration?: number
+	voiceMetadata?: object
 	userRegistered?: boolean
 	userLoggedIn?: boolean
 }

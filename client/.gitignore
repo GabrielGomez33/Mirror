@@ -6,6 +6,9 @@ npm-debug.log*
 dist/
 build/
 
+#models
+public/models/
+
 # Environment variables
 .env
 .env.*  # catch .env.local, .env.production, etc.
@@ -13,6 +16,7 @@ build/
 # Logs
 *.log
 logs/
+
 *.log.*
 *.gz
 
