@@ -522,7 +522,7 @@ const VocalStep = () => {
   };
 
   const handleNext = () => {
-    navigate('/intake/personality');
+    navigate('/intake/iq');
   };
 
   const formatTime = (seconds: number) => {

@@ -5,10 +5,15 @@ import {createContext, useContext, useState} from 'react'
 import type {ReactNode} from 'react'
 
 type IntakeData = {
+	astrologicalResult?: any
 	photo?: File
 	faceAnalysis?: any
 	name?: string
-	personality?: string
+	iqResults?: any
+	iqAnswers?: any
+	personality?: any
+	personalityResult?: any
+	personalityAnswers?: any
 	fears?: string
 	voice?: Blob
 	voicePrompt?: string

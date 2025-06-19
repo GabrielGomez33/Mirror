@@ -1,0 +1,21 @@
+<svg width="320" height="100" viewBox="0 0 320 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sakuraGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f7c1e3" />
+      <stop offset="50%" stop-color="#d6a4ec" />
+      <stop offset="100%" stop-color="#a3c8f0" />
+    </linearGradient>
+  </defs>
+
+  <text
+    x="50%"
+    y="60"
+    text-anchor="middle"
+    fill="url(#sakuraGradient)"
+    font-size="36"
+    font-family="monospace"
+    letter-spacing="6"
+  >
+    M I Я Я O R
+  </text>
+</svg>
