@@ -25,7 +25,7 @@ export default function Home() {
           
 
           <p className="text-xl md:text-2xl text-white/90 font-light leading-relaxed max-w-2xl mx-auto">
-            Your personal sanctuary in the digital realm. Store, share, and synchronize with the grace of falling petals.
+				See yourself in the world, and the world in you.
           </p>
 
           {/* Action buttons */}
@@ -33,7 +33,7 @@ export default function Home() {
             <GlassButton onClick={() => navigate('/login')}>
               ENTER The Mirror
             </GlassButton>
-            <GlassButton onClick={() => navigate('/intake/visual')}>
+            <GlassButton onClick={() => navigate('/intake/register')}>
               LOOK into The Mirror
             </GlassButton>
           </div>

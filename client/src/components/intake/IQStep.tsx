@@ -402,7 +402,7 @@ const IQTestStep = () => {
       iqResults: iqResult, // Corrected property name from iqResult to iqResults
       iqAnswers: userAnswers
     });
-    navigate('/intake/complete'); // Navigate to the next step
+    navigate('/intake/astrology'); // Navigate to the next step
   };
 
   const restartQuiz = () => {

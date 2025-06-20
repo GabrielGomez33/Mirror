@@ -1184,7 +1184,7 @@ const PersonalityStep = () => {
   }, [showResult, result, calculateResults]);
 
   const handleNext = () => {
-    navigate('/intake/astrology');
+    navigate('/intake/register');
   };
 
   const restartQuiz = () => {

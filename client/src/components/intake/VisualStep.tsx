@@ -114,7 +114,7 @@ const VisualStep = () => {
               
               <h2 className="text-3xl font-bold text-white text-shadow-soft">Your Visual Identity</h2>
               <p className="text-white/80">
-                Upload a clear image of yourself. We'll analyze facial features to personalize your Mirror profile.
+				"If you gaze long into the abyss, the abyss also gazes into you "
               </p>
             </motion.div>
 
