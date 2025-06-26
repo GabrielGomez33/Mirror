@@ -2,6 +2,7 @@
 import { Routes, Route } from 'react-router-dom'
 import { IntakeProvider } from './context/IntakeContext'
 import Home from './pages/Home'
+import Dashboard from './pages/Dashboard'
 import IntakeFlow from './pages/IntakeFlow'
 import Results from './pages/Results'
 import Review from './pages/Review'
@@ -18,6 +19,7 @@ const App = () => {
         {/* Main routes */}
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/login" element={<LogUserIn />} />
           <Route path="/intake/*" element={<IntakeFlow />} />
           <Route path="/results" element={<Results />} />

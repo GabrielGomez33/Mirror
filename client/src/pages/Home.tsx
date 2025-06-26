@@ -30,7 +30,7 @@ export default function Home() {
 
           {/* Action buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <GlassButton onClick={() => navigate('/login')}>
+            <GlassButton onClick={() => navigate('/dashboard')}>
               ENTER The Mirror
             </GlassButton>
             <GlassButton onClick={() => navigate('/intake/register')}>
