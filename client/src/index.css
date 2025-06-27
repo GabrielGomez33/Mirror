@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 @import './styles/glass.css';
-
+@import './styles/enhanced-glass.css';
 /* Ensure backdrop-filter works everywhere */
 * {
   -webkit-font-smoothing: antialiased;

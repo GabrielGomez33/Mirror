@@ -1,14 +1,13 @@
 // src/pages/Dashboard.tsx
-
 import { useState } from 'react';
-import SakuraForestScene from '../components/three/SakuraForestScene';
-import RetractableNavBar from '../components/home/RetractableNavBar';
-import { MyMirrorPanel, TruthStreamPanel, MirrorGroupsPanel } from '../components/home/MyMirrorPanel';
+import '../styles/enhanced-glass.css';
+import ZenPondScene from '../components/three/ZenPondScene';
+import MagicalSphereNavigation from '../components/home/MagicalSphereNavigation';
+import { MyMirrorPanel, TruthStreamPanel, MirrorGroupsPanel } from '../components/home/EnhancedDashboardPanels';
 
-// Mock data - replace with real API calls
 const mockUser = {
   name: 'Sarah Johnson',
-  avatar: '', // Empty for now, will show emoji fallback
+  avatar: '',
   memberSince: 'March 2024',
   bio: 'Growth-focused individual seeking authentic connections and honest feedback. Passionate about personal development and helping others see their potential.',
   currentGoals: [
@@ -128,9 +127,7 @@ export default function Dashboard() {
   const [reviews, setReviews] = useState(mockReviews);
   const [hasMoreReviews, setHasMoreReviews] = useState(true);
 
-  // Simulate loading more reviews
   const handleLoadMore = () => {
-    // In real app, this would make an API call
     setTimeout(() => {
       const newReviews = [
         {
@@ -145,8 +142,6 @@ export default function Dashboard() {
         }
       ];
       setReviews(prev => [...prev, ...newReviews]);
-      
-      // Simulate running out of content
       if (reviews.length > 8) {
         setHasMoreReviews(false);
       }
@@ -155,37 +150,29 @@ export default function Dashboard() {
 
   const handleJoinGroup = (groupId: string) => {
     console.log('Joining group:', groupId);
-    // In real app, make API call to join group
   };
 
   const handleLeaveGroup = (groupId: string) => {
     console.log('Leaving group:', groupId);
-    // In real app, make API call to leave group
   };
 
   const renderActivePanel = () => {
     switch (activePanel) {
       case 'mymirror':
         return (
-          <div className="w-full max-w-md mx-auto lg:max-w-lg">
+          <div className="w-full max-w-lg mx-auto">
             <MyMirrorPanel user={mockUser} stats={mockStats} />
           </div>
         );
-      
       case 'truthstream':
         return (
-          <div className="w-full max-w-2xl mx-auto">
-            <TruthStreamPanel 
-              reviews={reviews} 
-              onLoadMore={handleLoadMore}
-              hasMore={hasMoreReviews}
-            />
+          <div className="w-full max-w-3xl mx-auto">
+            <TruthStreamPanel reviews={reviews} onLoadMore={handleLoadMore} hasMore={hasMoreReviews} />
           </div>
         );
-      
       case 'mirrorgroups':
         return (
-          <div className="w-full max-w-md mx-auto lg:max-w-lg">
+          <div className="w-full max-w-lg mx-auto">
             <MirrorGroupsPanel
               joinedGroups={mockJoinedGroups}
               suggestedGroups={mockSuggestedGroups}
@@ -194,7 +181,6 @@ export default function Dashboard() {
             />
           </div>
         );
-      
       default:
         return null;
     }
@@ -202,56 +188,44 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-rose-100 via-pink-50 to-orange-100" />
+      <div className="absolute inset-0 bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50" />
       
-      {/* Three.js Sakura Forest Background */}
       <div className="absolute inset-0 z-0">
-        <SakuraForestScene />
+        <ZenPondScene />
       </div>
       
-      {/* Main Content */}
       <div className="relative z-10 min-h-screen">
-        {/* Content Area */}
-        <div className="px-4 py-8 pb-32 lg:px-8">
-          {/* Welcome Header - Only show on first visit or occasionally */}
-          <div className="text-center mb-8 lg:mb-12">
-            <h1 className="text-3xl lg:text-4xl font-light text-white/90 mb-2">
+        <div className="text-center pt-8 pb-4 px-4">
+          <div className="glass-base rounded-2xl p-6 max-w-2xl mx-auto">
+            <h1 className="enhanced-glass-heading text-3xl lg:text-4xl mb-2">
               Welcome back, {mockUser.name.split(' ')[0]}
             </h1>
-            <p className="text-white/70 text-lg">
+            <p className="enhanced-glass-body text-lg">
               Your reflection journey continues
             </p>
           </div>
+        </div>
 
-          {/* Panel Content */}
-          <div className="flex justify-center">
-            {renderActivePanel()}
-          </div>
+        <div className="flex justify-center px-4 pb-32">
+          {renderActivePanel()}
         </div>
       </div>
 
-      {/* Floating Navigation */}
-      <RetractableNavBar 
-        activePanel={activePanel} 
-        onPanelChange={setActivePanel} 
-      />
+      <MagicalSphereNavigation activePanel={activePanel} onPanelChange={setActivePanel} />
 
-      {/* Floating Action Button for Quick Actions */}
       <div className="fixed top-6 right-6 z-50">
-        <div className="glass-fab">
+        <div className="w-14 h-14 rounded-full bg-gradient-to-r from-white/20 to-white/10 backdrop-blur-lg border border-white/20 flex items-center justify-center cursor-pointer hover:scale-110 transition-all duration-300 shadow-lg">
           <span className="text-xl">⚙️</span>
         </div>
       </div>
 
-      {/* Notification Badge (if any) */}
       {activePanel === 'truthstream' && reviews.length > 0 && (
         <div className="fixed top-6 left-6 z-50">
-          <div className="glass-stat-card px-3 py-2">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse"></div>
-              <span className="text-white/90 text-sm font-medium">
-                {reviews.length} insights
+          <div className="glass-base rounded-xl px-4 py-3">
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 bg-gradient-to-r from-pink-400 to-purple-400 rounded-full animate-pulse" />
+              <span className="enhanced-glass-text text-sm font-medium">
+                {reviews.length} new insights
               </span>
             </div>
           </div>
