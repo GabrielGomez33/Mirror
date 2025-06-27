@@ -195,16 +195,6 @@ export default function Dashboard() {
       </div>
       
       <div className="relative z-10 min-h-screen">
-        <div className="text-center pt-8 pb-4 px-4">
-          <div className="glass-base rounded-2xl p-6 max-w-2xl mx-auto">
-            <h1 className="enhanced-glass-heading text-3xl lg:text-4xl mb-2">
-              Welcome back, {mockUser.name.split(' ')[0]}
-            </h1>
-            <p className="enhanced-glass-body text-lg">
-              Your reflection journey continues
-            </p>
-          </div>
-        </div>
 
         <div className="flex justify-center px-4 pb-32">
           {renderActivePanel()}
