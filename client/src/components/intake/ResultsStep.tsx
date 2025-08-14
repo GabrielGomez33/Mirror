@@ -47,6 +47,8 @@ const ResultsStep = () => {
       setTimeout(() => setAnimationPhase('complete'), 3000);
     }
   }, [intakeData]);
+
+  console.log(intakeData);
   
   // Synthesized Insights Generation
   const synthesizedInsights = useMemo(() => {
@@ -166,7 +168,7 @@ const ResultsStep = () => {
             <h2 className="text-2xl font-bold text-white">Profile Incomplete</h2>
             <p className="text-white/70">{errorState}</p>
             <GlassButton
-              onClick={() => navigate('/intake/personality')}
+              onClick={() => navigate('/intake/submit')}
               className="bg-gradient-to-r from-blue-400/20 to-purple-400/20"
             >
               Complete Your Profile
