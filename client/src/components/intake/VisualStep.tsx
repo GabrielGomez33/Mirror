@@ -410,7 +410,35 @@ const VisualStep: React.FC = () => {
 
   // --- Navigation ------------------------------------------------------------
 
-  const handleNext = () => navigate('/intake/vocal');
+  const handleNext = useCallback(async () => {
+    try {
+      // Validate that we have the necessary data
+      if (!analysisState.hasAnalysis && !captureState.hasPhoto) {
+        console.warn('Attempting to proceed without visual data');
+        // Allow skip but log it
+      }
+  
+      // Ensure data is saved to context
+      if (analysisState.results) {
+        updateIntake({ 
+          faceAnalysis: analysisState.results,
+          visualStepCompleted: true 
+        });
+      }
+  
+      // Small delay to ensure context update
+      await new Promise(resolve => setTimeout(resolve, 100));
+  
+      // Navigate with state to help debug
+      navigate('/intake/vocal', { 
+        state: { fromVisual: true, hasAnalysis: analysisState.hasAnalysis } 
+      });
+    } catch (error) {
+      console.error('Navigation error:', error);
+      // Fallback: try direct navigation
+      window.location.href = '/intake/vocal';
+    }
+  }, [analysisState, updateIntake, navigate]);
 
   // --- UI --------------------------------------------------------------------
 

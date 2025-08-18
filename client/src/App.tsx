@@ -3,6 +3,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { IntakeProvider } from './context/IntakeContext';
+import IntakeErrorBoundary from './components/intake/IntakeErrorBoundary';
 import { ProtectedRoute, ConditionalRender } from './components/auth/RouteProtection';
 import { AccessLevel, SecurityLevel } from './context/AuthContext';
 
@@ -71,7 +72,9 @@ const App: React.FC = () => {
                   securityLevel={SecurityLevel.BASIC}
                   redirectTo="/login"
                 >
-                  <IntakeFlow />
+                  <IntakeErrorBoundary>
+                    <IntakeFlow />
+                  </IntakeErrorBoundary>
                 </ProtectedRoute>
               } 
             />

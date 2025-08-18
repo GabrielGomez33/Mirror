@@ -107,72 +107,102 @@ type AuthAction =
 
 // High-performance permission lookup table
 const ROUTE_PERMISSIONS = new Map<string, Permission>([
-  // Public routes
-  ['/', { route: '/', accessLevel: AccessLevel.PUBLIC, securityLevel: SecurityLevel.PUBLIC }],
-  ['/home', { route: '/home', accessLevel: AccessLevel.PUBLIC, securityLevel: SecurityLevel.PUBLIC }],
-  ['/landing', { route: '/landing', accessLevel: AccessLevel.PUBLIC, securityLevel: SecurityLevel.PUBLIC }],
-  ['/login', { route: '/login', accessLevel: AccessLevel.PUBLIC, securityLevel: SecurityLevel.PUBLIC }],
-  
-  // Authenticated routes
-  ['/dashboard', { 
-    route: '/dashboard', 
-    accessLevel: AccessLevel.AUTHENTICATED, 
-    securityLevel: SecurityLevel.BASIC,
-    redirectTo: '/login'
-  }],
-  
-  // Intake flow routes
-  ['/intake', { 
-    route: '/intake', 
-    accessLevel: AccessLevel.AUTHENTICATED, 
-    securityLevel: SecurityLevel.BASIC,
-    redirectTo: '/login'
-  }],
-  ['/intake/personality', { 
-    route: '/intake/personality', 
-    accessLevel: AccessLevel.AUTHENTICATED, 
-    securityLevel: SecurityLevel.VERIFIED,
-    redirectTo: '/login'
-  }],
-  ['/intake/facial', { 
-    route: '/intake/facial', 
-    accessLevel: AccessLevel.AUTHENTICATED, 
-    securityLevel: SecurityLevel.TIER2_ACCESS,
-    redirectTo: '/login'
-  }],
-  ['/intake/vocal', { 
-    route: '/intake/vocal', 
-    accessLevel: AccessLevel.AUTHENTICATED, 
-    securityLevel: SecurityLevel.TIER2_ACCESS,
-    redirectTo: '/login'
-  }],
-  
-  // Results and analysis (requires completed intake)
-  ['/results', { 
-    route: '/results', 
-    accessLevel: AccessLevel.INTAKE_REQUIRED, 
-    securityLevel: SecurityLevel.TIER2_ACCESS,
-    customCheck: (user: User | null) => user?.intakeCompleted === true,
-    redirectTo: '/intake',
-    errorMessage: 'Please complete the intake process to view results.'
-  }],
-  ['/review', { 
-    route: '/review', 
-    accessLevel: AccessLevel.INTAKE_REQUIRED, 
-    securityLevel: SecurityLevel.TIER2_ACCESS,
-    customCheck: (user: User | null) => user?.intakeCompleted === true,
-    redirectTo: '/intake'
-  }],
-  
-  // Premium features
-  ['/insights/advanced', { 
-    route: '/insights/advanced', 
-    accessLevel: AccessLevel.PREMIUM, 
-    securityLevel: SecurityLevel.TIER3_ACCESS,
-    requiredTier: UserTier.PREMIUM,
-    redirectTo: '/upgrade',
-    errorMessage: 'Premium subscription required for advanced insights.'
-  }],
+  // Public routes (unchanged)
+    ['/', { route: '/', accessLevel: AccessLevel.PUBLIC, securityLevel: SecurityLevel.PUBLIC }],
+    ['/home', { route: '/home', accessLevel: AccessLevel.PUBLIC, securityLevel: SecurityLevel.PUBLIC }],
+    ['/landing', { route: '/landing', accessLevel: AccessLevel.PUBLIC, securityLevel: SecurityLevel.PUBLIC }],
+    ['/login', { route: '/login', accessLevel: AccessLevel.PUBLIC, securityLevel: SecurityLevel.PUBLIC }],
+    
+    // Authenticated routes (unchanged)
+    ['/dashboard', { 
+      route: '/dashboard', 
+      accessLevel: AccessLevel.AUTHENTICATED, 
+      securityLevel: SecurityLevel.BASIC,
+      redirectTo: '/login'
+    }],
+    
+    // FIXED: Intake flow routes - Use consistent security levels
+    ['/intake', { 
+      route: '/intake', 
+      accessLevel: AccessLevel.AUTHENTICATED, 
+      securityLevel: SecurityLevel.BASIC,  // ✅ BASIC for intake
+      redirectTo: '/login'
+    }],
+    ['/intake/personality', { 
+      route: '/intake/personality', 
+      accessLevel: AccessLevel.AUTHENTICATED, 
+      securityLevel: SecurityLevel.BASIC,  // ✅ Changed from VERIFIED to BASIC
+      redirectTo: '/login'
+    }],
+    ['/intake/visual', { 
+      route: '/intake/visual', 
+      accessLevel: AccessLevel.AUTHENTICATED, 
+      securityLevel: SecurityLevel.BASIC,  // ✅ Add visual route explicitly
+      redirectTo: '/login'
+    }],
+    ['/intake/vocal', { 
+      route: '/intake/vocal', 
+      accessLevel: AccessLevel.AUTHENTICATED, 
+      securityLevel: SecurityLevel.BASIC,  // ✅ FIXED: Changed from TIER2_ACCESS to BASIC
+      redirectTo: '/login'
+    }],
+    ['/intake/astrology', { 
+      route: '/intake/astrology', 
+      accessLevel: AccessLevel.AUTHENTICATED, 
+      securityLevel: SecurityLevel.BASIC,  // ✅ Add astrology route
+      redirectTo: '/login'
+    }],
+    ['/intake/iq', { 
+      route: '/intake/iq', 
+      accessLevel: AccessLevel.AUTHENTICATED, 
+      securityLevel: SecurityLevel.BASIC,  // ✅ Add IQ route
+      redirectTo: '/login'
+    }],
+    ['/intake/register', { 
+      route: '/intake/register', 
+      accessLevel: AccessLevel.AUTHENTICATED, 
+      securityLevel: SecurityLevel.BASIC,  // ✅ Add register route
+      redirectTo: '/login'
+    }],
+    ['/intake/submit', { 
+      route: '/intake/submit', 
+      accessLevel: AccessLevel.AUTHENTICATED, 
+      securityLevel: SecurityLevel.BASIC,  // ✅ Add submit route
+      redirectTo: '/login'
+    }],
+    ['/intake/results', { 
+      route: '/intake/results', 
+      accessLevel: AccessLevel.AUTHENTICATED, 
+      securityLevel: SecurityLevel.BASIC,  // ✅ Add results route
+      redirectTo: '/login'
+    }],
+    
+    // Results and analysis (keep higher security for final results)
+    ['/results', { 
+      route: '/results', 
+      accessLevel: AccessLevel.INTAKE_REQUIRED, 
+      securityLevel: SecurityLevel.TIER2_ACCESS,  // Keep higher security for final results
+      customCheck: (user: User | null) => user?.intakeCompleted === true,
+      redirectTo: '/intake',
+      errorMessage: 'Please complete the intake process to view results.'
+    }],
+    ['/review', { 
+      route: '/review', 
+      accessLevel: AccessLevel.INTAKE_REQUIRED, 
+      securityLevel: SecurityLevel.TIER2_ACCESS,  // Keep higher security for review
+      customCheck: (user: User | null) => user?.intakeCompleted === true,
+      redirectTo: '/intake'
+    }],
+    
+    // Premium features (unchanged)
+    ['/insights/advanced', { 
+      route: '/insights/advanced', 
+      accessLevel: AccessLevel.PREMIUM, 
+      securityLevel: SecurityLevel.TIER3_ACCESS,
+      requiredTier: UserTier.PREMIUM,
+      redirectTo: '/upgrade',
+      errorMessage: 'Premium subscription required for advanced insights.'
+    }],
   ['/analytics', { 
     route: '/analytics', 
     accessLevel: AccessLevel.PREMIUM, 

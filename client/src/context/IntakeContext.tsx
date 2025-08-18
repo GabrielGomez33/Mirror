@@ -100,9 +100,14 @@ export const IntakeProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [getIntake]);
 
-  const updateIntake = useCallback((data: Partial<IntakeData>) => {
-    setIntake((prev) => ({ ...prev, ...data }));
-  }, []);
+  const updateIntake = (data: Partial<IntakeData>) => {
+    console.log('📝 IntakeContext updating with:', data);
+    setIntake((prev) => {
+      const updated = { ...prev, ...data };
+      console.log('📊 IntakeContext new state:', updated);
+      return updated;
+    });
+  };
 
   const markStepComplete = useCallback((step: string, data: Record<string, unknown> = {}) => {
     setIntake((prev) => {
