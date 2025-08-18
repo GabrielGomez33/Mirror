@@ -167,11 +167,14 @@ const ResultsStep = () => {
             </div>
             <h2 className="text-2xl font-bold text-white">Profile Incomplete</h2>
             <p className="text-white/70">{errorState}</p>
-            <GlassButton
+           <GlassButton
               onClick={() => navigate('/intake/submit')}
-              className="bg-gradient-to-r from-blue-400/20 to-purple-400/20"
+              className="bg-gradient-to-r from-purple-400/20 to-pink-400/20 hover:from-purple-400/30 hover:to-pink-400/30"
             >
-              Complete Your Profile
+              <span className="flex items-center space-x-2">
+                <span>➡️</span>
+                <span>Continue to Submit</span>
+              </span>
             </GlassButton>
           </GlassCard>
         </div>

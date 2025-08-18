@@ -1,10 +1,10 @@
 // src/components/auth/RouteProtection.tsx
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth, AccessLevel, SecurityLevel } from '../../context/AuthContext';
+import { useIntake } from '../../context/IntakeContext';
 
 // ========== LOADING COMPONENT ==========
-
 const AuthLoadingScreen: React.FC = () => (
   <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
     <div className="glass-panel p-8 rounded-xl text-center">
@@ -15,13 +15,11 @@ const AuthLoadingScreen: React.FC = () => (
 );
 
 // ========== ERROR COMPONENT ==========
-
 interface AuthErrorProps {
   error: string;
   onRetry?: () => void;
   redirectTo?: string;
 }
-
 const AuthErrorScreen: React.FC<AuthErrorProps> = ({ error, onRetry, redirectTo }) => {
   const navigate = () => {
     if (redirectTo) {
@@ -30,7 +28,6 @@ const AuthErrorScreen: React.FC<AuthErrorProps> = ({ error, onRetry, redirectTo 
       onRetry();
     }
   };
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-900 via-purple-900 to-indigo-900">
       <div className="glass-panel p-8 rounded-xl text-center max-w-md">
@@ -50,8 +47,70 @@ const AuthErrorScreen: React.FC<AuthErrorProps> = ({ error, onRetry, redirectTo 
   );
 };
 
-// ========== PROTECTED ROUTE COMPONENT ==========
+// ========== INTAKE ROUTING HELPERS ==========
 
+// URL segments used in routes under /intake/*
+const INTAKE_SEGMENTS = ['visual', 'vocal', 'iq', 'astrology', 'personality', 'submit', 'results'] as const;
+type IntakeSegment = typeof INTAKE_SEGMENTS[number];
+
+// Your IntakeContext progress step keys
+type ProgressStepKey =
+  | 'VisualStep'
+  | 'VocalStep'
+  | 'IQStep'
+  | 'AstroLogicalStep'
+  | 'PersonalityStep'
+  | 'SubmitStep'
+  | 'ResultsStep'
+  | 'IQStep';
+
+// Map URL segment → progress step key
+const SEGMENT_TO_PROGRESS: Record<IntakeSegment, ProgressStepKey> = {
+  visual: 'VisualStep',
+  vocal: 'VocalStep',
+  iq: 'IQStep',
+  astrology: 'AstroLogicalStep',
+  personality: 'PersonalityStep',
+  submit: 'SubmitStep',
+  results: 'ResultsStep',
+};
+
+
+
+// Minimal shape from your IntakeContext
+type StepStatus = { completed: boolean; data?: Record<string, unknown> };
+type ProgressShape = {
+  lastStep?: string;
+  completed?: boolean;
+  steps?: Partial<Record<ProgressStepKey, StepStatus>>;
+} | undefined;
+
+function getCurrentIntakeSegment(pathname: string): IntakeSegment | null {
+  const parts = pathname.split('/').filter(Boolean);
+  const idx = parts.indexOf('intake');
+  if (idx < 0) return null;
+  const seg = parts[idx + 1] || null;
+  return (seg && INTAKE_SEGMENTS.includes(seg as IntakeSegment)) ? (seg as IntakeSegment) : null;
+}
+
+function indexOfSeg(seg: IntakeSegment) {
+  return INTAKE_SEGMENTS.indexOf(seg);
+}
+
+function isAfter(a: IntakeSegment, b: IntakeSegment) {
+  return indexOfSeg(a) > indexOfSeg(b);
+}
+
+function getFirstIncompleteSegment(progress: ProgressShape): IntakeSegment {
+  for (const seg of INTAKE_SEGMENTS) {
+    const stepKey = SEGMENT_TO_PROGRESS[seg];
+    const s = progress?.steps?.[stepKey];
+    if (!s?.completed) return seg;
+  }
+  return 'results';
+}
+
+// ========== PROTECTED ROUTE COMPONENT ==========
 interface ProtectedRouteProps {
   children: React.ReactNode;
   accessLevel?: AccessLevel;
@@ -73,187 +132,137 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   fallback,
   loadingComponent: LoadingComponent = AuthLoadingScreen
 }) => {
-  const { 
-    isAuthenticated, 
-    isLoading, 
-    authChecked, 
-    user, 
-    hasAccessLevel, 
+  const {
+    isAuthenticated,
+    isLoading,
+    authChecked,
+    user,
+    hasAccessLevel,
     hasSecurityLevel,
     setRedirectAfterLogin,
-    error 
+    error
   } = useAuth();
-  
+
+  const { getIntake } = useIntake();
+  // handle both shapes: object or getter function
+  const intake = useMemo(() => (typeof getIntake === 'function' ? (getIntake as any)() : (getIntake as any)), [getIntake]);
+  const progress: ProgressShape = intake?.progress;
+
   const location = useLocation();
+  const pathname = location.pathname;
 
   useEffect(() => {
-    // Store current location for redirect after login
     if (!isAuthenticated && authChecked) {
       setRedirectAfterLogin(location.pathname + location.search);
     }
   }, [isAuthenticated, authChecked, location, setRedirectAfterLogin]);
 
-  // Show loading while auth is being checked
-  if (isLoading || !authChecked) {
-    return <LoadingComponent />;
-  }
+  // Loading
+  if (isLoading || !authChecked) return <LoadingComponent />;
 
-  // Check access level
+  // Access level
   if (!hasAccessLevel(accessLevel)) {
     const defaultRedirect = getDefaultRedirectForAccessLevel(accessLevel);
-    if (redirectTo || defaultRedirect) {
-      return <Navigate to={redirectTo || defaultRedirect} replace />;
-    }
-    
+    if (redirectTo || defaultRedirect) return <Navigate to={redirectTo || defaultRedirect} replace />;
     const defaultError = getDefaultErrorForAccessLevel(accessLevel);
-    return (
-      <AuthErrorScreen 
-        error={errorMessage || defaultError}
-        redirectTo={redirectTo}
-      />
-    );
+    return <AuthErrorScreen error={errorMessage || defaultError} redirectTo={redirectTo} />;
   }
 
-  // Check security level
+  // Security level
   if (!hasSecurityLevel(securityLevel)) {
     const defaultRedirect = getDefaultRedirectForSecurityLevel(securityLevel);
-    if (redirectTo || defaultRedirect) {
-      return <Navigate to={redirectTo || defaultRedirect} replace />;
-    }
-    
+    if (redirectTo || defaultRedirect) return <Navigate to={redirectTo || defaultRedirect} replace />;
     const defaultError = getDefaultErrorForSecurityLevel(securityLevel);
-    return (
-      <AuthErrorScreen 
-        error={errorMessage || defaultError}
-        redirectTo={redirectTo}
-      />
-    );
+    return <AuthErrorScreen error={errorMessage || defaultError} redirectTo={redirectTo} />;
   }
 
-  // Check custom validation
+  // Custom check
   if (customCheck && !customCheck(user)) {
-    if (redirectTo) {
-      return <Navigate to={redirectTo} replace />;
+    if (redirectTo) return <Navigate to={redirectTo} replace />;
+    return <AuthErrorScreen error={errorMessage || 'Custom permission check failed'} redirectTo={redirectTo} />;
+  }
+
+  // Intake-aware routing (centralized)
+  const isIntakeRoute = pathname === '/intake' || pathname.startsWith('/intake/');
+  if (isAuthenticated && isIntakeRoute) {
+    // completed? -> dashboard
+    if (progress?.completed) {
+      return <Navigate to="/dashboard" replace />;
     }
-    
-    return (
-      <AuthErrorScreen 
-        error={errorMessage || 'Custom permission check failed'}
-        redirectTo={redirectTo}
-      />
-    );
+
+    const requiredSeg = getFirstIncompleteSegment(progress);
+    const currentSeg = getCurrentIntakeSegment(pathname);
+
+    // "/intake" with no seg, or trying to skip ahead -> snap back to required step
+    if (!currentSeg || isAfter(currentSeg, requiredSeg)) {
+      return <Navigate to={`/intake/${requiredSeg}`} replace state={{ from: location }} />;
+    }
   }
 
-  // Show fallback if provided and there's an auth error
-  if (error && fallback) {
-    return <>{fallback}</>;
-  }
+  // Fallback handling for auth error with provided fallback UI
+  if (error && fallback) return <>{fallback}</>;
 
-  // All checks passed, render children
   return <>{children}</>;
 };
 
 // ========== ROUTE-BASED PROTECTION ==========
-
 interface RouteGuardProps {
   children: React.ReactNode;
   route?: string; // Auto-detect if not provided
 }
-
-export const RouteGuard: React.FC<RouteGuardProps> = ({ children, route }) => {
+export const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
   const location = useLocation();
   const { canAccessRoute, isLoading, authChecked } = useAuth();
-  const currentRoute = route || location.pathname;
-
-  if (isLoading || !authChecked) {
-    return <AuthLoadingScreen />;
-  }
-
-  const accessCheck = canAccessRoute(currentRoute);
-  
+  if (isLoading || !authChecked) return <AuthLoadingScreen />;
+  const accessCheck = canAccessRoute(location.pathname);
   if (!accessCheck.allowed) {
-    if (accessCheck.redirectTo) {
-      return <Navigate to={accessCheck.redirectTo} replace />;
-    }
-    
-    return (
-      <AuthErrorScreen 
-        error={accessCheck.reason || 'Access denied'}
-        redirectTo={accessCheck.redirectTo}
-      />
-    );
+    if (accessCheck.redirectTo) return <Navigate to={accessCheck.redirectTo} replace />;
+    return <AuthErrorScreen error={accessCheck.reason || 'Access denied'} redirectTo={accessCheck.redirectTo} />;
   }
-
   return <>{children}</>;
 };
 
 // ========== CONDITIONAL RENDERING ==========
-
 interface ConditionalRenderProps {
   children: React.ReactNode;
   condition: 'authenticated' | 'unauthenticated' | 'verified' | 'unverified' | 'premium' | 'admin' | 'intake-completed';
   fallback?: React.ReactNode;
 }
-
-export const ConditionalRender: React.FC<ConditionalRenderProps> = ({ 
-  children, 
-  condition, 
-  fallback = null 
-}) => {
-  const { 
-    isAuthenticated, 
-    isEmailVerified, 
-    isPremiumUser, 
-    isAdmin, 
+export const ConditionalRender: React.FC<ConditionalRenderProps> = ({ children, condition, fallback = null }) => {
+  const {
+    isAuthenticated,
+    isEmailVerified,
+    isPremiumUser,
+    isAdmin,
     isIntakeCompleted,
-    isLoading 
+    isLoading
   } = useAuth();
-
-  if (isLoading) {
-    return null; // Don't render anything while loading
-  }
-
-  const shouldRender = (() => {
-    switch (condition) {
-      case 'authenticated':
-        return isAuthenticated;
-      case 'unauthenticated':
-        return !isAuthenticated;
-      case 'verified':
-        return isAuthenticated && isEmailVerified;
-      case 'unverified':
-        return isAuthenticated && !isEmailVerified;
-      case 'premium':
-        return isAuthenticated && isPremiumUser;
-      case 'admin':
-        return isAuthenticated && isAdmin;
-      case 'intake-completed':
-        return isAuthenticated && isIntakeCompleted;
-      default:
-        return false;
-    }
-  })();
-
+  if (isLoading) return null;
+  const shouldRender =
+    (condition === 'authenticated' && isAuthenticated) ||
+    (condition === 'unauthenticated' && !isAuthenticated) ||
+    (condition === 'verified' && isAuthenticated && isEmailVerified) ||
+    (condition === 'unverified' && isAuthenticated && !isEmailVerified) ||
+    (condition === 'premium' && isAuthenticated && isPremiumUser) ||
+    (condition === 'admin' && isAuthenticated && isAdmin) ||
+    (condition === 'intake-completed' && isAuthenticated && isIntakeCompleted);
   return shouldRender ? <>{children}</> : <>{fallback}</>;
 };
 
 // ========== PERMISSION HOOK ==========
-
 export const usePermission = (route?: string) => {
   const location = useLocation();
   const { canAccessRoute, hasAccessLevel, hasSecurityLevel } = useAuth();
   const currentRoute = route || location.pathname;
-
   return {
     canAccess: (route: string) => canAccessRoute(route),
     canAccessCurrent: () => canAccessRoute(currentRoute),
     hasAccess: (level: AccessLevel) => hasAccessLevel(level),
-    hasSecurity: (level: SecurityLevel) => hasSecurityLevel(level)
+    hasSecurity: (level: SecurityLevel) => hasSecurityLevel(level),
   };
 };
 
 // ========== UTILITY FUNCTIONS ==========
-
 function getDefaultRedirectForAccessLevel(level: AccessLevel): string {
   switch (level) {
     case AccessLevel.AUTHENTICATED:
@@ -269,7 +278,6 @@ function getDefaultRedirectForAccessLevel(level: AccessLevel): string {
       return '/';
   }
 }
-
 function getDefaultRedirectForSecurityLevel(level: SecurityLevel): string {
   switch (level) {
     case SecurityLevel.BASIC:
@@ -285,7 +293,6 @@ function getDefaultRedirectForSecurityLevel(level: SecurityLevel): string {
       return '/';
   }
 }
-
 function getDefaultErrorForAccessLevel(level: AccessLevel): string {
   switch (level) {
     case AccessLevel.AUTHENTICATED:
@@ -302,7 +309,6 @@ function getDefaultErrorForAccessLevel(level: AccessLevel): string {
       return 'Access denied.';
   }
 }
-
 function getDefaultErrorForSecurityLevel(level: SecurityLevel): string {
   switch (level) {
     case SecurityLevel.BASIC:

@@ -15,7 +15,7 @@ const IntakeFlow = () => {
   return (
     <IntakeProvider>
       <Routes>
-        <Route path="/" element={<Navigate to="/intake/personality" replace />} />
+        <Route path="/" element={<Navigate to="/intake/visual" replace />} />
         <Route path="/personality" element={<PersonalityStep />} />
         <Route path="/astrology" element={<AstrologicalStep />} />
         <Route path="/iq" element={<IQStep />} />

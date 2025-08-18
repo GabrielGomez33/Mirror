@@ -1,8 +1,7 @@
 // src/context/IntakeContext.tsx
-import {createContext, useContext, useState} from 'react'
-import type {ReactNode} from 'react'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import type { ReactNode } from 'react';
 
-// Define proper types to replace 'any'
 interface PersonalityResult {
   big5Profile: {
     openness: number;
@@ -17,101 +16,127 @@ interface PersonalityResult {
 }
 
 interface AstrologicalResult {
-  western: {
-    sunSign: string;
-    moonSign: string;
-    risingSign: string;
-    houses: Record<string, string>;
-    planetaryPlacements: Record<string, string>;
-    dominantElement: string;
-    modality: string;
-    chartRuler: string;
-  };
-  chinese: {
-    animalSign: string;
-    element: string;
-    yinYang: string;
-    innerAnimal: string;
-    secretAnimal: string;
-    luckyNumbers: number[];
-    luckyColors: string[];
-    personality: string[];
-    compatibility: string[];
-    lifePhase: string;
-  };
-  african: {
-    orishaGuardian: string;
-    ancestralSpirit: string;
-    elementalForce: string;
-    sacredAnimal: string;
-    lifeDestiny: string;
-    spiritualGifts: string[];
-    challenges: string[];
-    ceremonies: string[];
-    seasons: string;
-  };
-  numerology: {
-    lifePathNumber: number;
-    destinyNumber: number;
-    soulUrgeNumber: number;
-    personalityNumber: number;
-    birthDayNumber: number;
-    meanings: Record<string, string>;
-  };
-  synthesis: {
-    coreThemes: string[];
-    lifeDirection: string;
-    spiritualPath: string;
-    relationships: string;
-    career: string;
-    wellness: string;
-  };
+  western: Record<string, any>;
+  chinese: Record<string, any>;
+  african: Record<string, any>;
+  numerology: Record<string, any>;
+  synthesis: Record<string, any>;
 }
 
-// Your exact original structure - just replaced 'any' with proper types
+type StepStatus = {
+  completed: boolean;
+  data?: Record<string, unknown>;
+};
+
 type IntakeData = {
-  [key:string]:any
-  astrologicalResult?: AstrologicalResult
-  photo?: File
-  faceAnalysis?: any  // Keep as any since you're using it
-  name?: string
-  iqResults?: any     // Keep as any since you're using it
-  iqAnswers?: any     // Keep as any since you're using it
-  personality?: any
-  personalityResult?: PersonalityResult
-  personalityAnswers?: any
-  fears?: string
-  voice?: Blob
-  voicePrompt?: string
-  voiceDuration?: number
-  voiceMetadata?: object  // Changed from object to any if needed
-  userRegistered?: boolean
-  userLoggedIn?: boolean
-}
+  [key: string]: any;
+  astrologicalResult?: AstrologicalResult;
+  photo?: File;
+  faceAnalysis?: any;
+  name?: string;
+  iqResults?: any;
+  iqAnswers?: any;
+  personality?: any;
+  personalityResult?: PersonalityResult;
+  personalityAnswers?: any;
+  fears?: string;
+  voice?: Blob;
+  voicePrompt?: string;
+  voiceDuration?: number;
+  voiceMetadata?: object;
+  userRegistered?: boolean;
+  userLoggedIn?: boolean;
+
+  // Progress tracking
+  progress?: {
+    lastStep: string;
+    completed: boolean;
+    steps: {
+      VisualStep?: StepStatus;
+      VocalStep?: StepStatus;
+      PersonalityStep?: StepStatus;
+      IQStep?: StepStatus;
+      SubmitStep?: StepStatus;
+      ResultsStep?: StepStatus;
+    };
+  };
+};
 
 type IntakeContextType = {
-  getIntake: IntakeData
-  updateIntake: (data: Partial<IntakeData>) => void
-}
+  getIntake: IntakeData;
+  updateIntake: (data: Partial<IntakeData>) => void;
+  markStepComplete: (step: string, data?: Record<string, unknown>) => void;
+  resetIntake: () => void;
+};
 
-const IntakeContext = createContext<IntakeContextType | undefined>(undefined)
+const STORAGE_KEY = 'mirror_intake_v1';
 
-export const IntakeProvider = ({children}: {children: ReactNode}) => {
-  const [getIntake, setIntake] = useState<IntakeData>({})
-  const updateIntake = (data: Partial<IntakeData>) => {
-    setIntake((prev) => ({...prev, ...data}))
-  }
+const IntakeContext = createContext<IntakeContextType | undefined>(undefined);
+
+export const IntakeProvider = ({ children }: { children: ReactNode }) => {
+  const [getIntake, setIntake] = useState<IntakeData>({});
+
+  // Hydrate from localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setIntake(parsed);
+      }
+    } catch (err) {
+      console.warn('Failed to hydrate intake from localStorage:', err);
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }, []);
+
+  // Persist to localStorage on change (skip blobs)
+  useEffect(() => {
+    try {
+      const { photo, voice, ...safe } = getIntake;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
+    } catch (err) {
+      console.warn('Failed to persist intake:', err);
+    }
+  }, [getIntake]);
+
+  const updateIntake = useCallback((data: Partial<IntakeData>) => {
+    setIntake((prev) => ({ ...prev, ...data }));
+  }, []);
+
+  const markStepComplete = useCallback((step: string, data: Record<string, unknown> = {}) => {
+    setIntake((prev) => {
+      const updated = {
+        ...prev,
+        progress: {
+          lastStep: step,
+          completed: step === 'ResultsStep' ? true : prev.progress?.completed || false,
+          steps: {
+            ...prev.progress?.steps,
+            [step]: { completed: true, data },
+          },
+        },
+      };
+      return updated;
+    });
+  }, []);
+
+  const resetIntake = useCallback(() => {
+    setIntake({});
+    localStorage.removeItem(STORAGE_KEY);
+  }, []);
+
   return (
-    <IntakeContext.Provider value={{getIntake, updateIntake}}>
+    <IntakeContext.Provider value={{ getIntake, updateIntake, markStepComplete, resetIntake }}>
       {children}
     </IntakeContext.Provider>
-  )
-}
+  );
+};
 
 export const useIntake = () => {
-  const context = useContext(IntakeContext)
-  if(!context){
-    throw new Error('useIntake must be used within IntakeProvider')
+  const context = useContext(IntakeContext);
+  if (!context) {
+    throw new Error('useIntake must be used within IntakeProvider');
   }
-  return context
-}
+  return context;
+};

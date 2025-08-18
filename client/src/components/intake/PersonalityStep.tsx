@@ -1184,7 +1184,7 @@ const PersonalityStep = () => {
   }, [showResult, result, calculateResults]);
 
   const handleNext = () => {
-    navigate('/intake/results');
+    navigate('/intake/visual');
   };
 
   const restartQuiz = () => {
