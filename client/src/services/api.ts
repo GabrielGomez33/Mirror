@@ -17,7 +17,11 @@ export async function registerUser(data: {username: string, email:string, passwo
 	if(!res.ok){
 		throw new Error((await res.json()).error || 'Registration failed');
 	}
-
+	const userLoginInfo = {
+		email: data.email,
+		password:data.password
+	}
+	loginUser(userLoginInfo)
 	return res.json();
 }
 
@@ -36,7 +40,8 @@ export async function loginUser(data:{email:string,password:string}){
 		throw new Error((await res.json()).error || 'Login FAILED');
 	}
 	const resJson = await res.json();
-	console.log(resJson);	
-	setToken(resJson.token);
+	console.log(`/mirror/api/auth/login: Login Attempt -> `,resJson);	
+	setToken(resJson.tokens.accessToken);
+	setToken(resJson.tokens.refreshToken, 'refreshToken');
 	return resJson;
 }
