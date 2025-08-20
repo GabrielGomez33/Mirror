@@ -81,7 +81,7 @@ const SubmitStep = () => {
     const errors: string[] = [];
 
     // Required
-    if (!intake.userRegistered) errors.push('User registration incomplete');
+    if (!intake.userRegistered && !intake.userLoggedIn || !intake.userLoggedIn) errors.push('User needs to create an account');
     if (!intake.name) errors.push('Name is required');
     if (!intake.personalityResult) errors.push('Personality assessment incomplete');
     if (!intake.iqResults) errors.push('IQ assessment incomplete');
@@ -148,7 +148,7 @@ const SubmitStep = () => {
     }
     form.append('type', type);
 
-    const { ok, status, json } = await safeFetch('/mirror/api/storage/upload', {
+    const { ok, status, json } = await safeFetch('/mirror/api/storage/', {
       method: 'POST',
       body: form,
     });
