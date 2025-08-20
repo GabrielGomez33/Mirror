@@ -23,6 +23,18 @@ interface AstrologicalResult {
   synthesis: Record<string, any>;
 }
 
+export interface VoicePayload {
+  blobUrl: string;          // object URL for same-session preview
+  mimeType: string;
+  size: number;
+  durationMs: number;
+  createdAt: number;
+  deviceInfo?: {
+    isMobile?: boolean;
+    platform?: 'Mobile' | 'Desktop';
+    browser?: 'Chrome' | 'Safari' | 'Firefox' | 'Other';
+  };
+}
 type StepStatus = {
   completed: boolean;
   data?: Record<string, unknown>;

@@ -288,7 +288,7 @@ const iqQuestions: IQQuestion[] = [
 
 const IQTestStep = () => {
   const navigate = useNavigate();
-  const { updateIntake } = useIntake();
+  const { updateIntake, markStepComplete } = useIntake();
 
   // State
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -402,6 +402,7 @@ const IQTestStep = () => {
       iqResults: iqResult, // Corrected property name from iqResult to iqResults
       iqAnswers: userAnswers
     });
+    markStepComplete('IQStep', { iqScore: iqResult?.iqScore });
     navigate('/intake/astrology'); // Navigate to the next step
   };
 

@@ -1048,7 +1048,7 @@ const mbtiDescriptions: Record<string, string> = {
 
 const PersonalityStep = () => {
   const navigate = useNavigate();
-  const { updateIntake } = useIntake();
+  const { updateIntake, markStepComplete } = useIntake();
 
   // Select a random set of questions once when the component mounts
   const questions = useMemo(() => {
@@ -1184,7 +1184,10 @@ const PersonalityStep = () => {
   }, [showResult, result, calculateResults]);
 
   const handleNext = () => {
-    navigate('/intake/visual');
+  
+    markStepComplete('PersonalityStep', { completed: true });
+    try { localStorage.setItem('mirror:intake:lastStep', 'personality'); } catch {}
+    navigate('/intake/submit');
   };
 
   const restartQuiz = () => {

@@ -695,7 +695,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     initializeAuth();
-  }, [refreshTokens]);
+  }, []);
 
   // Auto-refresh tokens when expiring
   useEffect(() => {
@@ -711,7 +711,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }, 60000); // Check every minute
 
     return () => clearInterval(refreshTimer);
-  }, [state.isAuthenticated, isTokenExpiring, refreshTokens, logout]);
+  }, []);
 
   // Update activity timestamp on user interaction
   useEffect(() => {
@@ -731,7 +731,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         document.removeEventListener(event, updateActivity, true);
       });
     };
-  }, [state.isAuthenticated]);
+  }, []);
 
   // ========== CONTEXT VALUE ==========
 

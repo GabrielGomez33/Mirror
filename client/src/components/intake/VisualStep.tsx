@@ -35,7 +35,7 @@ interface AnalysisState {
 
 const VisualStep: React.FC = () => {
   const navigate = useNavigate();
-  const { updateIntake } = useIntake();
+  const { updateIntake, markStepComplete } = useIntake();
   const { isModelLoaded, loadingError, loadingProgress, analyzeImage } = useFaceApi();
 
   // Refs
@@ -43,7 +43,7 @@ const VisualStep: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
+  
   // State
   const [cameraState, setCameraState] = useState<CameraState>({
     hasPermission: false,
@@ -69,6 +69,13 @@ const VisualStep: React.FC = () => {
     retryCount: 0,
   });
 
+  const mountId = useRef(Math.random().toString(36).substr(2, 9));
+  	  
+  useEffect(() => {
+  	console.log(`🔄 VisualStep MOUNTED (ID: ${mountId.current})`);
+  	return () => console.log(`💀 VisualStep UNMOUNTED (ID: ${mountId.current})`);
+  }, []);	
+  
   // --- Helpers ---------------------------------------------------------------
 
   // Coerce loadingProgress from the face API into a 0–100 number
@@ -412,33 +419,26 @@ const VisualStep: React.FC = () => {
 
   const handleNext = useCallback(async () => {
     try {
-      // Validate that we have the necessary data
-      if (!analysisState.hasAnalysis && !captureState.hasPhoto) {
-        console.warn('Attempting to proceed without visual data');
-        // Allow skip but log it
-      }
-  
-      // Ensure data is saved to context
+      // Allow skip, but if we *do* have results, persist them
       if (analysisState.results) {
-        updateIntake({ 
-          faceAnalysis: analysisState.results,
-          visualStepCompleted: true 
-        });
+        updateIntake({ faceAnalysis: analysisState.results });
       }
   
-      // Small delay to ensure context update
-      await new Promise(resolve => setTimeout(resolve, 100));
-  
-      // Navigate with state to help debug
-      navigate('/intake/vocal', { 
-        state: { fromVisual: true, hasAnalysis: analysisState.hasAnalysis } 
+      // ✅ Canonical progress update for the guard
+      markStepComplete('VisualStep', {
+        hasPhoto: captureState.hasPhoto,
+        hasAnalysis: analysisState.hasAnalysis
       });
+  
+      // tiny delay so the guard sees updated progress
+      await new Promise(res => setTimeout(res, 50));
+  
+      navigate('/intake/vocal', { state: { fromVisual: true, hasAnalysis: analysisState.hasAnalysis } });
     } catch (error) {
       console.error('Navigation error:', error);
-      // Fallback: try direct navigation
       window.location.href = '/intake/vocal';
     }
-  }, [analysisState, updateIntake, navigate]);
+  }, [analysisState, captureState.hasPhoto, updateIntake, markStepComplete, navigate]);
 
   // --- UI --------------------------------------------------------------------
 

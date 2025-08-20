@@ -282,7 +282,7 @@ const calculateNumerology = (birthDate: Date, fullName: string): NumerologyProfi
 
 const AstrologicalStep = () => {
   const navigate = useNavigate();
-  const { updateIntake } = useIntake();
+  const { updateIntake, markStepComplete } = useIntake();
   
   // State Management
   const [currentStep, setCurrentStep] = useState(0);
@@ -345,6 +345,7 @@ const AstrologicalStep = () => {
         calculateAllAstrology();
       }
     } else {
+      markStepComplete('AstroLogicalStep', { ready: true });
       navigate('/intake/personality');
     }
   };

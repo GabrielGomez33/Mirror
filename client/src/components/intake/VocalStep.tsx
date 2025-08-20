@@ -39,7 +39,32 @@ interface PermissionState {
 
 const VocalStep = () => {
   const navigate = useNavigate();
-  const { updateIntake } = useIntake();
+  const { updateIntake, markStepComplete, getIntake } = useIntake();
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mirror:intake:lastStep', 'vocal');
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    const meta = (getIntake as any)?.voiceMeta as
+      | { blobUrl?: string; durationMs?: number }
+      | undefined;
+  
+    if (meta?.blobUrl) {
+      setRecordingState(prev => {
+        if (!prev) return prev; // no prior blob → can't build a full RecordingState safely
+        return {
+          ...prev, // keeps the required `blob`
+          url: meta.blobUrl!,
+          duration:
+            typeof meta.durationMs === 'number' ? meta.durationMs : prev.duration,
+        };
+      });
+    }
+  }, [getIntake]);
+  
 
   // Refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -360,20 +385,23 @@ const VocalStep = () => {
       recorder.onstop = () => {
         setIsProcessing(true); // finalize blob + update intake securely
         try {
-          if (audioChunksRef.current.length > 0) {
+          const chunks = audioChunksRef.current;
+          if (chunks && chunks.length > 0) {
             const type = options.mimeType || deviceInfo?.preferredCodec || 'audio/webm';
-            const blob = new Blob(audioChunksRef.current, { type });
+            const blob = new Blob(chunks, { type });
             const url = URL.createObjectURL(blob);
-            const duration = recordingTime;
-
+            const duration = recordingTime || 0;
+      
             setRecordingState({
               blob,
               url,
               mimeType: blob.type,
               size: blob.size,
-              duration
+              duration,
             });
-
+      
+            // Blob stays only in memory (context), IntakeProvider already avoids
+            // persisting `voice` to localStorage. Metadata is serializable.
             updateIntake({
               voice: blob,
               voiceMetadata: {
@@ -383,15 +411,23 @@ const VocalStep = () => {
                 deviceInfo: {
                   isMobile: !!deviceInfo?.isMobile,
                   platform: deviceInfo?.isMobile ? 'Mobile' : 'Desktop',
-                  browser: deviceInfo?.isChrome ? 'Chrome' : deviceInfo?.isSafari ? 'Safari' : deviceInfo?.isFirefox ? 'Firefox' : 'Other'
-                }
-              }
+                  browser: deviceInfo?.isChrome
+                    ? 'Chrome'
+                    : deviceInfo?.isSafari
+                    ? 'Safari'
+                    : deviceInfo?.isFirefox
+                    ? 'Firefox'
+                    : 'Other',
+                },
+              },
             });
           }
         } finally {
           setIsProcessing(false);
         }
       };
+      
+      
 
       // countdown then start
       setRecordingTime(0);
@@ -553,8 +589,43 @@ const VocalStep = () => {
   };
 
   const handleNext = () => {
+  	markStepComplete('VocalStep', {
+  	  hasRecording: !!recordingState?.url,
+  	  durationMs: recordingState?.duration ?? 0
+  	});
     navigate('/intake/iq');
   };
+
+  useEffect(() => {
+    return () => {
+      // stop any running interval timers you may have
+      try {
+        if (timerIntervalRef.current != null) {
+          clearInterval(timerIntervalRef.current);
+          timerIntervalRef.current = null;
+        }
+      } catch {}
+  
+      // stop recorder gracefully
+      try {
+        if (mediaRecorderRef.current?.state === 'recording') {
+          mediaRecorderRef.current.stop();
+        }
+      } catch {}
+  
+      // stop mic tracks
+      try {
+        streamRef.current?.getTracks()?.forEach((t) => t.stop());
+      } catch {}
+  
+      // revoke any blob URL we created this session
+      try {
+        if (recordingState?.url) URL.revokeObjectURL(recordingState.url);
+      } catch {}
+    };
+    // include refs/state you actually use here
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
@@ -762,12 +833,7 @@ const VocalStep = () => {
               </ul>
             </motion.div>
 
-            {/* Skip Option */}
-            <div className="pt-4 border-t border-white/10 text-center">
-              <button onClick={handleNext} className="text-white/50 hover:text-white/70 text-sm transition-colors" disabled={isProcessing}>
-                Skip voice analysis →
-              </button>
-            </div>
+      
           </div>
         </GlassCard>
       </motion.div>
