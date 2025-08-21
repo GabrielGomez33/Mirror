@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useIntake } from '../../context/IntakeContext';
 import GlassCard, { GlassButton } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
-
+import {getUserInfo} from '../../utils/token';
 interface SubmissionState {
   status: 'idle' | 'validating' | 'uploading' | 'processing' | 'success' | 'error';
   progress: number;
@@ -138,21 +138,28 @@ const SubmitStep = () => {
   // Upload helper to one endpoint, returns url string
   const uploadOne = async (fileOrBlob: File | Blob, type: 'photo' | 'voice'): Promise<string> => {
     const form = new FormData();
-
+  
     if (type === 'photo' && fileOrBlob instanceof File) {
-      // Sanitize filename to avoid header injection or weird paths (server should also sanitize)
       const safeName = fileOrBlob.name.replace(/[^\w.\-]/g, '_').slice(0, 120) || 'photo';
-      form.append('file', fileOrBlob, safeName);
+      form.append('data', fileOrBlob, safeName);
+      form.append('filename', safeName);
     } else {
-      form.append('file', fileOrBlob, type === 'voice' ? 'voice_recording.webm' : 'upload.bin');
+      form.append('data', fileOrBlob, type === 'voice' ? 'voice_recording.webm' : 'upload.bin');
+      form.append('filename', 'voice');
     }
     form.append('type', type);
-
-    const { ok, status, json } = await safeFetch('/mirror/api/storage/', {
+  
+    const userInfo = getUserInfo();
+    if (!userInfo?.userId) {
+      throw new Error('Cannot upload: missing userId (user not logged in or localStorage corrupted).');
+    }
+    form.append('userId', String(userInfo.userId)); // <-- stringify
+  	form.append('tier', 'visual');           // optional but recommended (overrides type map)
+    const { ok, status, json } = await safeFetch('/mirror/api/storage/store', {
       method: 'POST',
       body: form,
     });
-
+  
     if (!ok) {
       const msg =
         (json && typeof json === 'object' && typeof (json as any).message === 'string'
@@ -160,7 +167,7 @@ const SubmitStep = () => {
           : `Upload failed with status ${status}`) || 'Upload failed';
       throw new Error(`${type[0].toUpperCase() + type.slice(1)} upload failed: ${msg}`);
     }
-
+  
     const fileUrl = json && typeof json === 'object' ? (json as any).fileUrl : undefined;
     if (!fileUrl || typeof fileUrl !== 'string') {
       throw new Error(`${type[0].toUpperCase() + type.slice(1)} upload failed: invalid server response`);

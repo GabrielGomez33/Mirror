@@ -393,10 +393,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       const data = await response.json();
-      
+      const userInfo = {
+      	userId: data.user.id,
+      	username: data.user.username,
+      	email: data.user.email,
+      	lastLogin: data.user.lastLogin
+      }
       // Store tokens
       setToken(data.tokens.accessToken);
       setToken(data.tokens.refreshToken, 'refreshToken');
+      setToken(JSON.stringify(userInfo),'userInfo');
       
       // Update state
       dispatch({ 
