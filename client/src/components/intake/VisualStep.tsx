@@ -678,11 +678,7 @@ const VisualStep: React.FC = () => {
               </GlassButton>
             </div>
 
-            <div className="text-center">
-              <button onClick={handleNext} className="text-white/50 hover:text-white/70 text-sm transition-colors">
-                Skip visual analysis →
-              </button>
-            </div>
+           
           </div>
         </GlassCard>
       </motion.div>

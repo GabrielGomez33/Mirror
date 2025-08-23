@@ -1,18 +1,21 @@
 // src/components/intake/SubmitStep.tsx
-// FIXED: Secure rewrite with proper normalization, validation, uploads, and submission hardening
+// Secure + robust submission: proper endpoint wiring, resilient JSON parsing,
+// file reference handling (matches server schema), and simple debug output.
 
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useIntake } from '../../context/IntakeContext';
 import GlassCard, { GlassButton } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
-import {getUserInfo} from '../../utils/token';
+import { getUserInfo } from '../../utils/token';
+
 interface SubmissionState {
   status: 'idle' | 'validating' | 'uploading' | 'processing' | 'success' | 'error';
   progress: number;
   message: string;
   submissionId?: string;
   errors: string[];
+  lastServer?: unknown;
 }
 
 type SafeJSON = Record<string, unknown> | null;
@@ -20,6 +23,7 @@ type SafeJSON = Record<string, unknown> | null;
 const JSON_HEADERS = { 'Content-Type': 'application/json' as const };
 const MAX_PHOTO_MB = 10;
 const MAX_VOICE_MB = 25;
+
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const ALLOWED_AUDIO_TYPES = new Set([
   'audio/webm',
@@ -31,27 +35,29 @@ const ALLOWED_AUDIO_TYPES = new Set([
   'audio/x-wav',
 ]);
 
-// Small utility to enforce fetch timeouts + safe JSON parsing
+const ENDPOINTS = {
+  upload: '/mirror/api/storage/store',
+  intakeStore: '/mirror/api/intake/store',
+};
+
+// ---- Fetch helper: always read text, then try JSON (handles bad/missing content-type) ----
 async function safeFetch(
   input: RequestInfo | URL,
   init: RequestInit = {},
-  timeoutMs = 20000
-): Promise<{ ok: boolean; status: number; json: SafeJSON; res: Response }> {
+  timeoutMs = 30000
+): Promise<{ ok: boolean; status: number; json: SafeJSON; text: string; res: Response }> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(input, { ...init, signal: controller.signal, credentials: 'include' });
+    const text = await res.text();
     let json: SafeJSON = null;
     try {
-      // Only try JSON if content-type indicates JSON
-      const ct = res.headers.get('content-type') || '';
-      if (ct.includes('application/json')) {
-        json = (await res.json()) as SafeJSON;
-      }
+      json = JSON.parse(text) as SafeJSON;
     } catch {
       json = null;
     }
-    return { ok: res.ok, status: res.status, json, res };
+    return { ok: res.ok, status: res.status, json, text, res };
   } finally {
     clearTimeout(id);
   }
@@ -81,7 +87,9 @@ const SubmitStep = () => {
     const errors: string[] = [];
 
     // Required
-    if (!intake.userRegistered && !intake.userLoggedIn || !intake.userLoggedIn) errors.push('User needs to create an account');
+    if ((!intake.userRegistered && !intake.userLoggedIn) || !intake.userLoggedIn) {
+      errors.push('User needs to create an account');
+    }
     if (!intake.name) errors.push('Name is required');
     if (!intake.personalityResult) errors.push('Personality assessment incomplete');
     if (!intake.iqResults) errors.push('IQ assessment incomplete');
@@ -107,7 +115,6 @@ const SubmitStep = () => {
     }
 
     if (intake.voice) {
-      // Many browsers record WebM; accept Blob but verify size & type when available
       const voiceBlob: Blob = intake.voice;
       const type = (voiceBlob as any).type || '';
       if (type && !ALLOWED_AUDIO_TYPES.has(type)) {
@@ -121,70 +128,139 @@ const SubmitStep = () => {
     return { isValid: errors.length === 0, errors };
   };
 
-  const prepareSubmissionData = (): Record<string, unknown> => ({
-    userRegistered: !!intake.userRegistered,
-    name: String(intake.name || ''),
-    // large binaries are not sent here; only URLs after upload
-    faceAnalysis: intake.faceAnalysis ?? null,
-    voiceMetadata: intake.voiceMetadata ?? null,
-    voicePrompt: intake.voicePrompt ?? null,
-    iqResults: intake.iqResults ?? null,
-    iqAnswers: intake.iqAnswers ?? null,
-    astrologicalResult: intake.astrologicalResult ?? null,
-    personalityResult: intake.personalityResult ?? null,
-    personalityAnswers: intake.personalityAnswers ?? null,
-  });
+  // ---- Build the hybrid intake payload expected by the server controller ----
+  const buildHybridPayload = (opts: {
+    userId: string;
+    photoRef?: any;
+    voiceRef?: any;
+  }) => {
+    const { userId, photoRef, voiceRef } = opts;
 
-  // Upload helper to one endpoint, returns url string
-  const uploadOne = async (fileOrBlob: File | Blob, type: 'photo' | 'voice'): Promise<string> => {
+    const intakeData: Record<string, unknown> = {
+      userLoggedIn: Boolean(intake.userLoggedIn || intake.userRegistered),
+      name: String(intake.name || ''),
+
+      // File references (from uploads)
+      ...(photoRef ? { photoFileRef: photoRef } : {}),
+      ...(voiceRef ? { voiceFileRef: voiceRef } : {}),
+
+      // Structured data
+      faceAnalysis: intake.faceAnalysis ?? null,
+      voiceMetadata: intake.voiceMetadata ?? null,
+      iqResults: intake.iqResults ?? null,
+      iqAnswers: intake.iqAnswers ?? null,
+      astrologicalResult: intake.astrologicalResult ?? null,
+      personalityResult: intake.personalityResult ?? null,
+      personalityAnswers: intake.personalityAnswers ?? null,
+
+      // Progress is optional
+      progress: intake.progress ?? null,
+    };
+
+    return {
+      userId,      // string (server will convert as needed)
+      intakeData,  // matches IntakeDataStructure
+    };
+  };
+
+  // ---- Upload helpers: call /mirror/api/storage/store and adapt server schema to FileReference ----
+  type UploadedFileEntry = { success: boolean; filename: string; size: number; mimetype: string; originalname?: string };
+
+  const toPhotoFileRef = (serverJson: any): any => {
+    // serverJson: { success, tier, files: UploadedFileEntry[], timestamp }
+    const files: UploadedFileEntry[] = Array.isArray(serverJson?.files) ? serverJson.files : [];
+    if (!serverJson?.success || files.length === 0) {
+      throw new Error('Photo upload failed: empty or invalid response');
+    }
+    // Prefer a generated/UUID filename if present (often last)
+    const chosen = files[files.length - 1] || files[0];
+    return {
+      filename: chosen.filename,
+      tier: String(serverJson.tier || 'tier1'),
+      size: Number(chosen.size || 0),
+      mimetype: String(chosen.mimetype || 'image/jpeg'),
+      uploadedAt: String(serverJson.timestamp || new Date().toISOString()),
+      originalname: chosen.originalname || undefined,
+    };
+  };
+
+  const toVoiceFileRef = (serverJson: any, durationMs?: number): any => {
+    const files: UploadedFileEntry[] = Array.isArray(serverJson?.files) ? serverJson.files : [];
+    if (!serverJson?.success || files.length === 0) {
+      throw new Error('Voice upload failed: empty or invalid response');
+    }
+    const chosen = files[files.length - 1] || files[0];
+    return {
+      filename: chosen.filename,
+      tier: String(serverJson.tier || 'tier2'),
+      size: Number(chosen.size || 0),
+      mimetype: String(chosen.mimetype || 'audio/webm'),
+      uploadedAt: String(serverJson.timestamp || new Date().toISOString()),
+      originalname: chosen.originalname || undefined,
+      duration: typeof durationMs === 'number' ? durationMs : (intake.voiceMetadata?.duration ?? 0),
+      deviceInfo: intake.voiceMetadata?.deviceInfo,
+    };
+  };
+
+  // Upload one file/blob and return a FileReference object
+  // Upload one file/blob and return a FileReference object
+  const uploadOne = async (fileOrBlob: File | Blob, type: 'photo' | 'voice'): Promise<any> => {
     const form = new FormData();
   
     if (type === 'photo' && fileOrBlob instanceof File) {
       const safeName = fileOrBlob.name.replace(/[^\w.\-]/g, '_').slice(0, 120) || 'photo';
       form.append('data', fileOrBlob, safeName);
       form.append('filename', safeName);
+      form.append('tier', 'tier1');
     } else {
-      form.append('data', fileOrBlob, type === 'voice' ? 'voice_recording.webm' : 'upload.bin');
-      form.append('filename', 'voice');
+      form.append('data', fileOrBlob, 'voice_recording.webm');
+      form.append('filename', 'voice_recording.webm');
+      form.append('tier', 'tier2');
     }
-    form.append('type', type);
   
     const userInfo = getUserInfo();
     if (!userInfo?.userId) {
       throw new Error('Cannot upload: missing userId (user not logged in or localStorage corrupted).');
     }
-    form.append('userId', String(userInfo.userId)); // <-- stringify
-  	form.append('tier', 'visual');           // optional but recommended (overrides type map)
-    const { ok, status, json } = await safeFetch('/mirror/api/storage/store', {
-      method: 'POST',
-      body: form,
-    });
+    form.append('userId', String(userInfo.userId));
+    form.append('mode', 'file');
   
-    if (!ok) {
+    const { ok, status, json, text } = await safeFetch(ENDPOINTS.upload, { method: 'POST', body: form });
+  
+    // surface status + body to the debug panel
+    setSubmission((p) => ({ ...p, lastServer: { status, body: json ?? text ?? null } }));
+  
+    // accept HTTP ok && (success:true | success missing)
+    const serverSuccess =
+      !!json && typeof json === 'object' && ('success' in json ? Boolean((json as any).success) : true);
+  
+    if (!ok || !serverSuccess) {
       const msg =
-        (json && typeof json === 'object' && typeof (json as any).message === 'string'
-          ? (json as any).message
-          : `Upload failed with status ${status}`) || 'Upload failed';
-      throw new Error(`${type[0].toUpperCase() + type.slice(1)} upload failed: ${msg}`);
+        (json && typeof json === 'object' && ((json as any).message || (json as any).error)) ||
+        `Upload failed with status ${status}`;
+      throw new Error(`${type[0].toUpperCase() + type.slice(1)} upload failed: ${String(msg)}`);
     }
-  
-    const fileUrl = json && typeof json === 'object' ? (json as any).fileUrl : undefined;
-    if (!fileUrl || typeof fileUrl !== 'string') {
+    if (!json || typeof json !== 'object') {
       throw new Error(`${type[0].toUpperCase() + type.slice(1)} upload failed: invalid server response`);
     }
-    return fileUrl;
+  
+    // adapt to FileReference shapes
+    return type === 'photo'
+      ? toPhotoFileRef(json)
+      : toVoiceFileRef(json, intake.voiceMetadata?.duration);
   };
+  
 
-  const uploadFiles = async (): Promise<{ photoUrl?: string; voiceUrl?: string }> => {
-    const uploads: { photoUrl?: string; voiceUrl?: string } = {};
+  const uploadFiles = async (): Promise<{ photoFileRef?: any; voiceFileRef?: any }> => {
+    const uploads: { photoFileRef?: any; voiceFileRef?: any } = {};
 
     if (intake.photo && intake.photo instanceof File) {
-      uploads.photoUrl = await uploadOne(intake.photo, 'photo');
+      uploads.photoFileRef = await uploadOne(intake.photo, 'photo');
       setSubmission((p) => ({ ...p, progress: Math.min(50, p.progress + 25) }));
     }
 
     if (intake.voice && intake.voice instanceof Blob) {
-      uploads.voiceUrl = await uploadOne(intake.voice, 'voice');
+      uploads.voiceFileRef = await uploadOne(intake.voice, 'voice');
       setSubmission((p) => ({ ...p, progress: Math.min(75, p.progress + 25) }));
     }
 
@@ -220,9 +296,9 @@ const SubmitStep = () => {
         message: 'Uploading files securely...',
       }));
 
-      const fileUploads = await uploadFiles();
+      const fileRefs = await uploadFiles();
 
-      // Step 3: Prepare final payload
+      // Step 3: Prepare final hybrid payload
       setSubmission((p) => ({
         ...p,
         status: 'processing',
@@ -230,34 +306,43 @@ const SubmitStep = () => {
         message: 'Preparing submission...',
       }));
 
-      const submissionData = prepareSubmissionData();
-      if (fileUploads.photoUrl) (submissionData as any).photoUrl = fileUploads.photoUrl;
-      if (fileUploads.voiceUrl) (submissionData as any).voiceUrl = fileUploads.voiceUrl;
+      const userInfo = getUserInfo();
+      if (!userInfo?.userId) {
+        throw new Error('Missing userId. Please log in again.');
+      }
 
-      // Step 4: Submit to processing engine
+      const payload = buildHybridPayload({
+        userId: String(userInfo.userId),
+        photoRef: fileRefs.photoFileRef,
+        voiceRef: fileRefs.voiceFileRef,
+      });
+
+      // Step 4: Submit to intake store endpoint
       setSubmission((p) => ({
         ...p,
         progress: 80,
         message: 'Submitting to processing engine...',
       }));
 
-      const { ok, status, json } = await safeFetch('/mirror/api/intake/submit', {
+      const { ok, status, json, text } = await safeFetch(ENDPOINTS.intakeStore, {
         method: 'POST',
         headers: JSON_HEADERS,
-        body: JSON.stringify(submissionData),
+        body: JSON.stringify(payload),
       });
+
+      setSubmission((p) => ({ ...p, lastServer: json ?? text ?? null }));
 
       if (!ok) {
         const msg =
-          (json && typeof json === 'object' && typeof (json as any).message === 'string'
-            ? (json as any).message
+          (json && typeof json === 'object' && typeof (json as any).error === 'string'
+            ? (json as any).error
             : `Submission failed with status ${status}`) || 'Submission failed';
         throw new Error(msg);
       }
 
       const submissionId =
-        json && typeof json === 'object' && typeof (json as any).submissionId === 'string'
-          ? (json as any).submissionId
+        json && typeof json === 'object' && typeof (json as any).intakeId === 'string'
+          ? (json as any).intakeId
           : undefined;
 
       setSubmission({
@@ -266,20 +351,19 @@ const SubmitStep = () => {
         message: 'Submission successful!',
         submissionId,
         errors: [],
+        lastServer: json ?? null,
       });
 
-      // Navigate to results immediately (no background promises)
-      navigate('/intake/results', {
-        state: submissionId ? { submissionId } : undefined,
-      });
+      navigate('/intake/results', { state: submissionId ? { submissionId } : undefined });
     } catch (err) {
       console.error('Submission failed:', err);
-      setSubmission({
+      setSubmission((p) => ({
+        ...p,
         status: 'error',
         progress: 0,
         message: 'Submission failed',
         errors: [err instanceof Error ? err.message : 'Unknown error occurred'],
-      });
+      }));
     }
   };
 
@@ -289,6 +373,7 @@ const SubmitStep = () => {
       progress: 0,
       message: '',
       errors: [],
+      lastServer: undefined,
     });
   };
 
@@ -388,9 +473,10 @@ const SubmitStep = () => {
             {/* Debug Info (safe, no large blobs) */}
             <details className="text-left">
               <summary className="text-white/60 text-sm cursor-pointer">Debug Info</summary>
-              <pre className="text-white/40 text-xs mt-2 p-2 bg-black/20 rounded overflow-auto max-h-40">
+              <pre className="text-white/40 text-xs mt-2 p-2 bg-black/20 rounded overflow-auto max-h-64">
                 {JSON.stringify(
                   {
+                    endpoints: ENDPOINTS,
                     hasPhoto: !!intake.photo,
                     photoType: intake.photo?.type || null,
                     hasVoice: !!intake.voice,
@@ -399,7 +485,8 @@ const SubmitStep = () => {
                     hasPersonality: !!intake.personalityResult,
                     hasIQ: !!intake.iqResults,
                     hasAstrology: !!intake.astrologicalResult,
-                    submissionStatus: submission.status,
+                    submissionState: submission.status,
+                    lastServer: submission.lastServer ?? null,
                   },
                   null,
                   2
@@ -414,3 +501,4 @@ const SubmitStep = () => {
 };
 
 export default SubmitStep;
+
