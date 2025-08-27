@@ -65,7 +65,7 @@ async function safeFetch(
 
 const SubmitStep = () => {
   const navigate = useNavigate();
-  const { getIntake } = useIntake();
+  const { getIntake, markStepComplete, updateIntake } = useIntake();
 
   // Normalize the context value once (function or object)
   const intake = useMemo(
@@ -354,6 +354,26 @@ const SubmitStep = () => {
         lastServer: json ?? null,
       });
 
+      markStepComplete('SubmitStep', {
+         submissionId,
+         timestamp: new Date().toISOString(),
+      });
+
+      updateIntake({
+        progress: {
+          ...intake.progress,
+          lastStep: 'ResultsStep',
+          completed: true,
+          steps: {
+            ...intake.progress?.steps,
+            SubmitStep: { completed: true, data: { submissionId } },
+            ResultsStep: { completed: true, data: { ready: true } }
+          }
+        }
+      });
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       navigate('/intake/results', { state: submissionId ? { submissionId } : undefined });
     } catch (err) {
       console.error('Submission failed:', err);
@@ -501,4 +521,3 @@ const SubmitStep = () => {
 };
 
 export default SubmitStep;
-
