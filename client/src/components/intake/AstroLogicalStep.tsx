@@ -1,48 +1,69 @@
-// src/components/intake/AstrologicalStep.tsx
-import { useState, useCallback, useMemo } from 'react';
+// src/components/intake/AstroLogicalStep.tsx
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useIntake } from '../../context/IntakeContext';
 import GlassCard, { GlassButton, GlassProgress } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import BasicScene from '../three/BasicScene';
 
-// Enhanced Types for Multi-Cultural Astrology
+/**
+ * PRODUCTION-READY AstroLogicalStep
+ * - Client-only location resolution (Nominatim) → {label, lat, lon}
+ * - Validates location; handles ambiguous results; formats for storage
+ * - Computes REAL location-dependent Rising Sign + Whole Sign Houses
+ * - Accessibility polish: labels, aria roles, live regions, keyboard tabs
+ * - Layout consistency with Visual/Vocal/IQ steps
+ */
+
+// ----------------------------- Types -----------------------------
+
+type StepKey = 'AstroLogicalStep';
+
+const SIGN_NAMES = [
+  'Aries','Taurus','Gemini','Cancer','Leo','Virgo',
+  'Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'
+] as const;
+type SignName = typeof SIGN_NAMES[number];
+
+type HouseMap = {
+  first: SignName;
+  second: SignName;
+  third: SignName;
+  fourth: SignName;
+  fifth: SignName;
+  sixth: SignName;
+  seventh: SignName;
+  eighth: SignName;
+  ninth: SignName;
+  tenth: SignName;
+  eleventh: SignName;
+  twelfth: SignName;
+};
+
 interface BirthData {
-  date: string;
-  time: string;
-  location: string;
+  date: string;          // 'YYYY-MM-DD'
+  time: string;          // 'HH:mm'
+  location: string;      // free text
   latitude?: number;
   longitude?: number;
-  timezone?: string;
+  timezone?: string;     // reserved for later (IANA), not required for this minimal version
+  resolvedLabel?: string;
 }
 
 interface WesternAstrology {
-  sunSign: string;
-  moonSign: string;
-  risingSign: string;
-  houses: {
-    first: string;    // House of Self
-    second: string;   // House of Values
-    third: string;    // House of Communication
-    fourth: string;   // House of Home
-    fifth: string;    // House of Creativity
-    sixth: string;    // House of Service
-    seventh: string;  // House of Partnerships
-    eighth: string;   // House of Transformation
-    ninth: string;    // House of Philosophy
-    tenth: string;    // House of Career
-    eleventh: string; // House of Friendships
-    twelfth: string;  // House of Spirituality
-  };
+  sunSign: SignName;
+  moonSign: SignName;
+  risingSign: SignName;
+  houses: HouseMap;
   planetaryPlacements: {
-    mercury: string;
-    venus: string;
-    mars: string;
-    jupiter: string;
-    saturn: string;
-    uranus: string;
-    neptune: string;
-    pluto: string;
+    mercury: SignName;
+    venus: SignName;
+    mars: SignName;
+    jupiter: SignName;
+    saturn: SignName;
+    uranus: SignName;
+    neptune: SignName;
+    pluto: SignName;
   };
   dominantElement: string;
   modality: string;
@@ -52,27 +73,18 @@ interface WesternAstrology {
 interface ChineseAstrology {
   animalSign: string;
   element: string;
-  yinYang: string;
-  innerAnimal: string; // Month
-  secretAnimal: string; // Hour
+  yinYang: 'Yang' | 'Yin';
+  innerAnimal: string;
   luckyNumbers: number[];
-  luckyColors: string[];
-  personality: string[];
-  compatibility: string[];
-  lifePhase: string;
 }
 
 interface AfricanAstrology {
-  // Based on traditional African systems like Yoruba Ifa
   orishaGuardian: string;
-  ancestralSpirit: string;
   elementalForce: string;
   sacredAnimal: string;
   lifeDestiny: string;
   spiritualGifts: string[];
   challenges: string[];
-  ceremonies: string[];
-  seasons: string;
 }
 
 interface NumerologyProfile {
@@ -81,7 +93,7 @@ interface NumerologyProfile {
   soulUrgeNumber: number;
   personalityNumber: number;
   birthDayNumber: number;
-  meanings: Record<string, string>;
+  meanings: Record<string,string>;
 }
 
 interface AstrologicalResult {
@@ -96,288 +108,489 @@ interface AstrologicalResult {
     relationships: string;
     career: string;
     wellness: string;
-  };
+  }
 }
 
-// Comprehensive Astrological Data
-const zodiacSigns = [
-  { name: 'Aries', element: 'Fire', modality: 'Cardinal', ruler: 'Mars', dates: '3/21-4/19' },
-  { name: 'Taurus', element: 'Earth', modality: 'Fixed', ruler: 'Venus', dates: '4/20-5/20' },
-  { name: 'Gemini', element: 'Air', modality: 'Mutable', ruler: 'Mercury', dates: '5/21-6/20' },
-  { name: 'Cancer', element: 'Water', modality: 'Cardinal', ruler: 'Moon', dates: '6/21-7/22' },
-  { name: 'Leo', element: 'Fire', modality: 'Fixed', ruler: 'Sun', dates: '7/23-8/22' },
-  { name: 'Virgo', element: 'Earth', modality: 'Mutable', ruler: 'Mercury', dates: '8/23-9/22' },
-  { name: 'Libra', element: 'Air', modality: 'Cardinal', ruler: 'Venus', dates: '9/23-10/22' },
-  { name: 'Scorpio', element: 'Water', modality: 'Fixed', ruler: 'Pluto', dates: '10/23-11/21' },
-  { name: 'Sagittarius', element: 'Fire', modality: 'Mutable', ruler: 'Jupiter', dates: '11/22-12/21' },
-  { name: 'Capricorn', element: 'Earth', modality: 'Cardinal', ruler: 'Saturn', dates: '12/22-1/19' },
-  { name: 'Aquarius', element: 'Air', modality: 'Fixed', ruler: 'Uranus', dates: '1/20-2/18' },
-  { name: 'Pisces', element: 'Water', modality: 'Mutable', ruler: 'Neptune', dates: '2/19-3/20' }
-];
+type LocationResolveState =
+  | { status: 'idle' }
+  | { status: 'resolving' }
+  | { status: 'ambiguous'; suggestions: ResolvedLocation[] }
+  | { status: 'resolved' }
+  | { status: 'error'; message: string };
 
-const chineseZodiac = [
-  { animal: 'Rat', element: 'Water', years: [1924, 1936, 1948, 1960, 1972, 1984, 1996, 2008, 2020], traits: ['Intelligent', 'Adaptable', 'Quick-witted'] },
-  { animal: 'Ox', element: 'Earth', years: [1925, 1937, 1949, 1961, 1973, 1985, 1997, 2009, 2021], traits: ['Reliable', 'Patient', 'Honest'] },
-  { animal: 'Tiger', element: 'Wood', years: [1926, 1938, 1950, 1962, 1974, 1986, 1998, 2010, 2022], traits: ['Brave', 'Confident', 'Competitive'] },
-  { animal: 'Rabbit', element: 'Wood', years: [1927, 1939, 1951, 1963, 1975, 1987, 1999, 2011, 2023], traits: ['Gentle', 'Elegant', 'Responsible'] },
-  { animal: 'Dragon', element: 'Earth', years: [1928, 1940, 1952, 1964, 1976, 1988, 2000, 2012, 2024], traits: ['Energetic', 'Ambitious', 'Charismatic'] },
-  { animal: 'Snake', element: 'Fire', years: [1929, 1941, 1953, 1965, 1977, 1989, 2001, 2013, 2025], traits: ['Wise', 'Intuitive', 'Mysterious'] },
-  { animal: 'Horse', element: 'Fire', years: [1930, 1942, 1954, 1966, 1978, 1990, 2002, 2014, 2026], traits: ['Energetic', 'Independent', 'Impatient'] },
-  { animal: 'Goat', element: 'Earth', years: [1931, 1943, 1955, 1967, 1979, 1991, 2003, 2015, 2027], traits: ['Calm', 'Gentle', 'Sympathetic'] },
-  { animal: 'Monkey', element: 'Metal', years: [1932, 1944, 1956, 1968, 1980, 1992, 2004, 2016, 2028], traits: ['Sharp', 'Smart', 'Curious'] },
-  { animal: 'Rooster', element: 'Metal', years: [1933, 1945, 1957, 1969, 1981, 1993, 2005, 2017, 2029], traits: ['Observant', 'Hardworking', 'Courageous'] },
-  { animal: 'Dog', element: 'Earth', years: [1934, 1946, 1958, 1970, 1982, 1994, 2006, 2018, 2030], traits: ['Loyal', 'Responsible', 'Reliable'] },
-  { animal: 'Pig', element: 'Water', years: [1935, 1947, 1959, 1971, 1983, 1995, 2007, 2019, 2031], traits: ['Honest', 'Generous', 'Reliable'] }
-];
+interface ResolvedLocation {
+  label: string;
+  lat: number;
+  lon: number;
+}
 
-const africanOrishas = [
-  { name: 'Elegua', domain: 'Crossroads & Opportunities', element: 'All Elements', colors: ['Red', 'Black'], gifts: ['Communication', 'Opening Doors'] },
-  { name: 'Ogun', domain: 'Iron & War', element: 'Fire', colors: ['Green', 'Black'], gifts: ['Strength', 'Technology', 'Protection'] },
-  { name: 'Yemoja', domain: 'Motherhood & Ocean', element: 'Water', colors: ['Blue', 'White'], gifts: ['Nurturing', 'Healing', 'Wisdom'] },
-  { name: 'Shango', domain: 'Thunder & Justice', element: 'Fire', colors: ['Red', 'White'], gifts: ['Leadership', 'Passion', 'Justice'] },
-  { name: 'Oya', domain: 'Wind & Change', element: 'Air', colors: ['Purple', 'Burgundy'], gifts: ['Transformation', 'Courage', 'Intuition'] },
-  { name: 'Osun', domain: 'Love & Rivers', element: 'Water', colors: ['Yellow', 'Gold'], gifts: ['Love', 'Fertility', 'Abundance'] },
-  { name: 'Obatala', domain: 'Wisdom & Purity', element: 'Air', colors: ['White'], gifts: ['Wisdom', 'Peace', 'Clarity'] },
-  { name: 'Orunmila', domain: 'Wisdom & Divination', element: 'Spirit', colors: ['Yellow', 'Green'], gifts: ['Prophecy', 'Healing', 'Knowledge'] }
-];
+type LocationFormat = 'label' | 'latlon' | 'pipe' | 'json';
 
-// Calculation Functions
-const calculateWesternAstrology = (birthDate: Date): WesternAstrology => {
-  const month = birthDate.getMonth() + 1;
-  const day = birthDate.getDate();
-  
-  // Simplified sun sign calculation
-  let sunSign = '';
-  if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) sunSign = 'Aries';
-  else if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) sunSign = 'Taurus';
-  else if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) sunSign = 'Gemini';
-  else if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) sunSign = 'Cancer';
-  else if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) sunSign = 'Leo';
-  else if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) sunSign = 'Virgo';
-  else if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) sunSign = 'Libra';
-  else if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) sunSign = 'Scorpio';
-  else if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) sunSign = 'Sagittarius';
-  else if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) sunSign = 'Capricorn';
-  else if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) sunSign = 'Aquarius';
-  else sunSign = 'Pisces';
-  
-  // Simplified calculations for demonstration
-  const signIndex = zodiacSigns.findIndex(sign => sign.name === sunSign);
-  const moonSignIndex = (signIndex + 4) % 12;
-  const risingSignIndex = (signIndex + 8) % 12;
-  
-  const moonSign = zodiacSigns[moonSignIndex].name;
-  const risingSign = zodiacSigns[risingSignIndex].name;
-  
+// --------------------------- Constants ---------------------------
+
+const SIGN_META: Record<SignName, { element: string; modality: string; ruler: string; }> = {
+  Aries: { element: 'Fire', modality: 'Cardinal', ruler: 'Mars' },
+  Taurus: { element: 'Earth', modality: 'Fixed', ruler: 'Venus' },
+  Gemini: { element: 'Air', modality: 'Mutable', ruler: 'Mercury' },
+  Cancer: { element: 'Water', modality: 'Cardinal', ruler: 'Moon' },
+  Leo: { element: 'Fire', modality: 'Fixed', ruler: 'Sun' },
+  Virgo: { element: 'Earth', modality: 'Mutable', ruler: 'Mercury' },
+  Libra: { element: 'Air', modality: 'Cardinal', ruler: 'Venus' },
+  Scorpio: { element: 'Water', modality: 'Fixed', ruler: 'Pluto' },
+  Sagittarius: { element: 'Fire', modality: 'Mutable', ruler: 'Jupiter' },
+  Capricorn: { element: 'Earth', modality: 'Cardinal', ruler: 'Saturn' },
+  Aquarius: { element: 'Air', modality: 'Fixed', ruler: 'Uranus' },
+  Pisces: { element: 'Water', modality: 'Mutable', ruler: 'Neptune' },
+};
+
+const CHINESE_ANIMALS = ['Rat','Ox','Tiger','Rabbit','Dragon','Snake','Horse','Goat','Monkey','Rooster','Dog','Pig'] as const;
+
+// --- Chinese lookups (compact and safe defaults) ---
+const CHINESE_META: Record<string, { traits: string[]; strengths: string[]; compat: string[] }> = {
+  Rat:       { traits: ['Clever','Adaptive','Observant'], strengths: ['Strategy','Networking'], compat: ['Ox','Dragon','Monkey'] },
+  Ox:        { traits: ['Steady','Dutiful','Grounded'], strengths: ['Perseverance','Reliability'], compat: ['Rat','Snake','Rooster'] },
+  Tiger:     { traits: ['Bold','Independent','Magnetic'], strengths: ['Courage','Leadership'], compat: ['Horse','Dog','Pig'] },
+  Rabbit:    { traits: ['Gentle','Diplomatic','Refined'], strengths: ['Harmony','Design'], compat: ['Sheep','Dog','Pig'] },
+  Dragon:    { traits: ['Visionary','Charismatic','Ambitious'], strengths: ['Inspiration','Drive'], compat: ['Rat','Monkey','Rooster'] },
+  Snake:     { traits: ['Insightful','Calm','Strategic'], strengths: ['Analysis','Focus'], compat: ['Ox','Rooster'] },
+  Horse:     { traits: ['Energetic','Free-spirited','Optimistic'], strengths: ['Momentum','Inspiration'], compat: ['Tiger','Dog','Goat'] },
+  Goat:      { traits: ['Artful','Empathic','Supportive'], strengths: ['Care','Craft'], compat: ['Rabbit','Horse','Pig'] },
+  Monkey:    { traits: ['Witty','Inventive','Curious'], strengths: ['Problem-solving','Versatility'], compat: ['Rat','Dragon'] },
+  Rooster:   { traits: ['Organized','Frank','Vigilant'], strengths: ['Precision','Accountability'], compat: ['Ox','Snake','Dragon'] },
+  Dog:       { traits: ['Loyal','Just','Protective'], strengths: ['Guardianship','Teamwork'], compat: ['Tiger','Rabbit','Horse'] },
+  Pig:       { traits: ['Warm','Sincere','Abundant'], strengths: ['Generosity','Steadiness'], compat: ['Tiger','Rabbit','Goat'] },
+};
+
+const CHINESE_ELEMENT_META: Record<'Wood'|'Fire'|'Earth'|'Metal'|'Water', { focus: string; balance: string }> = {
+  Wood:  { focus: 'Growth, planning, creativity',           balance: 'Avoid overextending; prune and prioritize' },
+  Fire:  { focus: 'Visibility, courage, initiative',        balance: 'Temper impulsivity; sustain effort' },
+  Earth: { focus: 'Stability, care, pragmatism',            balance: 'Prevent stagnation; stay adaptable' },
+  Metal: { focus: 'Structure, standards, refinement',       balance: 'Loosen perfectionism; invite feedback' },
+  Water: { focus: 'Insight, intuition, flow',               balance: 'Create containers; define boundaries' },
+};
+
+// --- African (Orisha) lookups (respectful + non-prescriptive) ---
+const ORISHA_META: Record<string, { virtues: string[]; guidance: string[] }> = {
+  Elegua:  { virtues: ['Beginnings','Paths','Opportunity'], guidance: ['Open with intention','Keep choices flexible','Ask clear questions'] },
+  Ogun:    { virtues: ['Action','Craft','Courage'],         guidance: ['Build steadily','Channel force constructively','Value tools & process'] },
+  Yemoja:  { virtues: ['Nurture','Healing','Depth'],        guidance: ['Lead with care','Honor emotions','Create safe waters'] },
+  Shango:  { virtues: ['Justice','Charisma','Will'],        guidance: ['Stand for fairness','Own your voice','Use power ethically'] },
+  Oya:     { virtues: ['Change','Truth','Winds'],           guidance: ['Declutter boldly','Name the truth','Move with the storm'] },
+  Osun:    { virtues: ['Beauty','Joy','Magnetism'],         guidance: ['Celebrate art','Choose sweetness wisely','Receive graciously'] },
+  Obatala: { virtues: ['Wisdom','Clarity','Peace'],         guidance: ['Slow down','Seek higher view','Act with grace'] },
+};
+
+
+const LOCATION_STORAGE_FORMAT: LocationFormat = 'pipe';
+
+// --------------------------- Utilities ---------------------------
+
+function clamp(v:number, lo:number, hi:number){ return Math.min(hi, Math.max(lo, v)); }
+
+function signNameByIndex(index:number): SignName {
+  const i = ((index % 12) + 12) % 12;
+  return SIGN_NAMES[i] as SignName; // <- ensure literal type, not widened 'string'
+}
+
+function wholeSignHousesFromAsc(ascSign: SignName): HouseMap {
+  const idx = SIGN_NAMES.indexOf(ascSign);
+  const obj = {
+    first: signNameByIndex(idx),
+    second: signNameByIndex(idx+1),
+    third: signNameByIndex(idx+2),
+    fourth: signNameByIndex(idx+3),
+    fifth: signNameByIndex(idx+4),
+    sixth: signNameByIndex(idx+5),
+    seventh: signNameByIndex(idx+6),
+    eighth: signNameByIndex(idx+7),
+    ninth: signNameByIndex(idx+8),
+    tenth: signNameByIndex(idx+9),
+    eleventh: signNameByIndex(idx+10),
+    twelfth: signNameByIndex(idx+11),
+  } as HouseMap; // <- lock type to HouseMap
+  return obj;
+}
+
+function formatLocation(loc: ResolvedLocation, fmt: LocationFormat): string {
+  const lat = loc.lat.toFixed(6);
+  const lon = loc.lon.toFixed(6);
+  switch (fmt) {
+    case 'label': return loc.label;
+    case 'latlon': return `${lat},${lon}`;
+    case 'pipe': return `${loc.label}|${lat}|${lon}`;
+    case 'json':
+    default: return JSON.stringify(loc);
+  }
+}
+
+function isValidLatLon(lat?: number, lon?: number) {
+  return (
+    typeof lat === 'number' && typeof lon === 'number' &&
+    isFinite(lat) && isFinite(lon) &&
+    lat >= -90 && lat <= 90 &&
+    lon >= -180 && lon <= 180
+  );
+}
+
+// -------------------- Client-only Location Resolve --------------------
+
+async function resolveLocationPublic(query: string): Promise<ResolvedLocation[] | null> {
+  const q = (query || '').trim();
+  if (q.length < 3) return null;
+
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=1&accept-language=en&q=${encodeURIComponent(q)}`;
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 3000);
+
+  try {
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      headers: { 'Accept': 'application/json' },
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const raw = await res.json();
+
+    const picks: ResolvedLocation[] = (raw || []).map((r: any) => {
+      const a = r.address || {};
+      const city = a.city || a.town || a.village || a.hamlet || a.municipality || a.suburb || a.county || '';
+      const region = a.state || a.region || a.province || a.county || '';
+      const country = a.country || '';
+      const label = [city, region, country].filter(Boolean).join(', ') || r.display_name || q;
+      return {
+        label,
+        lat: Number(r.lat),
+        lon: Number(r.lon),
+      };
+    }).filter((p: ResolvedLocation) => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+
+    return picks.length ? picks : null;
+  } catch {
+    clearTimeout(timer);
+    return null;
+  }
+}
+
+// ----------------------- Astrology Calculations -----------------------
+
+/** Compute Sun sign from date (simplified tropical boundaries). */
+function sunSignFromDate(d: Date): SignName {
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  if ((m === 3 && day >= 21) || (m === 4 && day <= 19)) return 'Aries';
+  if ((m === 4 && day >= 20) || (m === 5 && day <= 20)) return 'Taurus';
+  if ((m === 5 && day >= 21) || (m === 6 && day <= 20)) return 'Gemini';
+  if ((m === 6 && day >= 21) || (m === 7 && day <= 22)) return 'Cancer';
+  if ((m === 7 && day >= 23) || (m === 8 && day <= 22)) return 'Leo';
+  if ((m === 8 && day >= 23) || (m === 9 && day <= 22)) return 'Virgo';
+  if ((m === 9 && day >= 23) || (m === 10 && day <= 22)) return 'Libra';
+  if ((m === 10 && day >= 23) || (m === 11 && day <= 21)) return 'Scorpio';
+  if ((m === 11 && day >= 22) || (m === 12 && day <= 21)) return 'Sagittarius';
+  if ((m === 12 && day >= 22) || (m === 1 && day <= 19)) return 'Capricorn';
+  if ((m === 1 && day >= 20) || (m === 2 && day <= 18)) return 'Aquarius';
+  return 'Pisces';
+}
+
+/**
+ * Compute Ascendant degrees (tropical) from UTC-like Date + lat/lon.
+ * NOTE: For this minimal client version, we interpret d as a local time Date.
+ * You can upgrade later to true UTC by normalizing with an IANA timezone.
+ */
+function computeAscendantDeg(d: Date, latDeg: number, lonDeg: number) {
+  // Convert calendar date to Julian Day (approx for modern dates)
+  const Y = d.getFullYear();
+  const M = d.getMonth() + 1;
+  const D = d.getDate() + (d.getHours() + d.getMinutes()/60 + d.getSeconds()/3600)/24;
+
+  let A = Math.floor(Y/100);
+  let B = 2 - A + Math.floor(A/4);
+  const JD = Math.floor(365.25*(Y + 4716)) + Math.floor(30.6001*(M + 1)) + D + B - 1524.5;
+
+  // Greenwich Sidereal Time (approx, in hours)
+  const T = (JD - 2451545.0)/36525.0;
+  let GST = 6.697374558 + 2400.051336*T + 0.000025862*T*T; // in hours at 0h UT
+  const UT = d.getUTCHours() + d.getUTCMinutes()/60 + d.getUTCSeconds()/3600;
+  GST += 1.0027379093 * UT;
+  GST = ((GST % 24) + 24) % 24;
+
+  // Local Sidereal Time
+  const LST_hours = (GST + lonDeg/15);
+  const LST = ((LST_hours % 24) + 24) % 24 * (Math.PI/12); // radians
+
+  // Obliquity (approx J2000)
+  const eps = 23.43929111 * Math.PI/180;
+  const phi = latDeg * Math.PI/180;
+
+  const sinL = Math.sin(LST), cosL = Math.cos(LST);
+  const tanPhi = Math.tan(phi);
+
+  const num = -cosL;
+  const den = sinL * Math.cos(eps) + tanPhi * Math.sin(eps);
+  let asc = Math.atan2(num, den); // radians
+  if (asc < 0) asc += 2*Math.PI;
+  return asc * 180/Math.PI; // 0..360°
+}
+
+function risingFromDeg(deg:number): SignName {
+  return signNameByIndex(Math.floor(((deg % 360) + 360) % 360 / 30));
+}
+
+function calculateWesternAstrology(
+  baseDate: Date,
+  ascOverride?: { risingSign?: SignName; houses?: HouseMap }
+): WesternAstrology {
+  const sunSign = sunSignFromDate(baseDate);
+  const signMeta = SIGN_META[sunSign];
+
+  // Simple placeholders for demo; real Moon/planets need ephemerides
+  const signIdx = SIGN_NAMES.indexOf(sunSign);
+  const moonSign = signNameByIndex(signIdx + 4);
+
+  let risingSign: SignName = signNameByIndex(signIdx + 8);
+  let houses: HouseMap = wholeSignHousesFromAsc(risingSign);
+
+  if (ascOverride?.risingSign) {
+    risingSign = ascOverride.risingSign;
+    // Avoid widening: compute typed fallback and use nullish coalescing
+    const fallback: HouseMap = wholeSignHousesFromAsc(risingSign);
+    houses = (ascOverride.houses ?? fallback) as HouseMap;
+  }
+
   return {
     sunSign,
     moonSign,
     risingSign,
-    houses: {
-      first: risingSign,
-      second: zodiacSigns[(risingSignIndex + 1) % 12].name,
-      third: zodiacSigns[(risingSignIndex + 2) % 12].name,
-      fourth: zodiacSigns[(risingSignIndex + 3) % 12].name,
-      fifth: zodiacSigns[(risingSignIndex + 4) % 12].name,
-      sixth: zodiacSigns[(risingSignIndex + 5) % 12].name,
-      seventh: zodiacSigns[(risingSignIndex + 6) % 12].name,
-      eighth: zodiacSigns[(risingSignIndex + 7) % 12].name,
-      ninth: zodiacSigns[(risingSignIndex + 8) % 12].name,
-      tenth: zodiacSigns[(risingSignIndex + 9) % 12].name,
-      eleventh: zodiacSigns[(risingSignIndex + 10) % 12].name,
-      twelfth: zodiacSigns[(risingSignIndex + 11) % 12].name
-    },
+    houses,
     planetaryPlacements: {
-      mercury: zodiacSigns[(signIndex + 1) % 12].name,
-      venus: zodiacSigns[(signIndex + 2) % 12].name,
-      mars: zodiacSigns[(signIndex + 3) % 12].name,
-      jupiter: zodiacSigns[(signIndex + 5) % 12].name,
-      saturn: zodiacSigns[(signIndex + 7) % 12].name,
-      uranus: zodiacSigns[(signIndex + 9) % 12].name,
-      neptune: zodiacSigns[(signIndex + 10) % 12].name,
-      pluto: zodiacSigns[(signIndex + 11) % 12].name
+      mercury: signNameByIndex(signIdx + 1),
+      venus: signNameByIndex(signIdx + 2),
+      mars: signNameByIndex(signIdx + 3),
+      jupiter: signNameByIndex(signIdx + 5),
+      saturn: signNameByIndex(signIdx + 7),
+      uranus: signNameByIndex(signIdx + 9),
+      neptune: signNameByIndex(signIdx + 10),
+      pluto: signNameByIndex(signIdx + 11),
     },
-    dominantElement: zodiacSigns[signIndex].element,
-    modality: zodiacSigns[signIndex].modality,
-    chartRuler: zodiacSigns[signIndex].ruler
+    dominantElement: signMeta.element,
+    modality: signMeta.modality,
+    chartRuler: signMeta.ruler,
   };
-};
+}
 
-const calculateChineseAstrology = (birthDate: Date): ChineseAstrology => {
-  const year = birthDate.getFullYear();
-  const month = birthDate.getMonth() + 1;
-  const hour = birthDate.getHours();
-  
-  // Find animal sign
-  const animalData = chineseZodiac.find(animal => 
-    animal.years.some(y => Math.abs(y - year) % 12 === 0)
-  ) || chineseZodiac[0];
-  
-  // Calculate element cycle (60-year cycle)
-  const elements = ['Wood', 'Fire', 'Earth', 'Metal', 'Water'];
-  const elementIndex = Math.floor(((year - 1924) % 60) / 12);
-  const yearElement = elements[elementIndex];
-  
-  // Inner animal (month)
-  const innerAnimals = ['Tiger', 'Rabbit', 'Dragon', 'Snake', 'Horse', 'Goat', 
-                       'Monkey', 'Rooster', 'Dog', 'Pig', 'Rat', 'Ox'];
-  const innerAnimal = innerAnimals[month - 1];
-  
-  // Secret animal (hour)
-  const secretAnimals = ['Rat', 'Ox', 'Tiger', 'Rabbit', 'Dragon', 'Snake',
-                        'Horse', 'Goat', 'Monkey', 'Rooster', 'Dog', 'Pig'];
-  const secretAnimal = secretAnimals[Math.floor(hour / 2)];
-  
-  return {
-    animalSign: animalData.animal,
-    element: yearElement,
-    yinYang: year % 2 === 0 ? 'Yang' : 'Yin',
-    innerAnimal,
-    secretAnimal,
-    luckyNumbers: [3, 4, 9],
-    luckyColors: ['Blue', 'Gold', 'Green'],
-    personality: animalData.traits,
-    compatibility: ['Dragon', 'Monkey', 'Ox'],
-    lifePhase: year < 1980 ? 'Wisdom' : year < 2000 ? 'Achievement' : 'Growth'
-  };
-};
+function calculateChineseAstrology(d: Date): ChineseAstrology {
+  const year = d.getFullYear();
+  const animalIdx = ((year - 4) % 12 + 12) % 12;
+  const animal = CHINESE_ANIMALS[animalIdx] as unknown as string;
+  const elements = ['Wood','Fire','Earth','Metal','Water'] as const;
+  const element = elements[Math.floor(((year - 4) % 10 + 10) % 10 / 2)];
+  const yinYang = (((year - 4) % 2 + 2) % 2) === 0 ? 'Yang' : 'Yin';
+  const innerAnimal = CHINESE_ANIMALS[Math.floor(clamp(Math.floor(d.getHours()/2), 0, 11))] as unknown as string;
+  const luckyNumbers = [((animalIdx+1)%9)+1, ((animalIdx+4)%9)+1];
+  return { animalSign: animal, element, yinYang, innerAnimal, luckyNumbers };
+}
 
-const calculateAfricanAstrology = (birthDate: Date): AfricanAstrology => {
-  const dayOfYear = Math.floor((birthDate.getTime() - new Date(birthDate.getFullYear(), 0, 0).getTime()) / 86400000);
-  const orishaIndex = Math.floor((dayOfYear / 365) * africanOrishas.length);
-  const orisha = africanOrishas[orishaIndex];
-  
-  return {
-    orishaGuardian: orisha.name,
-    ancestralSpirit: 'Wise Elder',
-    elementalForce: orisha.element,
-    sacredAnimal: 'Eagle',
-    lifeDestiny: 'Healer and Guide',
-    spiritualGifts: orisha.gifts,
-    challenges: ['Patience', 'Balance'],
-    ceremonies: ['Water Blessing', 'Fire Ceremony'],
-    seasons: 'Dry Season'
-  };
-};
+function calculateAfricanAstrology(d: Date): AfricanAstrology {
+  const day = d.getDay();
+  const orishas = ['Elegua','Ogun','Yemoja','Shango','Oya','Osun','Obatala'];
+  const orisha = orishas[day % orishas.length];
+  const elementalForce = ['Air','Fire','Water','Fire','Air','Water','Air'][day % 7];
+  const sacredAnimal = ['Hummingbird','Panther','Dolphin','Lion','Falcon','Gazelle','Elephant'][day % 7];
+  const lifeDestiny = ['Pathfinder','Builder','Healer','Leader','Changer','Lover','Sage'][day % 7];
+  const spiritualGifts = ['Communication','Strength','Nurturing','Justice','Courage','Abundance','Wisdom'];
+  const challenges = ['Patience','Boundaries','Balance','Humility','Consistency','Focus','Trust'];
+  return { orishaGuardian: orisha, elementalForce, sacredAnimal, lifeDestiny, spiritualGifts, challenges };
+}
 
-const calculateNumerology = (birthDate: Date, fullName: string): NumerologyProfile => {
-  console.log(`Analyzing numeric traits of ${fullName}`)
-  const lifePathNumber = birthDate.getDate() + birthDate.getMonth() + 1 + birthDate.getFullYear();
-  const reducedLifePath = String(lifePathNumber).split('').reduce((sum, digit) => sum + parseInt(digit), 0) % 9 || 9;
-  
+function calculateNumerology(d: Date, fullName: string): NumerologyProfile {
+  void fullName; // not used in minimal version
+  // FIXED: month grouping must be (getMonth() + 1)
+  const lifePathRaw = d.getDate() + (d.getMonth() + 1) + d.getFullYear();
+  const reduced = String(lifePathRaw).split('').reduce((sum, ch) => sum + (parseInt(ch, 10) || 0), 0);
+  const lifePathNumber = reduced % 9 || 9;
+
   return {
-    lifePathNumber: reducedLifePath,
-    destinyNumber: 7,
-    soulUrgeNumber: 3,
-    personalityNumber: 4,
-    birthDayNumber: birthDate.getDate(),
+    lifePathNumber,
+    destinyNumber: ((lifePathNumber + 3) % 9) || 9,
+    soulUrgeNumber: ((lifePathNumber + 6) % 9) || 9,
+    personalityNumber: ((lifePathNumber + 4) % 9) || 9,
+    birthDayNumber: d.getDate(),
     meanings: {
-      lifePath: `Life Path ${reducedLifePath}: Your journey toward spiritual growth and self-discovery`,
-      destiny: 'Destiny 7: Seeker of truth and wisdom',
-      soulUrge: 'Soul Urge 3: Creative expression and communication',
-      personality: 'Personality 4: Practical, reliable, and organized'
+      lifePath: `Life Path ${lifePathNumber}: Your trajectory of growth and contribution.`,
+      destiny: 'Destiny: Direction of accomplishment and purpose.',
+      soulUrge: 'Soul Urge: Inner motivations and heartfelt needs.',
+      personality: 'Personality: How others first experience you.'
     }
   };
-};
+}
 
-const AstrologicalStep = () => {
+function buildSynthesis(w: WesternAstrology, c: ChineseAstrology, a: AfricanAstrology, n: NumerologyProfile) {
+  return {
+    coreThemes: [w.modality, w.dominantElement, c.element, a.lifeDestiny].filter(Boolean),
+    lifeDirection: `Blend of ${w.sunSign} vitality with ${c.animalSign} ${String(c.element).toLowerCase()} energy.`,
+    spiritualPath: `Guided by ${a.orishaGuardian} with gifts of ${a.spiritualGifts[0].toLowerCase()}.`,
+    relationships: `${w.risingSign} rising favors authentic connections; ${c.yinYang} tone this cycle.`,
+    career: `Leverage ${w.chartRuler} focus; numerology ${n.lifePathNumber} highlights signature strengths.`,
+    wellness: `Balance ${w.dominantElement.toLowerCase()} tendencies with grounding rituals.`,
+  };
+}
+
+// ------------------------------ Component ------------------------------
+
+const AstroLogicalStep = () => {
   const navigate = useNavigate();
   const { updateIntake, markStepComplete } = useIntake();
-  
-  // State Management
-  const [currentStep, setCurrentStep] = useState(0);
-  const [birthData, setBirthData] = useState<BirthData>({
-    date: '',
-    time: '',
-    location: ''
-  });
-  const [result, setResult] = useState<AstrologicalResult | null>(null);
-  const [showResult, setShowResult] = useState(false);
-  const [activeTab, setActiveTab] = useState('western');
+
+
+  const [birthData, setBirthData] = useState<BirthData>({ date: '', time: '', location: '' });
+  const [resolveState, setResolveState] = useState<LocationResolveState>({ status: 'idle' });
+  const [resolvedLocation, setResolvedLocation] = useState<ResolvedLocation | null>(null);
+
+  const [currentStep, setCurrentStep] = useState<number>(0);
+  const steps = ['Birth', 'Location', 'Calculate'] as const;
+
   const [isCalculating, setIsCalculating] = useState(false);
-  
-  const steps = ['Birth Info', 'Location', 'Calculate', 'Results'];
-  const progress = ((currentStep + 1) / steps.length) * 100;
-  
-  // Memoized calculations
+  const [showResult, setShowResult] = useState(false);
+  const [result, setResult] = useState<AstrologicalResult | null>(null);
+
+  const [activeTab, setActiveTab] = useState<'western'|'chinese'|'african'|'numerology'|'synthesis'>('western');
+
+  // cancel timer safety
+  const calcTimeoutRef = useRef<number | null>(null);
+  useEffect(() => () => { if (calcTimeoutRef.current) clearTimeout(calcTimeoutRef.current); }, []);
+
+  const progress = useMemo(() => {
+    const base = showResult ? 100 : (currentStep / (steps.length - 1)) * 100;
+    return Math.round(base);
+  }, [currentStep, steps.length, showResult]);
+
+  // -------- Location handlers --------
+
+  const handleResolveLocation = useCallback(async () => {
+    const q = birthData.location?.trim() || '';
+    if (q.length < 3) {
+      setResolveState({ status: 'error', message: 'Please enter 3+ characters.' });
+      return;
+    }
+    setResolveState({ status: 'resolving' });
+    const results = await resolveLocationPublic(q);
+    if (!results || results.length === 0) {
+      setResolveState({ status: 'error', message: 'No results. Try a more specific query.' });
+      return;
+    }
+    if (results.length > 1) {
+      setResolveState({ status: 'ambiguous', suggestions: results.slice(0,5) });
+      return;
+    }
+    const pick = results[0];
+    if (!isValidLatLon(pick.lat, pick.lon)) {
+      setResolveState({ status: 'error', message: 'Invalid coordinates from provider.' });
+      return;
+    }
+    setResolvedLocation(pick);
+    setResolveState({ status: 'resolved' });
+    setBirthData(p => ({ ...p, latitude: pick.lat, longitude: pick.lon, resolvedLabel: pick.label }));
+    updateIntake?.({
+      birthLocation: pick,
+      birthLocationFormatted: formatLocation(pick, LOCATION_STORAGE_FORMAT),
+    });
+  }, [birthData.location, updateIntake]);
+
+  const selectSuggestion = useCallback((pick: ResolvedLocation) => {
+    if (!isValidLatLon(pick.lat, pick.lon)) {
+      setResolveState({ status: 'error', message: 'Invalid coordinates from provider.' });
+      return;
+    }
+    setResolvedLocation(pick);
+    setResolveState({ status: 'resolved' });
+    setBirthData(p => ({ ...p, latitude: pick.lat, longitude: pick.lon, resolvedLabel: pick.label }));
+    updateIntake?.({
+      birthLocation: pick,
+      birthLocationFormatted: formatLocation(pick, LOCATION_STORAGE_FORMAT),
+    });
+  }, [updateIntake]);
+
+  // -------- Calculation --------
+
   const calculateAllAstrology = useCallback(() => {
     if (!birthData.date || !birthData.time) return;
-    
     setIsCalculating(true);
-    
-    // Simulate calculation time for dramatic effect
-    setTimeout(() => {
-      const birthDate = new Date(`${birthData.date}T${birthData.time}`);
-      
-      const western = calculateWesternAstrology(birthDate);
-      const chinese = calculateChineseAstrology(birthDate);
-      const african = calculateAfricanAstrology(birthDate);
-      const numerology = calculateNumerology(birthDate, 'User Name');
-      
-      const synthesis = {
-        coreThemes: ['Transformation', 'Leadership', 'Creativity'],
-        lifeDirection: 'Spiritual teacher and healer',
-        spiritualPath: 'Integration of ancient wisdom with modern understanding',
-        relationships: 'Deep, transformative connections with kindred spirits',
-        career: 'Healing arts, education, or creative expression',
-        wellness: 'Balance through meditation, nature, and creative outlets'
-      };
-      
-      const astrologicalResult: AstrologicalResult = {
-        western,
-        chinese,
-        african,
-        numerology,
-        synthesis
-      };
-      
-      setResult(astrologicalResult);
-      updateIntake({ astrologicalResult });
+
+    calcTimeoutRef.current = window.setTimeout(() => {
+      // Interpret as local time Date (upgrade to true timezone normalization later)
+      const localDate = new Date(`${birthData.date}T${birthData.time}:00`);
+
+      // Rising/houses override if location present
+      let ascOverride: { risingSign?: SignName; houses?: HouseMap } | undefined = undefined;
+
+      if (resolvedLocation && isValidLatLon(resolvedLocation.lat, resolvedLocation.lon)) {
+        const ascDeg = computeAscendantDeg(localDate, resolvedLocation.lat, resolvedLocation.lon);
+        const rising = risingFromDeg(ascDeg);
+        ascOverride = { risingSign: rising, houses: wholeSignHousesFromAsc(rising) };
+      }
+
+      const western = calculateWesternAstrology(localDate, ascOverride);
+      const chinese = calculateChineseAstrology(localDate);
+      const african = calculateAfricanAstrology(localDate);
+      const numerology = calculateNumerology(localDate, 'User Name');
+
+      const synthesis = buildSynthesis(western, chinese, african, numerology);
+
+      const astro: AstrologicalResult = { western, chinese, african, numerology, synthesis };
+
+      setResult(astro);
+      updateIntake?.({ astrologicalResult: astro });
       setIsCalculating(false);
       setShowResult(true);
-    }, 3000);
-  }, [birthData, updateIntake]);
-  
-  const handleNext = () => {
-    if (currentStep < steps.length - 1) {
-      setCurrentStep(prev => prev + 1);
-      if (currentStep === 2) {
-        calculateAllAstrology();
-      }
-    } else {
-      markStepComplete('AstroLogicalStep', { ready: true });
-      navigate('/intake/personality');
-    }
-  };
-  
-  const handlePrevious = () => {
-    if (currentStep > 0) {
-      setCurrentStep(prev => prev - 1);
-    }
-  };
-  
+
+	    // Mark step ready
+  	  useEffect(() => {
+        try { markStepComplete && markStepComplete('AstroLogicalStep' as StepKey, { ready: true }); } catch {}
+      }, [markStepComplete]);
+      
+    }, 1200); // fast and responsive
+  }, [birthData.date, birthData.time, resolvedLocation, updateIntake]);
+
+  // -------- Navigation & guards --------
+
   const canProceed = useMemo(() => {
     switch (currentStep) {
-      case 0: return birthData.date && birthData.time;
-      case 1: return birthData.location;
+      case 0: return Boolean(birthData.date) && Boolean(birthData.time);
+      case 1: return (birthData.location?.trim().length ?? 0) >= 3; // optionally require resolved location
       case 2: return !isCalculating;
-      case 3: return true;
-      default: return false;
+      default: return true;
     }
   }, [currentStep, birthData, isCalculating]);
-  
-  // Animated tab content
+
+  const goNext = () => {
+    if (showResult) {
+      navigate('/intake/personality');
+      return;
+    }
+    if (currentStep < steps.length - 1) setCurrentStep(s => s + 1);
+  };
+
+  const goPrev = () => {
+    if (currentStep > 0 && !showResult) setCurrentStep(s => s - 1);
+  };
+
+  // -------- Tabs keyboard arrows --------
+
+  const onTabsKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const order: typeof activeTab[] = ['western','chinese','african','numerology','synthesis'];
+    const i = order.indexOf(activeTab);
+    if (e.key === 'ArrowRight') setActiveTab(order[(i + 1) % order.length]);
+    if (e.key === 'ArrowLeft') setActiveTab(order[(i - 1 + order.length) % order.length]);
+  };
+
+  // ------------------------------ Render ------------------------------
+
   const renderTabContent = () => {
     if (!result) return null;
-    
     switch (activeTab) {
       case 'western':
         return (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
-          >
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
             {/* Sun, Moon, Rising */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
@@ -385,15 +598,9 @@ const AstrologicalStep = () => {
                 { title: 'Moon Sign', value: result.western.moonSign, desc: 'Emotional Nature', color: 'from-blue-400 to-indigo-400' },
                 { title: 'Rising Sign', value: result.western.risingSign, desc: 'Outer Persona', color: 'from-purple-400 to-pink-400' }
               ].map((item, index) => (
-                <motion.div
-                  key={item.title}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.2 }}
-                  className="glass-card-enhanced p-4 rounded-xl text-center"
-                >
+                <motion.div key={item.title} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.15 }} className="glass-card-enhanced p-4 rounded-xl text-center">
                   <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${item.color} mx-auto mb-3 flex items-center justify-center`}>
-                    <span className="text-white font-bold text-lg">♈</span>
+                    <span className="text-white font-bold text-lg">✦</span>
                   </div>
                   <h4 className="text-white font-semibold">{item.title}</h4>
                   <p className="text-2xl font-bold text-white my-2">{item.value}</p>
@@ -401,197 +608,179 @@ const AstrologicalStep = () => {
                 </motion.div>
               ))}
             </div>
-            
+
             {/* Houses */}
             <div className="glass-card-enhanced p-6 rounded-xl">
-              <h3 className="text-white font-semibold mb-4">Astrological Houses</h3>
+              <h3 className="text-white font-semibold mb-4">Astrological Houses (Whole Sign)</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {Object.entries(result.western.houses).map(([house, sign], index) => (
-                  <motion.div
-                    key={house}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="flex justify-between items-center p-2 bg-white/10 rounded-lg"
-                  >
-                    <span className="text-white/80 text-sm capitalize">{house}</span>
-                    <span className="text-white font-medium">{sign}</span>
+                  <motion.div key={house} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }} className="p-3 bg-white/10 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-white/70 capitalize">{house}</span>
+                      <span className="text-white font-medium">{sign}</span>
+                    </div>
                   </motion.div>
                 ))}
               </div>
             </div>
           </motion.div>
         );
-        
       case 'chinese':
         return (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
-          >
-            {/* Main Animal */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
             <div className="glass-card-enhanced p-6 rounded-xl text-center">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", duration: 0.8 }}
-                className="w-24 h-24 rounded-full bg-gradient-to-br from-red-400 to-yellow-400 mx-auto mb-4 flex items-center justify-center"
-              >
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-red-400 to-yellow-400 mx-auto mb-4 flex items-center justify-center">
                 <span className="text-4xl">🐉</span>
-              </motion.div>
-              <h3 className="text-3xl font-bold text-white mb-2">{result.chinese.animalSign}</h3>
-              <p className="text-white/70">Year of the {result.chinese.animalSign}</p>
+              </div>
+      
+              <h3 className="text-3xl font-bold text-white mb-1">{result.chinese.animalSign}</h3>
+              <p className="text-white/80">{result.chinese.element} · {result.chinese.yinYang}</p>
+              <p className="text-white/70 text-sm mt-1">Inner Animal (hour): {result.chinese.innerAnimal}</p>
             </div>
-            
-            {/* Elements and Details */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      
+            {/* Quick facts */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="glass-card-enhanced p-4 rounded-xl">
-                <h4 className="text-white font-semibold mb-3">Elements & Energy</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-white/70">Element</span>
-                    <span className="text-white font-medium">{result.chinese.element}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/70">Polarity</span>
-                    <span className="text-white font-medium">{result.chinese.yinYang}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/70">Inner Animal</span>
-                    <span className="text-white font-medium">{result.chinese.innerAnimal}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/70">Secret Animal</span>
-                    <span className="text-white font-medium">{result.chinese.secretAnimal}</span>
-                  </div>
+                <h4 className="text-white font-semibold mb-2">Lucky Numbers</h4>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {result.chinese.luckyNumbers.map((n) => (
+                    <span key={n} className="px-3 py-1 rounded-full bg-white/10 text-white/90 text-sm">{n}</span>
+                  ))}
                 </div>
               </div>
-              
+      
               <div className="glass-card-enhanced p-4 rounded-xl">
-                <h4 className="text-white font-semibold mb-3">Personality Traits</h4>
-                <div className="flex flex-wrap gap-2">
-                  {result.chinese.personality.map((trait, index) => (
-                    <motion.span
-                      key={trait}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="bg-white/20 text-white px-3 py-1 rounded-full text-sm"
-                    >
-                      {trait}
-                    </motion.span>
+                <h4 className="text-white font-semibold mb-2">Traits</h4>
+                <div className="flex flex-col items-center justify-center content-center">
+                  {(CHINESE_META[result.chinese.animalSign]?.traits ?? ['Balanced','Adaptable']).map((t) => (
+                    <span key={t} className="px-3 py-1 rounded-full bg-white/10 text-white/90 text-sm">{t}</span>
+                  ))}
+                </div>
+              </div>
+      
+              <div className="glass-card-enhanced p-4 rounded-xl">
+                <h4 className="text-white font-semibold mb-2">Strengths</h4>
+                <div className="flex flex-col items-center justify-center content-center">
+                  {(CHINESE_META[result.chinese.animalSign]?.strengths ?? ['Resilience']).map((s) => (
+                    <span key={s} className="px-3 py-1 rounded-full bg-white/10 text-white/90 text-sm">{s}</span>
                   ))}
                 </div>
               </div>
             </div>
-          </motion.div>
-        );
-        
-      case 'african':
-        return (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
-          >
-            {/* Orisha Guardian */}
-            <div className="glass-card-enhanced p-6 rounded-xl text-center">
-              <motion.div
-                initial={{ scale: 0, rotate: -180 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: "spring", duration: 1 }}
-                className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-400 to-indigo-400 mx-auto mb-4 flex items-center justify-center"
-              >
-                <span className="text-4xl">⚡</span>
-              </motion.div>
-              <h3 className="text-3xl font-bold text-white mb-2">{result.african.orishaGuardian}</h3>
-              <p className="text-white/70">Your Orisha Guardian</p>
-            </div>
-            
-            {/* Spiritual Profile */}
+      
+            {/* Element focus & compatibility */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="glass-card-enhanced p-4 rounded-xl">
-                <h4 className="text-white font-semibold mb-3">Spiritual Gifts</h4>
-                <div className="space-y-2">
-                  {result.african.spiritualGifts.map((gift, index) => (
-                    <motion.div
-                      key={gift}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="flex items-center space-x-2"
-                    >
-                      <div className="w-2 h-2 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full"></div>
-                      <span className="text-white">{gift}</span>
-                    </motion.div>
-                  ))}
-                </div>
+              <div className="glass-card-enhanced p-5 rounded-xl">
+                <h4 className="text-white font-semibold mb-2">Element Focus</h4>
+                <p className="text-white/80 text-sm">
+                  {CHINESE_ELEMENT_META[result.chinese.element as keyof typeof CHINESE_ELEMENT_META]?.focus ?? 'Balance of initiative and reflection.'}
+                </p>
+                <p className="text-white/60 text-xs mt-2">
+                  Balance tip: {CHINESE_ELEMENT_META[result.chinese.element as keyof typeof CHINESE_ELEMENT_META]?.balance ?? 'Alternate expansion with consolidation.'}
+                </p>
               </div>
-              
-              <div className="glass-card-enhanced p-4 rounded-xl">
-                <h4 className="text-white font-semibold mb-3">Life Path</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-white/70">Destiny</span>
-                    <span className="text-white font-medium">{result.african.lifeDestiny}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/70">Sacred Animal</span>
-                    <span className="text-white font-medium">{result.african.sacredAnimal}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-white/70">Element</span>
-                    <span className="text-white font-medium">{result.african.elementalForce}</span>
-                  </div>
-                </div>
+      
+              <div className="glass-card-enhanced p-5 rounded-xl">
+                <h4 className="text-white font-semibold mb-2">Natural Compatibilities</h4>
+                <p className="text-white/80 text-sm">
+                  {(CHINESE_META[result.chinese.animalSign]?.compat ?? ['Complementary signs vary by context']).join(' • ')}
+                </p>
               </div>
             </div>
           </motion.div>
         );
-        
+
+	  case 'african':
+	    return (
+	      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+	        <div className="glass-card-enhanced p-6 rounded-xl text-center">
+	          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-400 to-indigo-400 mx-auto mb-4 flex items-center justify-center">
+	            <span className="text-4xl">⚡</span>
+	          </div>
+	          <h3 className="text-3xl font-bold text-white mb-1">{result.african.orishaGuardian}</h3>
+	          <p className="text-white/80">{result.african.elementalForce} · {result.african.sacredAnimal}</p>
+	          <p className="text-white/70 text-sm mt-1">Life Destiny: {result.african.lifeDestiny}</p>
+	        </div>
+	  
+	        {/* Themes & gifts */}
+	        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+	          <div className="glass-card-enhanced p-4 rounded-xl">
+	            <h4 className="text-white font-semibold mb-2">Core Virtues</h4>
+	            <div className="flex flex-col items-center justify-center content-center">
+	              {(ORISHA_META[result.african.orishaGuardian]?.virtues ?? ['Clarity','Balance']).map((v) => (
+	                <span key={v} className="px-3 py-1 rounded-full bg-white/10 text-white/90 text-sm">
+	                  {v}
+	                </span>
+
+	              ))}
+	            </div>
+	          </div>
+	  
+	          <div className="glass-card-enhanced p-4 rounded-xl">
+	            <h4 className="text-white font-semibold mb-2">Gifts</h4>
+	            <div className="flex flex-col items-center justify-center content-center">
+	              {result.african.spiritualGifts.map((g) => (
+	                <span key={g} className="px-3 py-1 rounded-full bg-white/10 text-white/90 text-sm [word-spacing:.06em] tracking-wide mr-2 last:mr-0">
+	                  {g}
+	                </span>
+
+	              ))}
+	            </div>
+	          </div>
+	  
+	          <div className="glass-card-enhanced p-4 rounded-xl">
+	            <h4 className="text-white font-semibold mb-2">Growth Edges</h4>
+	            <div className="flex flex-col items-center justify-center content-center">
+	              {result.african.challenges.map((c) => (
+	                <span key={c} className="px-3 py-1 rounded-full bg-white/10 text-white/90 text-sm">
+	                  {c} 
+	                </span>
+	                
+	              ))}
+	            </div>
+	          </div>
+	        </div>
+	  
+	        {/* Guidance */}
+	        <div className="glass-card-enhanced p-5 rounded-xl">
+	          <h4 className="text-white font-semibold mb-2">Guidance</h4>
+	          <ul className="list-disc list-inside text-left text-white/80 text-sm space-y-1">
+	            {(ORISHA_META[result.african.orishaGuardian]?.guidance ?? [
+	              'Lead with integrity',
+	              'Choose aligned commitments',
+	              'Practice steady self-care',
+	            ]).map((g, i) => (
+	              <li key={i}>{g}</li>
+	            ))}
+	          </ul>
+	        </div>
+	      </motion.div>
+	    );
+	  
+      
       case 'numerology':
         return (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
-          >
-            {/* Core Numbers */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {[
-                { title: 'Life Path', value: result.numerology.lifePathNumber, color: 'from-blue-400 to-cyan-400' },
-                { title: 'Destiny', value: result.numerology.destinyNumber, color: 'from-green-400 to-emerald-400' },
-                { title: 'Soul Urge', value: result.numerology.soulUrgeNumber, color: 'from-purple-400 to-violet-400' },
-                { title: 'Personality', value: result.numerology.personalityNumber, color: 'from-pink-400 to-rose-400' }
-              ].map((item, index) => (
-                <motion.div
-                  key={item.title}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="glass-card-enhanced p-4 rounded-xl text-center"
-                >
-                  <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${item.color} mx-auto mb-3 flex items-center justify-center`}>
-                    <span className="text-white font-bold text-2xl">{item.value}</span>
+                { title: 'Life Path', value: result.numerology.lifePathNumber, color: 'from-emerald-400 to-teal-400' },
+                { title: 'Destiny', value: result.numerology.destinyNumber, color: 'from-blue-400 to-cyan-400' },
+                { title: 'Soul Urge', value: result.numerology.soulUrgeNumber, color: 'from-pink-400 to-rose-400' },
+                { title: 'Personality', value: result.numerology.personalityNumber, color: 'from-amber-400 to-orange-400' },
+              ].map((item, idx) => (
+                <motion.div key={item.title} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: idx * 0.1 }} className="glass-card-enhanced p-4 rounded-xl text-center">
+                  <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${item.color} mx-auto mb-2 flex items-center justify-center`}>
+                    <span className="text-white font-bold">{item.value}</span>
                   </div>
                   <h4 className="text-white font-medium">{item.title}</h4>
                 </motion.div>
               ))}
             </div>
-            
-            {/* Number Meanings */}
             <div className="glass-card-enhanced p-6 rounded-xl">
-              <h4 className="text-white font-semibold mb-4">Number Meanings</h4>
-              <div className="space-y-3">
-                {Object.entries(result.numerology.meanings).map(([key, meaning], index) => (
-                  <motion.div
-                    key={key}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="p-3 bg-white/10 rounded-lg"
-                  >
+              <h4 className="text-white font-semibold mb-3">Number Meanings</h4>
+              <div className="space-y-2">
+                {Object.values(result.numerology.meanings).map((meaning, idx) => (
+                  <motion.div key={idx} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.05 }} className="p-3 bg-white/10 rounded-lg">
                     <p className="text-white">{meaning}</p>
                   </motion.div>
                 ))}
@@ -599,49 +788,20 @@ const AstrologicalStep = () => {
             </div>
           </motion.div>
         );
-        
       case 'synthesis':
         return (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
-          >
-            {/* Core Themes */}
-            <div className="glass-card-enhanced p-6 rounded-xl">
-              <h4 className="text-white font-semibold mb-4">Core Life Themes</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {result.synthesis.coreThemes.map((theme, index) => (
-                  <motion.div
-                    key={theme}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: index * 0.2 }}
-                    className="p-4 bg-gradient-to-br from-indigo-400/20 to-purple-400/20 rounded-lg text-center"
-                  >
-                    <span className="text-white font-medium">{theme}</span>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-            
-            {/* Life Guidance */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
-                { title: 'Life Direction', content: result.synthesis.lifeDirection, icon: '🌟' },
+                { title: 'Core Themes', content: result.synthesis.coreThemes.join(' · '), icon: '✨' },
+                { title: 'Life Direction', content: result.synthesis.lifeDirection, icon: '🧭' },
                 { title: 'Spiritual Path', content: result.synthesis.spiritualPath, icon: '🔮' },
-                { title: 'Relationships', content: result.synthesis.relationships, icon: '💫' },
-                { title: 'Career', content: result.synthesis.career, icon: '⚡' },
-                { title: 'Wellness', content: result.synthesis.wellness, icon: '🌿' }
-              ].map((item, index) => (
-                <motion.div
-                  key={item.title}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="glass-card-enhanced p-4 rounded-xl"
-                >
-                  <div className="flex items-center space-x-3 mb-3">
+                { title: 'Relationships', content: result.synthesis.relationships, icon: '💞' },
+                { title: 'Career', content: result.synthesis.career, icon: '📈' },
+                { title: 'Wellness', content: result.synthesis.wellness, icon: '🌿' },
+              ].map((item, idx) => (
+                <motion.div key={item.title} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.08 }} className="glass-card-enhanced p-4 rounded-xl">
+                  <div className="flex items-center space-x-3 mb-2">
                     <span className="text-2xl">{item.icon}</span>
                     <h5 className="text-white font-semibold">{item.title}</h5>
                   </div>
@@ -651,144 +811,80 @@ const AstrologicalStep = () => {
             </div>
           </motion.div>
         );
-        
       default:
         return null;
     }
   };
-  
+
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Three.js Background */}
+      {/* Background Three.js scene */}
       <BasicScene />
-      
-      {/* Cosmic Gradient Overlay */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.4 }}
-        transition={{ duration: 2 }}
-        className="absolute inset-0 bg-gradient-to-br from-indigo-900/50 via-purple-900/30 to-pink-900/50 pointer-events-none"
-      />
-      
-      {/* Floating Cosmic Particles */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(20)].map((_, i) => (
-          <motion.div
-            key={i}
-            initial={{ 
-              x: Math.random() * window.innerWidth,
-              y: Math.random() * window.innerHeight,
-              scale: 0
-            }}
-            animate={{
-              y: [null, Math.random() * window.innerHeight],
-              scale: [0, 1, 0],
-              opacity: [0, 0.6, 0]
-            }}
-            transition={{
-              duration: Math.random() * 10 + 5,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            className="absolute w-2 h-2 bg-gradient-to-r from-white to-purple-300 rounded-full"
-          />
-        ))}
-      </div>
 
-      <div className="relative z-10 min-h-screen flex flex-col justify-center items-center p-6">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1 }}
-          className="w-full max-w-4xl"
-        >
-          <GlassCard enhanced gradient className="space-y-6 max-h-[90vh] overflow-y-auto mx-4">
+      {/* Page Shell */}
+      <div className="relative z-10 min-h-screen flex flex-col justify-center items-center p-6 text-center">
+        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1 }} className="w-full max-w-4xl mx-auto">
+          {/* Main Card */}
+          <GlassCard enhanced gradient className="text-center space-y-6 max-h-[85vh] overflow-y-auto overflow-x-hidden m-[40px]">
             {/* Header */}
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              transition={{ duration: 0.6 }}
-              className="text-center space-y-4"
-            >
-              <div className="flex justify-center mb-4">
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                  className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-400 via-indigo-400 to-pink-400 flex items-center justify-center"
-                >
-                  <span className="text-2xl">🌟</span>
-                </motion.div>
+            <motion.div initial={{ scale: 0.96 }} animate={{ scale: 1 }} transition={{ duration: 0.6 }} className="space-y-4 items-center justify-center flex flex-col">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 via-purple-400 to-pink-400 flex items-center justify-center">
+                <span className="text-2xl">🌟</span>
               </div>
-              
-              <h2 className="text-4xl font-bold text-white text-shadow-soft">
-                Cosmic Blueprint
-              </h2>
-              <p className="text-white/80 max-w-2xl mx-auto">
-                {showResult 
-                  ? 'Your complete astrological profile across cultures and traditions'
-                  : 'Discover your celestial signature through Western, Chinese, and African astrological traditions'
-                }
+              <h2 className="text-3xl font-bold text-white text-shadow-soft">Cosmic Blueprint</h2>
+              <p className="text-white/80 max-w-2xl">
+                {showResult ? 'Your complete astrological profile across traditions' : 'Discover your celestial signature'}
               </p>
             </motion.div>
 
             {/* Progress */}
-            {!showResult && (
-              <div className="glass-card-enhanced p-4 rounded-xl">
-                <div className="flex justify-between text-sm text-white/70 mb-2">
-                  <span>Step {currentStep + 1} of {steps.length}</span>
-                  <span>{steps[currentStep]}</span>
-                </div>
-                <GlassProgress value={progress} max={100} />
+            <div className="glass-card-enhanced p-4 rounded-xl mx-auto max-w-xl" aria-live="polite">
+              <div className="flex justify-between text-sm text-white/70 mb-2">
+                <span>Step {showResult ? steps.length : currentStep + 1} of {steps.length}</span>
+                <span>{showResult ? 'Results' : steps[currentStep]}</span>
               </div>
-            )}
+              <span className="sr-only">Progress: {progress}%</span>
+              <GlassProgress value={progress} max={100} />
+            </div>
 
-            {/* Step Content */}
             <AnimatePresence mode="wait">
               {!showResult ? (
-                <motion.div
-                  key={currentStep}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.4 }}
-                  className="space-y-6"
-                >
+                <motion.div key="form" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }} className="space-y-6">
                   {/* Step 0: Birth Date & Time */}
                   {currentStep === 0 && (
                     <div className="space-y-6">
-                      <div className="glass-card-enhanced p-6 rounded-xl">
-                        <h3 className="text-white font-semibold mb-4 flex items-center space-x-2">
-                          <span>🗓️</span>
-                          <span>Birth Information</span>
+                      <div className="glass-card-enhanced p-6 rounded-xl mx-auto max-w-xl">
+                        <h3 className="text-white font-semibold mb-4 flex items-center justify-center gap-2">
+                          <span>🗓️</span><span>Birth Information</span>
                         </h3>
-                        
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <label className="text-white/80 text-sm">Birth Date</label>
+                            <label htmlFor="birth-date" className="text-white/80 text-sm">Birth Date</label>
                             <input
+                              id="birth-date"
                               type="date"
+                              required aria-required="true"
+                              aria-describedby="birth-date-help"
                               value={birthData.date}
                               onChange={(e) => setBirthData(prev => ({ ...prev, date: e.target.value }))}
                               className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-white/40 focus:outline-none"
                             />
+                            <p id="birth-date-help" className="sr-only">Enter your date of birth in YYYY-MM-DD format</p>
                           </div>
-                          
                           <div className="space-y-2">
-                            <label className="text-white/80 text-sm">Birth Time</label>
+                            <label htmlFor="birth-time" className="text-white/80 text-sm">Birth Time</label>
                             <input
+                              id="birth-time"
                               type="time"
+                              step={60}
+                              required aria-required="true"
+                              aria-describedby="birth-time-help"
                               value={birthData.time}
                               onChange={(e) => setBirthData(prev => ({ ...prev, time: e.target.value }))}
                               className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-white/40 focus:outline-none"
                             />
+                            <p id="birth-time-help" className="sr-only">Enter your birth time to the nearest minute</p>
                           </div>
-                        </div>
-                        
-                        <div className="mt-4 p-4 bg-white/5 rounded-lg">
-                          <p className="text-white/60 text-sm">
-                            <span className="text-white/80 font-medium">Note:</span> Precise birth time is essential for accurate 
-                            rising sign, house placements, and complete astrological analysis across all traditions.
-                          </p>
                         </div>
                       </div>
                     </div>
@@ -797,99 +893,82 @@ const AstrologicalStep = () => {
                   {/* Step 1: Location */}
                   {currentStep === 1 && (
                     <div className="space-y-6">
-                      <div className="glass-card-enhanced p-6 rounded-xl">
-                        <h3 className="text-white font-semibold mb-4 flex items-center space-x-2">
-                          <span>📍</span>
-                          <span>Birth Location</span>
+                      <div className="glass-card-enhanced p-6 rounded-xl mx-auto max-w-xl">
+                        <h3 className="text-white font-semibold mb-4 flex items-center justify-center gap-2">
+                          <span>📍</span><span>Birth Location</span>
                         </h3>
-                        
                         <div className="space-y-4">
                           <div className="space-y-2">
-                            <label className="text-white/80 text-sm">City, State/Province, Country</label>
+                            <label htmlFor="birth-location" className="text-white/80 text-sm">City, State/Province, Country</label>
                             <input
+                              id="birth-location"
                               type="text"
+                              placeholder="e.g., New York, NY, USA"
                               value={birthData.location}
                               onChange={(e) => setBirthData(prev => ({ ...prev, location: e.target.value }))}
-                              placeholder="e.g., New York, NY, USA"
                               className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-white/40 focus:outline-none"
                             />
                           </div>
-                        </div>
-                        
-                        <div className="mt-4 p-4 bg-white/5 rounded-lg">
-                          <p className="text-white/60 text-sm">
-                            <span className="text-white/80 font-medium">Why location matters:</span> Your birth location determines 
-                            your astrological houses, rising sign accuracy, and connects you to regional spiritual traditions 
-                            and ancestral energies.
-                          </p>
+                          <div className="flex items-center justify-center gap-2">
+                            <GlassButton onClick={handleResolveLocation} disabled={resolveState.status === 'resolving'}>
+                              {resolveState.status === 'resolving' ? 'Resolving…' : 'Resolve location'}
+                            </GlassButton>
+                            {resolvedLocation && (
+                              <span className="text-xs text-white/80 glass-card-enhanced px-3 py-1 rounded-full">
+                                📍 {resolvedLocation.label} · {resolvedLocation.lat.toFixed(4)},{resolvedLocation.lon.toFixed(4)}
+                              </span>
+                            )}
+                          </div>
+
+                          {resolveState.status === 'ambiguous' && (
+                            <div className="glass-card-enhanced p-3 rounded-xl">
+                              <p className="text-sm text-white/80 mb-2">Select a match:</p>
+                              <div className="flex flex-wrap justify-center gap-2">
+                                {resolveState.suggestions.map((s, i) => (
+                                  <button key={i} onClick={() => selectSuggestion(s)} className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white/90 text-sm">
+                                    {s.label} · {s.lat.toFixed(2)},{s.lon.toFixed(2)}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {resolveState.status === 'error' && (
+                            <p className="text-xs text-rose-300">{resolveState.message || 'Location failed to resolve.'}</p>
+                          )}
+
+                          <div className="mt-2 p-3 bg-white/5 rounded-lg text-white/70 text-sm">
+                            Why location matters: it enables a precise Rising sign and houses. You can skip this now and still calculate Sun-based insights.
+                          </div>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Step 2: Calculation */}
+                  {/* Step 2: Calculate */}
                   {currentStep === 2 && (
                     <div className="space-y-6">
-                      <div className="glass-card-enhanced p-8 rounded-xl text-center">
-                        {isCalculating ? (
-                          <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="space-y-6"
-                          >
-                            {/* Cosmic Calculation Animation */}
-                            <div className="relative">
-                              <motion.div
-                                animate={{ rotate: 360 }}
-                                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                                className="w-32 h-32 rounded-full border-4 border-white/20 border-t-white/60 mx-auto"
-                              />
-                              <motion.div
-                                animate={{ rotate: -360 }}
-                                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                                className="absolute inset-4 w-24 h-24 rounded-full border-4 border-white/10 border-r-white/40"
-                              />
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <span className="text-4xl">🌌</span>
-                              </div>
-                            </div>
-                            
-                            <div className="space-y-3">
-                              <h3 className="text-2xl font-bold text-white">Calculating Your Cosmic Blueprint</h3>
-                              <div className="space-y-2">
-                                {[
-                                  'Aligning with celestial positions...',
-                                  'Consulting ancient wisdom traditions...',
-                                  'Synthesizing multi-cultural insights...',
-                                  'Revealing your cosmic signature...'
-                                ].map((text, index) => (
-                                  <motion.p
-                                    key={text}
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    transition={{ delay: index * 0.8 }}
-                                    className="text-white/70"
-                                  >
-                                    {text}
-                                  </motion.p>
-                                ))}
-                              </div>
-                            </div>
-                          </motion.div>
-                        ) : (
-                          <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="space-y-4"
-                          >
-                            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-green-400 to-emerald-400 mx-auto flex items-center justify-center">
+                      <div className="glass-card-enhanced p-6 rounded-xl mx-auto max-w-xl">
+                        {!isCalculating ? (
+                          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-4">
+                            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 mx-auto flex items-center justify-center">
                               <span className="text-3xl">✨</span>
                             </div>
                             <h3 className="text-2xl font-bold text-white">Ready to Calculate</h3>
-                            <p className="text-white/70">
-                              Click below to generate your complete astrological profile across Western, 
-                              Chinese, and African traditions, plus numerological insights.
-                            </p>
+                            <p className="text-white/70">Click below to generate your multi-tradition profile.</p>
+                          </motion.div>
+                        ) : (
+                          <motion.div role="status" aria-live="polite" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                            <div className="relative">
+                              <motion.div animate={{ rotate: 360 }} transition={{ duration: 3, repeat: Infinity, ease: 'linear' }} className="w-32 h-32 rounded-full border-4 border-white/20 border-t-white/60 mx-auto" />
+                              <motion.div animate={{ rotate: -360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }} className="absolute inset-4 w-24 h-24 rounded-full border-4 border-white/10 border-r-white/40" />
+                              <div className="absolute inset-0 flex items-center justify-center"><span className="text-4xl">🌌</span></div>
+                            </div>
+                            <div className="space-y-2 text-white/80">
+                              <div>Aligning with celestial positions…</div>
+                              <div>Consulting ancient wisdom traditions…</div>
+                              <div>Revealing your cosmic signature…</div>
+                            </div>
                           </motion.div>
                         )}
                       </div>
@@ -897,51 +976,40 @@ const AstrologicalStep = () => {
                   )}
                 </motion.div>
               ) : (
-                /* Results Display */
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.6 }}
-                  className="space-y-6"
-                >
-                  {/* Culture Tabs */}
-                  <div className="flex flex-wrap justify-center gap-2">
+                <motion.div key="results" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }} className="space-y-6">
+                  {/* Tabs */}
+                  <div role="tablist" aria-label="Astrology result categories" onKeyDown={onTabsKeyDown} className="flex flex-wrap justify-center gap-2">
                     {[
                       { id: 'western', name: 'Western', icon: '♈', color: 'from-blue-400 to-indigo-400' },
                       { id: 'chinese', name: 'Chinese', icon: '🐉', color: 'from-red-400 to-yellow-400' },
                       { id: 'african', name: 'African', icon: '⚡', color: 'from-purple-400 to-indigo-400' },
                       { id: 'numerology', name: 'Numbers', icon: '🔢', color: 'from-green-400 to-emerald-400' },
-                      { id: 'synthesis', name: 'Synthesis', icon: '🌟', color: 'from-pink-400 to-violet-400' }
-                    ].map((tab) => (
-                      <motion.button
-                        key={tab.id}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`
-                          px-4 py-2 rounded-full flex items-center space-x-2 transition-all duration-300
-                          ${activeTab === tab.id 
-                            ? `bg-gradient-to-r ${tab.color} text-white shadow-lg` 
-                            : 'bg-white/10 text-white/70 hover:bg-white/20'
-                          }
-                        `}
-                      >
-                        <span>{tab.icon}</span>
-                        <span className="font-medium">{tab.name}</span>
-                      </motion.button>
-                    ))}
+                      { id: 'synthesis', name: 'Synthesis', icon: '🌟', color: 'from-pink-400 to-violet-400' },
+                    ].map((tab) => {
+                      const selected = activeTab === (tab.id as any);
+                      return (
+                        <motion.button
+                          key={tab.id}
+                          id={`tab-${tab.id}`}
+                          role="tab"
+                          aria-selected={selected}
+                          aria-controls={`panel-${tab.id}`}
+                          tabIndex={selected ? 0 : -1}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setActiveTab(tab.id as any)}
+                          className={`px-4 py-2 rounded-full flex items-center space-x-2 transition-all duration-300 ${selected ? `bg-gradient-to-r ${tab.color} text-white shadow-lg` : 'bg-white/10 text-white/70 hover:bg-white/20'}`}
+                        >
+                          <span>{tab.icon}</span><span className="font-medium">{tab.name}</span>
+                        </motion.button>
+                      );
+                    })}
                   </div>
 
                   {/* Tab Content */}
-                  <div className="min-h-96">
+                  <div role="tabpanel" id={`panel-${activeTab}`} aria-labelledby={`tab-${activeTab}`} className="min-h-96">
                     <AnimatePresence mode="wait">
-                      <motion.div
-                        key={activeTab}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.3 }}
-                      >
+                      <motion.div key={activeTab} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.25 }}>
                         {renderTabContent()}
                       </motion.div>
                     </AnimatePresence>
@@ -951,46 +1019,29 @@ const AstrologicalStep = () => {
             </AnimatePresence>
 
             {/* Navigation */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="flex justify-between items-center pt-6"
-            >
-              {currentStep > 0 && !showResult ? (
-                <GlassButton
-                  onClick={handlePrevious}
-                  className="bg-white/10 hover:bg-white/20"
-                >
-                  <span className="flex items-center space-x-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                    <span>Previous</span>
-                  </span>
-                </GlassButton>
-              ) : <div />}
-              
-              <GlassButton
-                onClick={handleNext}
-                disabled={!canProceed}
-                className={`
-                  ${canProceed 
-                    ? 'bg-gradient-to-r from-indigo-400/20 to-purple-400/20 hover:from-indigo-400/30 hover:to-purple-400/30' 
-                    : 'bg-white/5 opacity-50 cursor-not-allowed'
-                  }
-                `}
-              >
-                <span className="flex items-center space-x-2">
-                  <span>
-                    {showResult ? 'Personality analysis' : 
-                     currentStep === 2 ? (isCalculating ? 'Calculating...' : 'Calculate') : 'Next'}
-                  </span>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="flex justify-between items-center">
+              <GlassButton onClick={goPrev} disabled={currentStep === 0 || showResult}>
+                <span className="flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                  Previous
                 </span>
               </GlassButton>
+
+              {!showResult ? (
+                <GlassButton onClick={() => (currentStep === 2 ? calculateAllAstrology() : goNext())} disabled={!canProceed}>
+                  <span className="flex items-center gap-2">
+                    <span>{currentStep === 2 ? (isCalculating ? 'Calculating…' : 'Calculate') : 'Next'}</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  </span>
+                </GlassButton>
+              ) : (
+                <GlassButton onClick={() => navigate('/intake/personality')}>
+                  <span className="flex items-center gap-2">
+                    <span>Continue to Personality</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  </span>
+                </GlassButton>
+              )}
             </motion.div>
           </GlassCard>
         </motion.div>
@@ -999,4 +1050,4 @@ const AstrologicalStep = () => {
   );
 };
 
-export default AstrologicalStep;
+export default AstroLogicalStep;

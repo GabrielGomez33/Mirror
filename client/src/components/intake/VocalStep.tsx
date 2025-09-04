@@ -737,7 +737,7 @@ const VocalStep = () => {
       {/* Foreground content */}
       <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-2xl">
-          <GlassCard className="p-8">
+          <GlassCard enhanced gradient className="text-center space-y-6 max-h-[85vh] overflow-y-auto overflow-x-hidden m-[40px]">
             <div className="space-y-6">
               <div className="text-center">
                 <h2 className="text-3xl font-bold text-white mb-2">Voice Analysis</h2>

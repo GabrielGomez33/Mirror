@@ -505,7 +505,7 @@ const VisualStep: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-4xl"
         >
-          <GlassCard className="p-8">
+          <GlassCard enhanced gradient  className="text-center space-y-6 max-h-[85vh] overflow-y-auto overflow-x-hidden m-[40px]">
             <div className="text-center space-y-6">
               <div>
                 <h2 className="text-3xl font-bold text-white">Visual Analysis</h2>
@@ -524,7 +524,7 @@ const VisualStep: React.FC = () => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="glass-card-enhanced p-6 rounded-xl"
+                    className="glass-card-enhanced  p-6 rounded-xl"
                   >
                     <div className="flex items-center justify-center space-x-4">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
@@ -762,3 +762,4 @@ const VisualStep: React.FC = () => {
 };
 
 export default VisualStep;
+

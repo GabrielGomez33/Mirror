@@ -75,8 +75,6 @@ const SEGMENT_TO_PROGRESS: Record<IntakeSegment, ProgressStepKey> = {
   results: 'ResultsStep',
 };
 
-
-
 // Minimal shape from your IntakeContext
 type StepStatus = { completed: boolean; data?: Record<string, unknown> };
 type ProgressShape = {
@@ -108,6 +106,11 @@ function getFirstIncompleteSegment(progress: ProgressShape): IntakeSegment {
     if (!s?.completed) return seg;
   }
   return 'results';
+}
+
+function isSegmentCompleted(progress: ProgressShape, seg: IntakeSegment): boolean {
+  const stepKey = SEGMENT_TO_PROGRESS[seg];
+  return Boolean(progress?.steps?.[stepKey]?.completed);
 }
 
 // ========== PROTECTED ROUTE COMPONENT ==========
@@ -190,12 +193,39 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       return <Navigate to="/dashboard" replace />;
     }
 
+    const state = (location.state || {}) as { fixMode?: boolean; returnTo?: string };
+    const fixMode = Boolean(state.fixMode);
+    const returnTo = state.returnTo || '/intake/submit';
+
     const requiredSeg = getFirstIncompleteSegment(progress);
     const currentSeg = getCurrentIntakeSegment(pathname);
 
+    // ====== FIX MODE: came here from Submit to fix a requirement ======
+    if (fixMode && currentSeg) {
+      // 1) If current segment now completed → go back to Submit (or provided returnTo)
+      if (isSegmentCompleted(progress, currentSeg)) {
+        return <Navigate to={returnTo} replace />;
+      }
+      // 2) While in fix mode, do not snap back/forward; let the user complete this segment.
+      //    (i.e., skip the "snap back" and "auto-advance" logic below)
+      return <>{children}</>;
+    }
+
+    // ====== NORMAL MODE ======
     // "/intake" with no seg, or trying to skip ahead -> snap back to required step
     if (!currentSeg || isAfter(currentSeg, requiredSeg)) {
       return <Navigate to={`/intake/${requiredSeg}`} replace state={{ from: location }} />;
+    }
+
+    // Auto-advance: if the current step is already complete, drive forward to the next incomplete step
+    if (isSegmentCompleted(progress, currentSeg)) {
+      const nextRequired = getFirstIncompleteSegment(progress);
+      if (nextRequired !== currentSeg) {
+        // Only advance forward (avoid bouncing backward)
+        if (indexOfSeg(nextRequired) > indexOfSeg(currentSeg)) {
+          return <Navigate to={`/intake/${nextRequired}`} replace />;
+        }
+      }
     }
   }
 
