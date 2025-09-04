@@ -17,7 +17,6 @@ import BasicScene from '../three/BasicScene';
 
 // ----------------------------- Types -----------------------------
 
-type StepKey = 'AstroLogicalStep';
 
 const SIGN_NAMES = [
   'Aries','Taurus','Gemini','Cancer','Leo','Virgo',
@@ -544,12 +543,14 @@ const AstroLogicalStep = () => {
       setShowResult(true);
 
 	    // Mark step ready
-  	  useEffect(() => {
-        try { markStepComplete && markStepComplete('AstroLogicalStep' as StepKey, { ready: true }); } catch {}
-      }, [markStepComplete]);
+  	  markStepComplete?.('AstroLogicalStep', {
+  	    ready: true,
+  	    computedAt: new Date().toISOString(),
+  	    completed: true,
+  	  });
       
     }, 1200); // fast and responsive
-  }, [birthData.date, birthData.time, resolvedLocation, updateIntake]);
+  }, [birthData.date, birthData.time, resolvedLocation, updateIntake, markStepComplete]);
 
   // -------- Navigation & guards --------
 
