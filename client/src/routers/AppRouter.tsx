@@ -7,6 +7,7 @@ import IntakeFlow from '../pages/IntakeFlow';
 import Home from '../pages/Home';
 import Dashboard from '../pages/Dashboard';
 import LogUserIn from '../components/Login';
+import RegistrationStep from '../components/intake/RegistrationStep';
 import TestPage from '../pages/TestPage';
 
 const AppRouter = () => {
@@ -17,6 +18,7 @@ const AppRouter = () => {
       <Route path="/home" element={<Home />} />
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/login" element={<LogUserIn />} />
+      <Route path="/register" element={<RegistrationStep />} />
       <Route path="/intake/*" element={<IntakeFlow />} />
       <Route path="/test" element={<TestPage />} />
       {/* Add more routes as needed */}

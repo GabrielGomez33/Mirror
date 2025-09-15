@@ -14,6 +14,7 @@ import IntakeFlow from './pages/IntakeFlow';
 import Results from './pages/Results';
 import Review from './pages/Review';
 import LogUserIn from './components/Login';
+import RegistrationStep from './components/intake/RegistrationStep';
 import Landing from './pages/Landing';
 import TestPage from './pages/TestPage';
 import GlobalDashboard from './components/dashboard/GlobalDashboard';
@@ -45,6 +46,18 @@ const App: React.FC = () => {
                   fallback={<Navigate to="/dashboard" replace />}
                 >
                   <LogUserIn />
+                </ConditionalRender>
+              } 
+            />
+
+            <Route 
+              path="/register" 
+              element={
+                <ConditionalRender 
+                  condition="unauthenticated"
+                  fallback={<Navigate to="/dashboard" replace />}
+                >
+                  <RegistrationStep />
                 </ConditionalRender>
               } 
             />

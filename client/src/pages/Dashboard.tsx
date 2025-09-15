@@ -3,27 +3,9 @@ import { useState } from 'react';
 import '../styles/enhanced-glass.css';
 import ZenPondScene from '../components/three/ZenPondScene';
 import MagicalSphereNavigation from '../components/home/MagicalSphereNavigation';
-import { MyMirrorPanel, TruthStreamPanel, MirrorGroupsPanel } from '../components/home/EnhancedDashboardPanels';
+import { TruthStreamPanel, MirrorGroupsPanel } from '../components/home/EnhancedDashboardPanels';
+import { MyMirrorPanel } from '../components/home/MyMirrorPanel';
 
-const mockUser = {
-  name: 'Sarah Johnson',
-  avatar: '',
-  memberSince: 'March 2024',
-  bio: 'Growth-focused individual seeking authentic connections and honest feedback. Passionate about personal development and helping others see their potential.',
-  currentGoals: [
-    'Improve communication skills in professional settings',
-    'Build confidence in public speaking',
-    'Develop better listening habits'
-  ]
-};
-
-const mockStats = {
-  reviewsGiven: 24,
-  reviewsReceived: 18,
-  groupsJoined: 3,
-  trustScore: 92,
-  growthStreak: 12
-};
 
 const mockReviews = [
   {
@@ -161,7 +143,7 @@ export default function Dashboard() {
       case 'mymirror':
         return (
           <div className="w-full max-w-lg mx-auto">
-            <MyMirrorPanel user={mockUser} stats={mockStats} />
+            <MyMirrorPanel />
           </div>
         );
       case 'truthstream':
