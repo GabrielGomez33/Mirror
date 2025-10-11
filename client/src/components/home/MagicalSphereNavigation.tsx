@@ -5,6 +5,7 @@ interface NavigationOption {
   id: string;
   label: string;
   className: string;
+  angle: number; // Position angle in degrees
 }
 
 interface MagicalSphereNavigationProps {
@@ -12,11 +13,15 @@ interface MagicalSphereNavigationProps {
   onPanelChange: (panelId: string) => void;
 }
 
+// 4 spheres positioned in a circle: 0°, 90°, 180°, 270°
 const navigationOptions: NavigationOption[] = [
-  { id: 'mymirror', label: 'MyMirror', className: 'mymirror' },
-  { id: 'truthstream', label: 'TruthStream', className: 'truthstream' },
-  { id: 'mirrorgroups', label: 'MirrorGroups', className: 'mirrorgroups' }
+  { id: 'mymirror', label: 'MyMirror', className: 'mymirror', angle: 30 },      // Top
+  { id: 'myjournal', label: 'MyJournal', className: 'myjournal', angle: -30 },  // Right
+  { id: 'truthstream', label: 'TruthStream', className: 'truthstream', angle: 90 }, // Bottom
+  { id: 'mirrorgroups', label: 'MirrorGroups', className: 'mirrorgroups', angle: -90 } // Left
 ];
+
+const ORBIT_RADIUS = 100; // Distance from center (increased for better spacing)
 
 export default function MagicalSphereNavigation({ activePanel, onPanelChange }: MagicalSphereNavigationProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -53,6 +58,19 @@ export default function MagicalSphereNavigation({ activePanel, onPanelChange }: 
     }
   };
 
+  // Calculate sphere position based on angle
+  const getSpherePosition = (angle: number) => {
+    // Convert angle to radians (rotate -90° so 0° is at top)
+    const radians = ((angle - 90) * Math.PI) / 180;
+    const x = Math.cos(radians) * ORBIT_RADIUS;
+    const y = Math.sin(radians) * ORBIT_RADIUS;
+    
+    return {
+      top: `calc(50% + ${y}px)`,
+      left: `calc(50% + ${x}px)`,
+    };
+  };
+
   return (
     <div className="sphere-nav-container">
       {/* Main sphere - no icons, just pure sphere */}
@@ -67,9 +85,11 @@ export default function MagicalSphereNavigation({ activePanel, onPanelChange }: 
         aria-expanded={isExpanded}
       />
 
-      {/* Option spheres - no icons, just pure spheres with labels */}
+      {/* Option spheres - positioned in circle using trigonometry */}
       {navigationOptions.map((option, index) => {
         const isActive = option.id === activePanel;
+        const position = getSpherePosition(option.angle);
+        
         return (
           <div
             key={option.id}
@@ -80,6 +100,8 @@ export default function MagicalSphereNavigation({ activePanel, onPanelChange }: 
             role="button"
             aria-label={`Switch to ${option.label}${isActive ? ' (currently active)' : ''}`}
             style={{
+              top: position.top,
+              left: position.left,
               transitionDelay: isExpanded ? `${index * 0.1}s` : '0s',
               zIndex: isExpanded ? 1001 : 999,
               // Active state styling

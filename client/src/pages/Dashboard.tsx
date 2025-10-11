@@ -5,6 +5,7 @@ import ZenPondScene from '../components/three/ZenPondScene';
 import MagicalSphereNavigation from '../components/home/MagicalSphereNavigation';
 import { TruthStreamPanel, MirrorGroupsPanel } from '../components/home/EnhancedDashboardPanels';
 import { MyMirrorPanel } from '../components/home/MyMirrorPanel';
+import { MyJournalPanel } from '../components/home/MyJournalPanel';
 
 
 const mockReviews = [
@@ -85,27 +86,11 @@ const mockSuggestedGroups = [
     type: 'open' as const,
     lastActivity: '4 hours ago',
     description: 'Overcome speaking anxiety through supportive practice and honest feedback.'
-  },
-  {
-    id: '5',
-    name: 'Leadership Development',
-    memberCount: 10,
-    type: 'private' as const,
-    lastActivity: '6 hours ago',
-    description: 'For emerging leaders looking to develop authentic leadership styles.'
-  },
-  {
-    id: '6',
-    name: 'Mindful Listeners',
-    memberCount: 8,
-    type: 'open' as const,
-    lastActivity: '1 day ago',
-    description: 'Focus on developing deep listening skills and empathetic communication.'
   }
 ];
 
 export default function Dashboard() {
-  const [activePanel, setActivePanel] = useState('truthstream');
+  const [activePanel, setActivePanel] = useState('myjournal'); // Default to journal
   const [reviews, setReviews] = useState(mockReviews);
   const [hasMoreReviews, setHasMoreReviews] = useState(true);
 
@@ -144,6 +129,12 @@ export default function Dashboard() {
         return (
           <div className="w-full max-w-lg mx-auto">
             <MyMirrorPanel />
+          </div>
+        );
+      case 'myjournal':
+        return (
+          <div className="w-full max-w-4xl mx-auto">
+            <MyJournalPanel />
           </div>
         );
       case 'truthstream':
