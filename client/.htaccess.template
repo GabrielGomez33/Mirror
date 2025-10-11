@@ -1,0 +1,15 @@
+# React Router history fallback for the SPA served at /Mirror/
+RewriteEngine On
+RewriteBase /Mirror/
+
+# Let real files/dirs through
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Don’t touch asset files that actually exist under /Mirror/assets/*
+# (The two conditions above already cover real assets; keeping the rule here is harmless.)
+RewriteRule ^assets/ - [L]
+
+# Fallback: anything else -> index.html
+RewriteRule . index.html [L]
