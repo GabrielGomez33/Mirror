@@ -84,6 +84,22 @@ const SubmitStep = () => {
     errors: [],
   });
 
+  // Offline detection
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   // --- Smart-redirect state
   const [showMissingBanner, setShowMissingBanner] = useState(false);
   const [autoRedirectTarget, setAutoRedirectTarget] = useState<'visual' | 'vocal' | null>(null);
@@ -209,18 +225,41 @@ const SubmitStep = () => {
     };
   };
 
-  // Upload one file/blob and return a FileReference object (UNCHANGED flow)
-  const uploadOne = async (fileOrBlob: File | Blob, type: 'photo' | 'voice'): Promise<any> => {
+  // Upload one file/blob with security validation and retry logic
+  const uploadOne = async (fileOrBlob: File | Blob, type: 'photo' | 'voice', retryCount = 0): Promise<any> => {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY_MS = 2000;
+
+    // Security: Validate file/blob before upload
+    if (!fileOrBlob || fileOrBlob.size === 0) {
+      throw new Error(`Invalid ${type} file: file is empty`);
+    }
+
+    if (type === 'photo') {
+      if (fileOrBlob.size > MAX_PHOTO_MB * 1024 * 1024) {
+        throw new Error(`Photo exceeds ${MAX_PHOTO_MB}MB limit`);
+      }
+      if (fileOrBlob instanceof File && !ALLOWED_IMAGE_TYPES.has(fileOrBlob.type)) {
+        throw new Error('Photo must be JPEG, PNG, or WebP format');
+      }
+    } else if (type === 'voice') {
+      if (fileOrBlob.size > MAX_VOICE_MB * 1024 * 1024) {
+        throw new Error(`Voice recording exceeds ${MAX_VOICE_MB}MB limit`);
+      }
+    }
+
     const form = new FormData();
 
     if (type === 'photo' && fileOrBlob instanceof File) {
-      const safeName = fileOrBlob.name.replace(/[^\w.\-]/g, '_').slice(0, 120) || 'photo';
+      // Sanitize filename to prevent path traversal
+      const safeName = fileOrBlob.name.replace(/[^\w.\-]/g, '_').replace(/\.+/g, '.').slice(0, 120) || 'photo.jpg';
       form.append('data', fileOrBlob, safeName);
       form.append('filename', safeName);
       form.append('tier', 'tier1');
     } else {
-      form.append('data', fileOrBlob, 'voice_recording.webm');
-      form.append('filename', 'voice_recording.webm');
+      const safeName = 'voice_recording.webm';
+      form.append('data', fileOrBlob, safeName);
+      form.append('filename', safeName);
       form.append('tier', 'tier2');
     }
 
@@ -231,27 +270,50 @@ const SubmitStep = () => {
     form.append('userId', String(userInfo.userId));
     form.append('mode', 'file');
 
-    const { ok, status, json, text } = await safeFetch(ENDPOINTS.upload, { method: 'POST', body: form });
+    try {
+      const { ok, status, json, text } = await safeFetch(ENDPOINTS.upload, {
+        method: 'POST',
+        body: form
+      }, 60000); // 60s timeout for uploads
 
-    // surface status + body to the debug panel
-    setSubmission((p) => ({ ...p, lastServer: { status, body: json ?? text ?? null } }));
+      // surface status + body to the debug panel
+      setSubmission((p) => ({ ...p, lastServer: { status, body: json ?? text ?? null } }));
 
-    const serverSuccess =
-      !!json && typeof json === 'object' && ('success' in json ? Boolean((json as any).success) : true);
+      const serverSuccess =
+        !!json && typeof json === 'object' && ('success' in json ? Boolean((json as any).success) : true);
 
-    if (!ok || !serverSuccess) {
-      const msg =
-        (json && typeof json === 'object' && ((json as any).message || (json as any).error)) ||
-        `Upload failed with status ${status}`;
-      throw new Error(`${type[0].toUpperCase() + type.slice(1)} upload failed: ${String(msg)}`);
+      if (!ok || !serverSuccess) {
+        const msg =
+          (json && typeof json === 'object' && ((json as any).message || (json as any).error)) ||
+          `Upload failed with status ${status}`;
+        throw new Error(`${type[0].toUpperCase() + type.slice(1)} upload failed: ${String(msg)}`);
+      }
+      if (!json || typeof json !== 'object') {
+        throw new Error(`${type[0].toUpperCase() + type.slice(1)} upload failed: invalid server response`);
+      }
+
+      return type === 'photo'
+        ? toPhotoFileRef(json)
+        : toVoiceFileRef(json, intake.voiceMetadata?.duration);
+    } catch (uploadError: any) {
+      // Retry logic for network errors
+      if (retryCount < MAX_RETRIES && (
+        uploadError.name === 'AbortError' ||
+        uploadError.message?.includes('fetch') ||
+        uploadError.message?.includes('network')
+      )) {
+        console.warn(`Upload attempt ${retryCount + 1} failed, retrying in ${RETRY_DELAY_MS}ms...`);
+        setSubmission((p) => ({
+          ...p,
+          message: `Upload attempt ${retryCount + 1} failed, retrying...`,
+        }));
+
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * (retryCount + 1))); // exponential backoff
+        return uploadOne(fileOrBlob, type, retryCount + 1);
+      }
+
+      throw uploadError;
     }
-    if (!json || typeof json !== 'object') {
-      throw new Error(`${type[0].toUpperCase() + type.slice(1)} upload failed: invalid server response`);
-    }
-
-    return type === 'photo'
-      ? toPhotoFileRef(json)
-      : toVoiceFileRef(json, intake.voiceMetadata?.duration);
   };
 
   const uploadFiles = async (): Promise<{ photoFileRef?: any; voiceFileRef?: any }> => {
@@ -341,9 +403,20 @@ const SubmitStep = () => {
 
   
 
-  // ---------------- Submit handler (UNCHANGED payload send) ----------------
+  // ---------------- Submit handler with offline detection and validation ----------------
   const handleSubmit = async () => {
     try {
+      // Check if online before attempting submission
+      if (!navigator.onLine) {
+        setSubmission({
+          status: 'error',
+          progress: 0,
+          message: 'No internet connection',
+          errors: ['You are currently offline. Please check your internet connection and try again.'],
+        });
+        return;
+      }
+
       // Step 1: Validation
       setSubmission({
         status: 'validating',
@@ -505,6 +578,28 @@ const SubmitStep = () => {
                 <p className="text-white/70 mt-2">Final step — complete required media and submit securely.</p>
               </div>
 
+              {/* Offline warning banner */}
+              <AnimatePresence>
+                {!isOnline && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    className="glass-card-enhanced bg-red-500/10 border-red-400/30 p-4 rounded-xl"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <span className="text-red-400 text-2xl">⚠️</span>
+                      <div>
+                        <h4 className="text-red-100 font-semibold">No Internet Connection</h4>
+                        <p className="text-red-100/80 text-sm">
+                          Please check your connection before submitting. Your data is saved locally.
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Required-missing banner (CTAs right-aligned, not centered) */}
               {showMissingBanner && (
                 <div className="glass-card-enhanced p-4 rounded-xl text-left border border-amber-400/30 bg-amber-500/10">
@@ -617,10 +712,10 @@ const SubmitStep = () => {
                     )}
                     <GlassButton
                       onClick={handleSubmit}
-                      disabled={submission.status === 'error' && submission.errors.length > 3}
-                      className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                      disabled={!isOnline || (submission.status === 'error' && submission.errors.length > 3)}
+                      className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      🚀 Submit My Profile
+                      {!isOnline ? '📵 Offline - Cannot Submit' : '🚀 Submit My Profile'}
                     </GlassButton>
                   </>
                 ) : submission.status === 'success' ? (

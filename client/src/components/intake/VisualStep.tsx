@@ -89,7 +89,7 @@ const VisualStep: React.FC = () => {
     });
   }, []);
 
-  // Camera permission and activation
+  // Camera permission and activation with mobile-friendly fallbacks
   const checkCameraPermission = useCallback(async (): Promise<boolean> => {
     setCameraState(prev => ({ ...prev, permissionStatus: 'checking', error: null }));
 
@@ -104,8 +104,22 @@ const VisualStep: React.FC = () => {
         return false;
       }
 
-      // Try a quick probe
-      const probe = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+      // Try with basic constraints first (mobile-friendly)
+      let probe: MediaStream | null = null;
+      try {
+        // Attempt with ideal constraints (works on most devices)
+        probe = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: 'user'
+          }
+        });
+      } catch (constraintErr) {
+        // Fallback to bare minimum for problematic mobile browsers
+        probe = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
+
       probe.getTracks().forEach(track => track.stop());
 
       setCameraState(prev => ({ ...prev, hasPermission: true, permissionStatus: 'granted' }));
@@ -115,7 +129,7 @@ const VisualStep: React.FC = () => {
       let msg = `Camera error${e?.message ? `: ${e.message}` : ''}`;
 
       if (e?.name === 'NotAllowedError' || e?.name === 'SecurityError') {
-        msg = 'Camera permission denied. Please allow camera access or use file upload.';
+        msg = 'Camera permission denied. Please tap "Allow" when prompted, or use the file upload option.';
         setCameraState(prev => ({
           ...prev,
           hasPermission: false,
@@ -123,7 +137,15 @@ const VisualStep: React.FC = () => {
           error: msg,
         }));
       } else if (e?.name === 'NotFoundError' || e?.name === 'DevicesNotFoundError') {
-        msg = 'No camera device found. Try connecting a camera or upload a photo.';
+        msg = 'No camera device found. Please use the file upload option instead.';
+        setCameraState(prev => ({
+          ...prev,
+          hasPermission: false,
+          permissionStatus: 'error',
+          error: msg,
+        }));
+      } else if (e?.name === 'NotReadableError') {
+        msg = 'Camera is in use by another app. Please close other apps and try again, or use file upload.';
         setCameraState(prev => ({
           ...prev,
           hasPermission: false,
@@ -131,7 +153,7 @@ const VisualStep: React.FC = () => {
           error: msg,
         }));
       } else if (e?.name === 'OverconstrainedError') {
-        msg = 'The camera does not support the requested constraints. Try a different device or upload a photo.';
+        msg = 'Camera constraints not supported. Please use the file upload option.';
         setCameraState(prev => ({
           ...prev,
           hasPermission: false,
@@ -154,21 +176,55 @@ const VisualStep: React.FC = () => {
     if (!(await checkCameraPermission())) return;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480 },
-        audio: false,
-      });
+      let stream: MediaStream | null = null;
 
-      if (videoRef.current) {
+      // Try with ideal constraints first (mobile-friendly)
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: 'user' // Prefer front-facing camera on mobile
+          },
+          audio: false,
+        });
+      } catch (constraintErr) {
+        // Fallback to bare minimum constraints for problematic mobile devices
+        console.warn('Ideal constraints failed, using fallback:', constraintErr);
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+      }
+
+      if (videoRef.current && stream) {
         videoRef.current.srcObject = stream;
+        // Ensure video plays on mobile (iOS sometimes needs explicit play)
+        try {
+          await videoRef.current.play();
+        } catch (playErr) {
+          console.warn('Video autoplay failed (expected on some browsers):', playErr);
+        }
       }
 
       setCameraState(prev => ({ ...prev, stream, isActive: true, error: null }));
       setCaptureState(prev => ({ ...prev, mode: 'camera', captureError: null }));
     } catch (err: any) {
+      const errorName = err?.name || '';
+      let userMessage = `Failed to start camera: ${err?.message ?? 'Unknown error'}`;
+
+      if (errorName === 'NotAllowedError') {
+        userMessage = 'Camera permission denied. Please allow camera access in your browser settings.';
+      } else if (errorName === 'NotFoundError') {
+        userMessage = 'No camera found. Please use the file upload option instead.';
+      } else if (errorName === 'NotReadableError') {
+        userMessage = 'Camera is already in use. Please close other apps using the camera.';
+      }
+
       setCameraState(prev => ({
         ...prev,
-        error: `Failed to start camera: ${err?.message ?? 'Unknown error'}`,
+        error: userMessage,
+        permissionStatus: 'error',
       }));
     }
   }, [checkCameraPermission]);
@@ -231,7 +287,7 @@ const VisualStep: React.FC = () => {
     }
   }, [analyzeImage, isModelLoaded, updateIntake]);
 
-  // File upload handling
+  // File upload handling with timeout and better validation
   const handleFileUpload = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -250,6 +306,15 @@ const VisualStep: React.FC = () => {
         setCaptureState(prev => ({
           ...prev,
           captureError: 'Image too large. Please upload an image smaller than 10MB.',
+        }));
+        return;
+      }
+
+      // Additional security: check for minimum valid file size (1KB)
+      if (file.size < 1024) {
+        setCaptureState(prev => ({
+          ...prev,
+          captureError: 'Image file is too small or corrupted. Please try a different photo.',
         }));
         return;
       }
@@ -276,14 +341,46 @@ const VisualStep: React.FC = () => {
         imgRef.current.onload = null;
         imgRef.current.onerror = null;
 
+        // Set timeout to prevent infinite loading
+        const loadTimeout = setTimeout(() => {
+          setCaptureState(prev => ({
+            ...prev,
+            captureError: 'Image loading timed out. Please try a different photo.',
+          }));
+        }, 10000); // 10 second timeout
+
         imgRef.current.onload = () => {
+          clearTimeout(loadTimeout);
+          // Verify image dimensions are reasonable
+          if (imgRef.current) {
+            const width = imgRef.current.naturalWidth;
+            const height = imgRef.current.naturalHeight;
+
+            if (width < 100 || height < 100) {
+              setCaptureState(prev => ({
+                ...prev,
+                captureError: 'Image resolution too low. Please upload a higher quality photo (minimum 100x100 pixels).',
+              }));
+              return;
+            }
+
+            if (width > 10000 || height > 10000) {
+              setCaptureState(prev => ({
+                ...prev,
+                captureError: 'Image resolution too high. Please upload a smaller image (maximum 10000x10000 pixels).',
+              }));
+              return;
+            }
+          }
+
           setTimeout(() => analyzePhoto(), 500);
         };
 
         imgRef.current.onerror = () => {
+          clearTimeout(loadTimeout);
           setCaptureState(prev => ({
             ...prev,
-            captureError: 'Failed to load image. Please try a different photo.',
+            captureError: 'Failed to load image. The file may be corrupted. Please try a different photo.',
           }));
         };
 

@@ -510,7 +510,7 @@ const VocalStep = () => {
     [deviceInfo, updateIntake, updateAudioVisualization, recordingTime]
   );
 
-  // Start recording with constraints
+  // Start recording with constraints and mobile-friendly fallbacks
   const startRecording = async () => {
     if (startingRef.current || recording || countdown !== null) return;
     try {
@@ -525,64 +525,82 @@ const VocalStep = () => {
         const st = await checkMicrophonePermission();
         setPermissionState(st);
         if (st.status !== 'granted') {
-          setError('Microphone permission required. Please allow access and try again.');
+          setError('Microphone permission required. Please tap "Allow" when prompted and try again.');
           setIsProcessing(false);
           startingRef.current = false;
           return;
         }
       }
 
-      const constraints: MediaStreamConstraints = {
-        audio: {
-          echoCancellation: !deviceInfo.isIOS,
-          noiseSuppression: !deviceInfo.isIOS,
-          autoGainControl: true,
-          sampleRate: deviceInfo.sampleRate,
-          channelCount: deviceInfo.channelCount
-        }
-      };
+      let stream: MediaStream | null = null;
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      await initWithStream(stream);
+      try {
+        // Try with ideal constraints first
+        const constraints: MediaStreamConstraints = {
+          audio: {
+            echoCancellation: !deviceInfo.isIOS,
+            noiseSuppression: !deviceInfo.isIOS,
+            autoGainControl: true,
+            sampleRate: { ideal: deviceInfo.sampleRate },
+            channelCount: deviceInfo.channelCount
+          }
+        };
+
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (constraintErr: any) {
+        console.warn('Ideal constraints failed, trying basic constraints:', constraintErr);
+
+        // Fallback to basic constraints for problematic mobile browsers
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            }
+          });
+        } catch (basicErr) {
+          // Last resort: bare minimum
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+      }
+
+      if (stream) {
+        await initWithStream(stream);
+      } else {
+        throw new Error('Failed to acquire microphone stream');
+      }
     } catch (err: any) {
       console.error('Error starting recording:', err);
       setIsProcessing(false);
 
-      if (err?.name === 'NotAllowedError') {
-        setError('Microphone access denied. Please click "Allow" when prompted.');
+      const errorName = err?.name || '';
+
+      if (errorName === 'NotAllowedError' || errorName === 'SecurityError') {
+        setError('Microphone access denied. Please tap "Allow" when prompted, then try again.');
         setPermissionState({
           status: 'denied',
-          message: 'Please allow microphone access',
+          message: 'Please allow microphone access in your browser settings',
           canRetry: true,
           retryMethod: 'getUserMedia'
         });
-      } else if (err?.name === 'NotFoundError') {
-        setError('No microphone found. Please connect a microphone and try again.');
-      } else if (err?.name === 'NotReadableError') {
-        setError('Microphone is being used by another application. Close other apps and try again.');
-      } else if (err?.name === 'OverconstrainedError') {
-        setError('Requested audio settings not supported. Retrying with basic settings…');
-        setTimeout(() => retryWithBasicConstraints(), 300);
+      } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
+        setError('No microphone found. Please connect a microphone or check your device settings.');
+      } else if (errorName === 'NotReadableError') {
+        setError('Microphone is in use by another app. Please close other apps using the microphone and try again.');
+      } else if (errorName === 'OverconstrainedError') {
+        setError('Audio settings not supported on this device. Please try a different browser or device.');
+      } else if (errorName === 'AbortError') {
+        setError('Microphone access was interrupted. Please try again.');
       } else {
-        setError(`Recording failed: ${err?.message || 'Unknown error'}`);
+        setError(`Recording failed: ${err?.message || 'Unknown error'}. Please try again or use a different browser.`);
       }
     } finally {
       startingRef.current = false;
     }
   };
 
-  // Retry with basic constraints if initial attempt fails
-  const retryWithBasicConstraints = async () => {
-    try {
-      setIsProcessing(true);
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      await initWithStream(stream);
-    } catch {
-      setError('Unable to access microphone with any settings. Please check your device.');
-    } finally {
-      // initWithStream flips isProcessing off when recording starts
-    }
-  };
+  // Removed retryWithBasicConstraints - now integrated into startRecording with automatic fallback
 
   // Stop recording
   const stopRecording = () => {
