@@ -508,7 +508,7 @@ function JournalEntryCard({ entry }: { entry: JournalEntry }) {
   const emotionColor = getEmotionColor(entry.primaryEmotion);
 
   const handleCardClick = () => {
-    setExpanded(!expanded);
+    setExpanded(prev => !prev);  // ✅ FIX: Use functional update to avoid stale closure
   };
 
   return (

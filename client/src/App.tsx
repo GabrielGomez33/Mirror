@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { IntakeProvider } from './context/IntakeContext';
+import { GroupProvider } from './context/GroupContext';
 import IntakeErrorBoundary from './components/intake/IntakeErrorBoundary';
 import { ProtectedRoute, ConditionalRender } from './components/auth/RouteProtection';
 import { AccessLevel, SecurityLevel } from './context/AuthContext';
@@ -18,6 +19,7 @@ import RegistrationStep from './components/intake/RegistrationStep';
 import Landing from './pages/Landing';
 import TestPage from './pages/TestPage';
 import GlobalDashboard from './components/dashboard/GlobalDashboard';
+import MirrorGroupsPage from './pages/MirrorGroupsPage';
 
 // -----------------------------------------------------------------------------
 // Config: prefer same-origin; honor VITE_API_URL if explicitly set
@@ -99,7 +101,8 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <IntakeProvider>
-        <div className="App min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+        <GroupProvider>
+          <div className="App min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
           {/* Conditionally render Global Dashboard only for authenticated users */}
           <ConditionalRender condition="authenticated">
             <GlobalDashboard />
@@ -201,6 +204,20 @@ const App: React.FC = () => {
               }
             />
 
+            {/* MirrorGroups - Requires Authentication */}
+            <Route
+              path="/groups"
+              element={
+                <ProtectedRoute
+                  accessLevel={AccessLevel.AUTHENTICATED}
+                  securityLevel={SecurityLevel.BASIC}
+                  redirectTo="/login"
+                >
+                  <MirrorGroupsPage />
+                </ProtectedRoute>
+              }
+            />
+
             {/* Catch-all route */}
             <Route
               path="*"
@@ -220,7 +237,8 @@ const App: React.FC = () => {
               }
             />
           </Routes>
-        </div>
+          </div>
+        </GroupProvider>
       </IntakeProvider>
     </AuthProvider>
   );

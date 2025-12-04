@@ -1,0 +1,348 @@
+// src/components/mirrorgroups/GroupInsightsPanel.tsx
+// AI-powered group insights display
+
+import type { GroupInsights, CompatibilityScore, CollectivePattern, ConflictRisk } from '../../types/groups';
+
+interface GroupInsightsPanelProps {
+  groupId: string;
+  insights: GroupInsights | null;
+  isLoading: boolean;
+  onRefresh: () => void;
+}
+
+export default function GroupInsightsPanel({
+  insights,
+  isLoading,
+  onRefresh,
+}: GroupInsightsPanelProps) {
+  if (isLoading) {
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin text-4xl mb-4">🧠</div>
+        <p className="enhanced-glass-body" style={{ color: '#7e4151' }}>
+          Generating AI insights...
+        </p>
+        <p className="enhanced-glass-subtle text-sm mt-2" style={{ color: '#6a1f33' }}>
+          This may take a moment as we analyze group dynamics
+        </p>
+      </div>
+    );
+  }
+
+  if (!insights || insights.analysisStatus === 'none') {
+    return (
+      <div className="text-center py-8">
+        <span className="text-5xl mb-4 block">🔮</span>
+        <p className="enhanced-glass-body mb-4" style={{ color: '#7e4151' }}>
+          No insights available yet
+        </p>
+        <p className="enhanced-glass-subtle text-sm mb-6" style={{ color: '#6a1f33' }}>
+          Run an analysis to discover group dynamics, compatibility, and collective patterns
+        </p>
+        <button onClick={onRefresh} className="enhanced-action-button px-6 py-2">
+          <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
+            Generate Insights
+          </span>
+        </button>
+      </div>
+    );
+  }
+
+  const { llmSynthesis, compatibility, patterns, conflicts } = insights;
+
+  return (
+    <div className="space-y-6">
+      {/* LLM Synthesis Section */}
+      {llmSynthesis && (
+        <div className="enhanced-glass-card border-l-4 border-purple-400">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="enhanced-glass-heading text-lg" style={{ color: '#784552' }}>
+              {llmSynthesis.title || 'Group Intelligence Summary'}
+            </h3>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-white/50">Quality Score</span>
+              <span
+                className={`px-2 py-1 rounded text-xs font-medium ${
+                  llmSynthesis.qualityScore >= 0.8
+                    ? 'bg-green-500/20 text-green-300'
+                    : llmSynthesis.qualityScore >= 0.6
+                      ? 'bg-yellow-500/20 text-yellow-300'
+                      : 'bg-red-500/20 text-red-300'
+                }`}
+              >
+                {Math.round(llmSynthesis.qualityScore * 100)}%
+              </span>
+            </div>
+          </div>
+
+          <p className="enhanced-glass-body mb-4" style={{ color: '#7e4151' }}>
+            {llmSynthesis.overview}
+          </p>
+
+          {/* Key Insights */}
+          {llmSynthesis.keyInsights.length > 0 && (
+            <div className="mb-4">
+              <h4 className="enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
+                Key Insights
+              </h4>
+              <ul className="space-y-2">
+                {llmSynthesis.keyInsights.map((insight, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-pink-400 mt-1">✦</span>
+                    <span className="enhanced-glass-subtle text-sm" style={{ color: '#7e4151' }}>
+                      {insight}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Recommendations */}
+          {llmSynthesis.recommendations.length > 0 && (
+            <div className="bg-white/5 rounded-lg p-4">
+              <h4 className="enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
+                Recommendations
+              </h4>
+              <ul className="space-y-2">
+                {llmSynthesis.recommendations.map((rec, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-green-400 mt-1">→</span>
+                    <span className="enhanced-glass-subtle text-sm" style={{ color: '#7e4151' }}>
+                      {rec}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Narrative */}
+          {llmSynthesis.narrative && (
+            <div className="grid grid-cols-3 gap-4 mt-4">
+              {llmSynthesis.narrative.strengths && (
+                <div className="bg-green-500/10 rounded-lg p-3">
+                  <h5 className="text-green-300 text-xs font-medium mb-1">Strengths</h5>
+                  <p className="enhanced-glass-subtle text-xs" style={{ color: '#7e4151' }}>
+                    {llmSynthesis.narrative.strengths}
+                  </p>
+                </div>
+              )}
+              {llmSynthesis.narrative.challenges && (
+                <div className="bg-amber-500/10 rounded-lg p-3">
+                  <h5 className="text-amber-300 text-xs font-medium mb-1">Challenges</h5>
+                  <p className="enhanced-glass-subtle text-xs" style={{ color: '#7e4151' }}>
+                    {llmSynthesis.narrative.challenges}
+                  </p>
+                </div>
+              )}
+              {llmSynthesis.narrative.opportunities && (
+                <div className="bg-blue-500/10 rounded-lg p-3">
+                  <h5 className="text-blue-300 text-xs font-medium mb-1">Opportunities</h5>
+                  <p className="enhanced-glass-subtle text-xs" style={{ color: '#7e4151' }}>
+                    {llmSynthesis.narrative.opportunities}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Compatibility Matrix */}
+      {compatibility && compatibility.scores.length > 0 && (
+        <div className="enhanced-glass-card">
+          <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#784552' }}>
+            Compatibility Matrix
+          </h3>
+
+          <div className="grid grid-cols-4 gap-4 mb-4">
+            <div className="bg-white/5 rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-pink-400">
+                {Math.round(compatibility.statistics.averageScore * 100)}%
+              </div>
+              <div className="text-xs text-white/50">Average</div>
+            </div>
+            <div className="bg-white/5 rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-green-400">
+                {Math.round(compatibility.statistics.highestScore * 100)}%
+              </div>
+              <div className="text-xs text-white/50">Highest</div>
+            </div>
+            <div className="bg-white/5 rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-amber-400">
+                {Math.round(compatibility.statistics.lowestScore * 100)}%
+              </div>
+              <div className="text-xs text-white/50">Lowest</div>
+            </div>
+            <div className="bg-white/5 rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-purple-400">
+                {compatibility.statistics.totalPairs}
+              </div>
+              <div className="text-xs text-white/50">Pairs</div>
+            </div>
+          </div>
+
+          {/* Top Pairs */}
+          <div className="space-y-2">
+            <h4 className="enhanced-glass-text text-sm" style={{ color: '#6a1f33' }}>
+              Top Compatible Pairs
+            </h4>
+            {compatibility.scores
+              .sort((a, b) => b.overallScore - a.overallScore)
+              .slice(0, 5)
+              .map((pair, i) => (
+                <CompatibilityPair key={i} pair={pair} rank={i + 1} />
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Collective Patterns */}
+      {patterns.length > 0 && (
+        <div className="enhanced-glass-card">
+          <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#784552' }}>
+            Collective Patterns
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            {patterns.map((pattern, i) => (
+              <PatternCard key={i} pattern={pattern} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Conflict Risks */}
+      {conflicts.length > 0 && (
+        <div className="enhanced-glass-card">
+          <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#784552' }}>
+            Potential Friction Points
+          </h3>
+          <div className="space-y-3">
+            {conflicts
+              .sort((a, b) => {
+                const order = { critical: 0, high: 1, medium: 2, low: 3 };
+                return order[a.severity] - order[b.severity];
+              })
+              .map((conflict, i) => (
+                <ConflictCard key={i} conflict={conflict} />
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Refresh Button */}
+      <div className="text-center">
+        <button onClick={onRefresh} className="enhanced-action-button px-6 py-2">
+          <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
+            Refresh Analysis
+          </span>
+        </button>
+        <p className="enhanced-glass-subtle text-xs mt-2" style={{ color: '#6a1f33' }}>
+          Last analyzed: {insights.lastAnalyzed ? new Date(insights.lastAnalyzed).toLocaleString() : 'Never'}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// SUB-COMPONENTS
+// ============================================================================
+
+function CompatibilityPair({ pair, rank }: { pair: CompatibilityScore; rank: number }) {
+  const getScoreColor = (score: number) => {
+    if (score >= 0.8) return 'text-green-400';
+    if (score >= 0.6) return 'text-yellow-400';
+    if (score >= 0.4) return 'text-orange-400';
+    return 'text-red-400';
+  };
+
+  return (
+    <div className="flex items-center gap-3 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+      <span className="w-6 h-6 rounded-full bg-gradient-to-r from-pink-400/30 to-purple-400/30 flex items-center justify-center text-xs text-white/70">
+        {rank}
+      </span>
+      <div className="flex-1">
+        <div className="flex items-center gap-2">
+          <span className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+            {pair.username1}
+          </span>
+          <span className="text-white/30">↔</span>
+          <span className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+            {pair.username2}
+          </span>
+        </div>
+      </div>
+      <span className={`font-bold ${getScoreColor(pair.overallScore)}`}>
+        {Math.round(pair.overallScore * 100)}%
+      </span>
+    </div>
+  );
+}
+
+function PatternCard({ pattern }: { pattern: CollectivePattern }) {
+  const typeConfig = {
+    strength: { icon: '💪', bg: 'bg-green-500/10', border: 'border-green-500/30' },
+    weakness: { icon: '⚠️', bg: 'bg-amber-500/10', border: 'border-amber-500/30' },
+    opportunity: { icon: '🌟', bg: 'bg-blue-500/10', border: 'border-blue-500/30' },
+    threat: { icon: '⚡', bg: 'bg-red-500/10', border: 'border-red-500/30' },
+  };
+
+  const config = typeConfig[pattern.patternType];
+
+  return (
+    <div className={`p-3 rounded-lg ${config.bg} border ${config.border}`}>
+      <div className="flex items-center gap-2 mb-2">
+        <span>{config.icon}</span>
+        <span className="enhanced-glass-text text-sm capitalize" style={{ color: '#784552' }}>
+          {pattern.category}
+        </span>
+      </div>
+      <p className="enhanced-glass-subtle text-xs mb-2" style={{ color: '#7e4151' }}>
+        {pattern.description}
+      </p>
+      <div className="flex items-center justify-between text-xs text-white/50">
+        <span>{Math.round(pattern.prevalence * 100)}% of members</span>
+        <span>{Math.round(pattern.confidence * 100)}% confidence</span>
+      </div>
+    </div>
+  );
+}
+
+function ConflictCard({ conflict }: { conflict: ConflictRisk }) {
+  const severityConfig = {
+    critical: { color: 'bg-red-500/20 border-red-500/50', text: 'text-red-300' },
+    high: { color: 'bg-orange-500/20 border-orange-500/50', text: 'text-orange-300' },
+    medium: { color: 'bg-yellow-500/20 border-yellow-500/50', text: 'text-yellow-300' },
+    low: { color: 'bg-blue-500/20 border-blue-500/50', text: 'text-blue-300' },
+  };
+
+  const config = severityConfig[conflict.severity];
+
+  return (
+    <div className={`p-3 rounded-lg border ${config.color}`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+            {conflict.username1} ↔ {conflict.username2}
+          </span>
+        </div>
+        <span className={`text-xs font-medium px-2 py-1 rounded ${config.text} bg-white/10`}>
+          {conflict.severity.toUpperCase()}
+        </span>
+      </div>
+      <p className="enhanced-glass-subtle text-sm mb-2" style={{ color: '#7e4151' }}>
+        {conflict.description}
+      </p>
+      {conflict.mitigationStrategies.length > 0 && (
+        <div className="bg-white/5 rounded p-2 mt-2">
+          <p className="text-xs text-green-300 mb-1">Suggested:</p>
+          <p className="enhanced-glass-subtle text-xs" style={{ color: '#7e4151' }}>
+            {conflict.mitigationStrategies[0]}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}

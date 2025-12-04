@@ -1,0 +1,446 @@
+// src/components/mirrorgroups/GroupDetailView.tsx
+// Detailed view of a single MirrorGroup with tabs for different sections
+
+import { useState, useEffect, useCallback } from 'react';
+import { useGroups } from '../../context/GroupContext';
+import GroupInsightsPanel from './GroupInsightsPanel';
+import VotingSystem from './VotingSystem';
+import GroupMembersList from './GroupMembersList';
+import DataSharingPanel from './DataSharingPanel';
+import type { Group, GroupMember } from '../../types/groups';
+
+interface GroupDetailViewProps {
+  groupId: string;
+  onBack: () => void;
+}
+
+type TabType = 'overview' | 'members' | 'insights' | 'voting' | 'sharing';
+
+const TABS: Array<{ id: TabType; label: string; icon: string }> = [
+  { id: 'overview', label: 'Overview', icon: '📋' },
+  { id: 'members', label: 'Members', icon: '👥' },
+  { id: 'insights', label: 'AI Insights', icon: '🧠' },
+  { id: 'voting', label: 'Voting', icon: '🗳️' },
+  { id: 'sharing', label: 'Data Sharing', icon: '🔐' },
+];
+
+export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProps) {
+  const {
+    currentGroup,
+    currentMembers,
+    currentInsights,
+    activeVotes,
+    isLoading,
+    isLoadingInsights,
+    fetchGroupDetails,
+    fetchInsights,
+    fetchActiveVotes,
+    leaveGroup,
+    triggerAnalysis,
+  } = useGroups();
+
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+
+  // Fetch group data on mount
+  useEffect(() => {
+    fetchGroupDetails(groupId);
+    fetchInsights(groupId);
+    fetchActiveVotes(groupId);
+  }, [groupId, fetchGroupDetails, fetchInsights, fetchActiveVotes]);
+
+  const handleLeaveGroup = useCallback(async () => {
+    const success = await leaveGroup(groupId);
+    if (success) {
+      onBack();
+    }
+  }, [leaveGroup, groupId, onBack]);
+
+  const handleTriggerAnalysis = useCallback(async () => {
+    await triggerAnalysis(groupId);
+  }, [triggerAnalysis, groupId]);
+
+  const getGroupTypeIcon = (type: Group['type']) => {
+    const icons: Record<string, string> = {
+      family: '👨‍👩‍👧‍👦',
+      friends: '🤝',
+      professional: '💼',
+      therapy: '💚',
+      anonymous: '🎭',
+      open: '🌐',
+      private: '🔒',
+    };
+    return icons[type] || '👥';
+  };
+
+  const getPrivacyBadge = (privacy: Group['privacy']) => {
+    const badges: Record<string, { label: string; color: string }> = {
+      public: { label: 'Public', color: 'from-green-400/20 to-emerald-400/20' },
+      private: { label: 'Private', color: 'from-amber-400/20 to-yellow-400/20' },
+      secret: { label: 'Secret', color: 'from-red-400/20 to-pink-400/20' },
+    };
+    return badges[privacy] || badges.private;
+  };
+
+  if (isLoading && !currentGroup) {
+    return (
+      <div className="enhanced-glass-panel p-8 text-center">
+        <div className="animate-spin text-4xl mb-4">⏳</div>
+        <p className="enhanced-glass-text" style={{ color: '#7e4151' }}>
+          Loading group details...
+        </p>
+      </div>
+    );
+  }
+
+  if (!currentGroup) {
+    return (
+      <div className="enhanced-glass-panel p-8 text-center">
+        <p className="enhanced-glass-text" style={{ color: '#7e4151' }}>
+          Group not found
+        </p>
+        <button
+          onClick={onBack}
+          className="enhanced-action-button mt-4 px-6 py-2"
+        >
+          <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
+            Go Back
+          </span>
+        </button>
+      </div>
+    );
+  }
+
+  const privacyBadge = getPrivacyBadge(currentGroup.privacy);
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="enhanced-glass-panel">
+        <div className="flex items-start justify-between mb-6">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-white/70 hover:text-white transition-colors"
+          >
+            <span>←</span>
+            <span className="enhanced-glass-subtle text-sm">Back to Groups</span>
+          </button>
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowLeaveConfirm(true)}
+              className="px-4 py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-300 text-sm hover:bg-red-500/30 transition-colors"
+            >
+              Leave Group
+            </button>
+          </div>
+        </div>
+
+        {/* Group Info */}
+        <div className="flex items-start gap-6">
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-400/30 to-pink-400/30 backdrop-blur-sm flex items-center justify-center text-4xl">
+            {getGroupTypeIcon(currentGroup.type)}
+          </div>
+
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="enhanced-glass-heading text-2xl" style={{ color: '#784552' }}>
+                {currentGroup.name}
+              </h1>
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${privacyBadge.color} backdrop-blur-sm`}
+              >
+                <span className="text-white/90">{privacyBadge.label}</span>
+              </span>
+            </div>
+
+            <p className="enhanced-glass-body mb-4" style={{ color: '#7e4151' }}>
+              {currentGroup.description || 'No description provided'}
+            </p>
+
+            <div className="flex items-center gap-6 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-white/50">👥</span>
+                <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
+                  {currentGroup.memberCount} / {currentGroup.maxMembers} members
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-white/50">🕐</span>
+                <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
+                  Active {formatRelativeTime(currentGroup.lastActivity)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Row */}
+        <div className="grid grid-cols-4 gap-4 mt-6">
+          <div className="enhanced-stat-container">
+            <div className="enhanced-stat-number text-2xl">{currentMembers.length}</div>
+            <div className="enhanced-stat-label text-xs">Members</div>
+          </div>
+          <div className="enhanced-stat-container">
+            <div className="enhanced-stat-number text-2xl">
+              {currentMembers.filter((m) => m.hasSharedData).length}
+            </div>
+            <div className="enhanced-stat-label text-xs">Sharing</div>
+          </div>
+          <div className="enhanced-stat-container">
+            <div className="enhanced-stat-number text-2xl">{activeVotes.length}</div>
+            <div className="enhanced-stat-label text-xs">Active Votes</div>
+          </div>
+          <div className="enhanced-stat-container">
+            <div className="enhanced-stat-number text-2xl">
+              {currentInsights?.llmSynthesis?.qualityScore
+                ? Math.round(currentInsights.llmSynthesis.qualityScore * 100)
+                : '--'}
+              %
+            </div>
+            <div className="enhanced-stat-label text-xs">Insight Score</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all ${
+              activeTab === tab.id
+                ? 'bg-gradient-to-r from-pink-400/30 to-purple-400/30 border border-pink-400/30'
+                : 'bg-white/5 border border-white/10 hover:bg-white/10'
+            }`}
+          >
+            <span>{tab.icon}</span>
+            <span
+              className="enhanced-glass-text text-sm"
+              style={{ color: activeTab === tab.id ? '#784552' : '#7e4151' }}
+            >
+              {tab.label}
+            </span>
+            {tab.id === 'voting' && activeVotes.length > 0 && (
+              <span className="w-5 h-5 rounded-full bg-pink-500 text-white text-xs flex items-center justify-center">
+                {activeVotes.length}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      <div className="enhanced-glass-panel">
+        {activeTab === 'overview' && (
+          <OverviewTab
+            group={currentGroup}
+            members={currentMembers}
+            insights={currentInsights}
+            onAnalyze={handleTriggerAnalysis}
+            isAnalyzing={isLoadingInsights}
+          />
+        )}
+
+        {activeTab === 'members' && (
+          <GroupMembersList groupId={groupId} members={currentMembers} />
+        )}
+
+        {activeTab === 'insights' && (
+          <GroupInsightsPanel
+            groupId={groupId}
+            insights={currentInsights}
+            isLoading={isLoadingInsights}
+            onRefresh={handleTriggerAnalysis}
+          />
+        )}
+
+        {activeTab === 'voting' && <VotingSystem groupId={groupId} votes={activeVotes} />}
+
+        {activeTab === 'sharing' && <DataSharingPanel groupId={groupId} />}
+      </div>
+
+      {/* Leave Confirmation Modal */}
+      {showLeaveConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowLeaveConfirm(false)}
+          />
+          <div className="relative enhanced-glass-panel p-6 max-w-md">
+            <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#784552' }}>
+              Leave Group?
+            </h3>
+            <p className="enhanced-glass-body mb-6" style={{ color: '#7e4151' }}>
+              Are you sure you want to leave "{currentGroup.name}"? Your shared data will be removed
+              and you'll need to be invited again to rejoin.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowLeaveConfirm(false)}
+                className="px-4 py-2 rounded-lg bg-white/10 text-white/80 hover:bg-white/20 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLeaveGroup}
+                className="px-4 py-2 rounded-lg bg-red-500/30 text-red-300 hover:bg-red-500/40 transition-colors"
+              >
+                Leave Group
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// OVERVIEW TAB COMPONENT
+// ============================================================================
+
+interface OverviewTabProps {
+  group: Group;
+  members: GroupMember[];
+  insights: import('../../types/groups').GroupInsights | null;
+  onAnalyze: () => void;
+  isAnalyzing: boolean;
+}
+
+function OverviewTab({ group, members, insights, onAnalyze, isAnalyzing }: OverviewTabProps) {
+  return (
+    <div className="space-y-6">
+      {/* Quick Summary */}
+      {insights?.llmSynthesis && (
+        <div className="enhanced-glass-card">
+          <h3 className="enhanced-glass-heading text-lg mb-3" style={{ color: '#784552' }}>
+            Group Insights Summary
+          </h3>
+          <p className="enhanced-glass-body mb-4" style={{ color: '#7e4151' }}>
+            {insights.llmSynthesis.overview}
+          </p>
+          {insights.llmSynthesis.keyInsights.length > 0 && (
+            <div className="space-y-2">
+              {insights.llmSynthesis.keyInsights.slice(0, 3).map((insight, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <span className="text-pink-400">•</span>
+                  <span className="enhanced-glass-subtle text-sm" style={{ color: '#7e4151' }}>
+                    {insight}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Analysis Status */}
+      {!insights?.llmSynthesis && (
+        <div className="enhanced-glass-card text-center">
+          <span className="text-4xl mb-4 block">🧪</span>
+          <p className="enhanced-glass-body mb-4" style={{ color: '#7e4151' }}>
+            {members.filter((m) => m.hasSharedData).length < 2
+              ? 'Need at least 2 members sharing data to generate insights'
+              : 'No analysis has been run yet'}
+          </p>
+          <button
+            onClick={onAnalyze}
+            disabled={isAnalyzing || members.filter((m) => m.hasSharedData).length < 2}
+            className="enhanced-action-button px-6 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
+              {isAnalyzing ? 'Analyzing...' : 'Run Analysis'}
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* Recent Activity */}
+      <div className="enhanced-glass-card">
+        <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#784552' }}>
+          Members
+        </h3>
+        <div className="flex flex-wrap gap-2">
+          {members.slice(0, 8).map((member) => (
+            <div
+              key={member.id}
+              className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/10"
+            >
+              <span>{member.avatar || '👤'}</span>
+              <span className="enhanced-glass-subtle text-sm" style={{ color: '#7e4151' }}>
+                {member.displayName || member.username}
+              </span>
+              {member.role === 'creator' && <span className="text-yellow-400 text-xs">👑</span>}
+              {member.hasSharedData && <span className="text-green-400 text-xs">✓</span>}
+            </div>
+          ))}
+          {members.length > 8 && (
+            <span className="px-3 py-1 text-white/50 text-sm">+{members.length - 8} more</span>
+          )}
+        </div>
+      </div>
+
+      {/* Group Settings Info */}
+      <div className="enhanced-glass-card">
+        <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#784552' }}>
+          Group Settings
+        </h3>
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
+              Type:
+            </span>
+            <span className="enhanced-glass-body ml-2 capitalize" style={{ color: '#7e4151' }}>
+              {group.type}
+            </span>
+          </div>
+          <div>
+            <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
+              Privacy:
+            </span>
+            <span className="enhanced-glass-body ml-2 capitalize" style={{ color: '#7e4151' }}>
+              {group.privacy}
+            </span>
+          </div>
+          <div>
+            <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
+              Created:
+            </span>
+            <span className="enhanced-glass-body ml-2" style={{ color: '#7e4151' }}>
+              {new Date(group.createdAt).toLocaleDateString()}
+            </span>
+          </div>
+          <div>
+            <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
+              Max Members:
+            </span>
+            <span className="enhanced-glass-body ml-2" style={{ color: '#7e4151' }}>
+              {group.maxMembers}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}

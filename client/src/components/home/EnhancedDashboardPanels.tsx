@@ -257,9 +257,11 @@ interface MirrorGroupsPanelProps {
   suggestedGroups: Group[];
   onJoinGroup: (groupId: string) => void;
   onLeaveGroup: (groupId: string) => void;
+  onCreateGroup?: () => void;
+  onViewAllGroups?: () => void;
 }
 
-export function MirrorGroupsPanel({ joinedGroups, suggestedGroups, onJoinGroup, onLeaveGroup }: MirrorGroupsPanelProps) {
+export function MirrorGroupsPanel({ joinedGroups, suggestedGroups, onJoinGroup, onLeaveGroup, onCreateGroup, onViewAllGroups }: MirrorGroupsPanelProps) {
   const getGroupIcon = (type: Group['type']) => {
     switch (type) {
       case 'open': return '🌐';
@@ -357,14 +359,20 @@ export function MirrorGroupsPanel({ joinedGroups, suggestedGroups, onJoinGroup, 
       </div>
 
       <div className="space-y-3">
-        <button className="w-full enhanced-action-button py-3">
+        <button
+          onClick={onCreateGroup}
+          className="w-full enhanced-action-button py-3"
+        >
           <span className="enhanced-glass-text font-medium" style={{ color: '#6a1f33', textShadow: '0px 1px 3px #7e4151' }}>
             Create New Group
           </span>
         </button>
-        <button className="w-full enhanced-action-button py-3">
+        <button
+          onClick={onViewAllGroups}
+          className="w-full enhanced-action-button py-3"
+        >
           <span className="enhanced-glass-text font-medium" style={{ color: '#6a1f33', textShadow: '0px 1px 3px #7e4151' }}>
-            Join Anonymous Session
+            View All Groups
           </span>
         </button>
       </div>

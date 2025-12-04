@@ -1,12 +1,14 @@
 // src/pages/Dashboard.tsx
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../styles/enhanced-glass.css';
 import ZenPondScene from '../components/three/ZenPondScene';
 import MagicalSphereNavigation from '../components/home/MagicalSphereNavigation';
 import { TruthStreamPanel, MirrorGroupsPanel } from '../components/home/EnhancedDashboardPanels';
 import { MyMirrorPanel } from '../components/home/MyMirrorPanel';
 import { MyJournalPanel } from '../components/home/MyJournalPanel';
-
+import { useGroups } from '../context/GroupContext';
+import CreateGroupModal from '../components/mirrorgroups/CreateGroupModal';
 
 const mockReviews = [
   {
@@ -51,48 +53,48 @@ const mockReviews = [
   }
 ];
 
-const mockJoinedGroups = [
-  {
-    id: '1',
-    name: 'Career Growth Circle',
-    memberCount: 8,
-    type: 'private' as const,
-    lastActivity: '3 hours ago',
-    description: 'Professional development focused group for mid-career individuals seeking advancement.'
-  },
-  {
-    id: '2',
-    name: 'Communication Masters',
-    memberCount: 12,
-    type: 'open' as const,
-    lastActivity: '1 day ago',
-    description: 'Improving interpersonal and presentation skills through practice and feedback.'
-  },
-  {
-    id: '3',
-    name: 'Weekly Reflection',
-    memberCount: 6,
-    type: 'anonymous' as const,
-    lastActivity: '2 days ago',
-    description: 'Anonymous sharing and reflection on personal challenges and growth.'
-  }
-];
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
 
-const mockSuggestedGroups = [
-  {
-    id: '4',
-    name: 'Public Speaking Confidence',
-    memberCount: 15,
-    type: 'open' as const,
-    lastActivity: '4 hours ago',
-    description: 'Overcome speaking anxiety through supportive practice and honest feedback.'
-  }
-];
+function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [activePanel, setActivePanel] = useState('myjournal'); // Default to journal
   const [reviews, setReviews] = useState(mockReviews);
   const [hasMoreReviews, setHasMoreReviews] = useState(true);
+
+  // MirrorGroups state from context
+  const {
+    myGroups,
+    suggestedGroups,
+    showCreateModal,
+    setShowCreateModal,
+    joinGroup,
+    leaveGroup,
+    fetchMyGroups,
+    fetchSuggestedGroups,
+  } = useGroups();
+
+  // Fetch groups on mount
+  useEffect(() => {
+    fetchMyGroups();
+    fetchSuggestedGroups();
+  }, [fetchMyGroups, fetchSuggestedGroups]);
 
   const handleLoadMore = () => {
     setTimeout(() => {
@@ -115,13 +117,41 @@ export default function Dashboard() {
     }, 1000);
   };
 
-  const handleJoinGroup = (groupId: string) => {
-    console.log('Joining group:', groupId);
-  };
+  const handleJoinGroup = useCallback(async (groupId: string) => {
+    await joinGroup(groupId);
+  }, [joinGroup]);
 
-  const handleLeaveGroup = (groupId: string) => {
-    console.log('Leaving group:', groupId);
-  };
+  const handleLeaveGroup = useCallback(async (groupId: string) => {
+    await leaveGroup(groupId);
+  }, [leaveGroup]);
+
+  const handleCreateGroup = useCallback(() => {
+    setShowCreateModal(true);
+  }, [setShowCreateModal]);
+
+  const handleGroupCreated = useCallback((_groupId: string) => {
+    // Navigate to the full MirrorGroups page to view the new group
+    navigate('/groups');
+  }, [navigate]);
+
+  // Transform groups data for the panel component
+  const transformedMyGroups = myGroups.map(group => ({
+    id: group.id,
+    name: group.name,
+    memberCount: group.memberCount,
+    type: group.privacy === 'public' ? 'open' as const : group.type === 'anonymous' ? 'anonymous' as const : 'private' as const,
+    lastActivity: formatRelativeTime(group.lastActivity),
+    description: group.description,
+  }));
+
+  const transformedSuggestedGroups = suggestedGroups.map(group => ({
+    id: group.id,
+    name: group.name,
+    memberCount: group.memberCount,
+    type: group.privacy === 'public' ? 'open' as const : group.type === 'anonymous' ? 'anonymous' as const : 'private' as const,
+    lastActivity: formatRelativeTime(group.lastActivity),
+    description: group.description,
+  }));
 
   const renderActivePanel = () => {
     switch (activePanel) {
@@ -147,10 +177,12 @@ export default function Dashboard() {
         return (
           <div className="w-full max-w-lg mx-auto">
             <MirrorGroupsPanel
-              joinedGroups={mockJoinedGroups}
-              suggestedGroups={mockSuggestedGroups}
+              joinedGroups={transformedMyGroups}
+              suggestedGroups={transformedSuggestedGroups}
               onJoinGroup={handleJoinGroup}
               onLeaveGroup={handleLeaveGroup}
+              onCreateGroup={handleCreateGroup}
+              onViewAllGroups={() => navigate('/groups')}
             />
           </div>
         );
@@ -193,6 +225,14 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Create Group Modal */}
+      {showCreateModal && (
+        <CreateGroupModal
+          onClose={() => setShowCreateModal(false)}
+          onGroupCreated={handleGroupCreated}
+        />
       )}
     </div>
   );

@@ -166,7 +166,7 @@ const VocalStep = () => {
     };
   }, []);
 
-  // Comprehensive permission checking
+  // Comprehensive permission checking - optimized for mobile
   const checkMicrophonePermission = useCallback(async (): Promise<PermissionState> => {
     setPermissionState({
       status: 'checking',
@@ -174,9 +174,13 @@ const VocalStep = () => {
       canRetry: false
     });
 
+    const isMobileBrowser = deviceInfo?.isMobile || /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
+
     try {
-      // Method 1: Permissions API
-      if ('permissions' in navigator && (navigator as any).permissions?.query) {
+      // Method 1: Permissions API (but skip on iOS Safari where it's unreliable)
+      const isIOSSafari = deviceInfo?.isIOS && deviceInfo?.isSafari;
+
+      if (!isIOSSafari && 'permissions' in navigator && (navigator as any).permissions?.query) {
         try {
           const permissionStatus = await (navigator as any).permissions.query({
             name: 'microphone' as PermissionName
@@ -187,64 +191,93 @@ const VocalStep = () => {
           } else if (permissionStatus.state === 'denied') {
             return {
               status: 'denied',
-              message:
-                'Microphone access denied. Use your browser site settings to enable microphone.',
+              message: isMobileBrowser
+                ? 'Microphone blocked. Open browser settings → This site → Allow microphone.'
+                : 'Microphone access denied. Click the lock icon in your address bar to allow microphone access.',
               canRetry: true,
               retryMethod: 'settings'
             };
           } else {
-            return {
-              status: 'prompt',
-              message: 'Click "Allow" to enable microphone for recording.',
-              canRetry: true,
-              retryMethod: 'getUserMedia'
-            };
+            // 'prompt' state - don't probe on mobile, just tell user to click button
+            if (isMobileBrowser) {
+              return {
+                status: 'prompt',
+                message: 'Tap the "Start Recording" button and allow microphone access when prompted.',
+                canRetry: false,
+                retryMethod: 'getUserMedia'
+              };
+            }
+            // On desktop, we can safely probe
           }
-        } catch {
-          // fall through
+        } catch (permApiErr) {
+          console.warn('Permissions API query failed:', permApiErr);
+          // fall through to getUserMedia probe
         }
       }
 
-      // Method 2: getUserMedia probe
+      // Method 2: getUserMedia probe (SKIP on mobile to avoid permission issues)
+      if (isMobileBrowser) {
+        // On mobile, don't probe - let the user initiate via button click
+        return {
+          status: 'prompt',
+          message: 'Tap "Start Recording" to begin. You\'ll be asked to allow microphone access.',
+          canRetry: false,
+          retryMethod: 'getUserMedia'
+        };
+      }
+
+      // Desktop only: probe to check if permission already granted
       try {
         const testStream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: false, noiseSuppression: false }
+          audio: true // Use simplest constraints for probe
         });
         testStream.getTracks().forEach((t) => t.stop());
         return { status: 'granted', message: 'Microphone access granted', canRetry: false };
       } catch (getUserMediaError: any) {
-        if (getUserMediaError.name === 'NotAllowedError') {
+        const errorName = getUserMediaError?.name || '';
+
+        if (errorName === 'NotAllowedError' || errorName === 'SecurityError') {
           return {
             status: 'denied',
-            message: 'Microphone access denied. Please allow access and refresh.',
+            message: 'Microphone access denied. Click the lock icon in your address bar to allow access.',
+            canRetry: true,
+            retryMethod: 'settings'
+          };
+        } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
+          return {
+            status: 'error',
+            message: 'No microphone found. Please connect a microphone and try again.',
             canRetry: true,
             retryMethod: 'refresh'
           };
-        } else if (getUserMediaError.name === 'NotFoundError') {
+        } else if (errorName === 'NotReadableError') {
           return {
             status: 'error',
-            message: 'No microphone found. Connect a microphone and try again.',
+            message: 'Microphone is in use by another application. Close other apps and try again.',
             canRetry: true,
             retryMethod: 'refresh'
           };
         } else {
           return {
-            status: 'error',
-            message: `Microphone error: ${getUserMediaError.message || getUserMediaError}`,
-            canRetry: true,
-            retryMethod: 'refresh'
+            status: 'prompt',
+            message: 'Click "Start Recording" to begin. You\'ll be asked to allow microphone access.',
+            canRetry: false,
+            retryMethod: 'getUserMedia'
           };
         }
       }
-    } catch {
+    } catch (outerErr) {
+      console.error('Permission check error:', outerErr);
       return {
-        status: 'error',
-        message: 'Unable to check microphone permissions. Please use a modern browser.',
-        canRetry: true,
-        retryMethod: 'refresh'
+        status: 'prompt',
+        message: isMobileBrowser
+          ? 'Tap "Start Recording" to begin.'
+          : 'Click "Start Recording" to begin.',
+        canRetry: false,
+        retryMethod: 'getUserMedia'
       };
     }
-  }, []);
+  }, [deviceInfo]);
 
   // Cleanup (securely release all resources)
   const cleanup = useCallback(() => {
@@ -510,33 +543,26 @@ const VocalStep = () => {
     [deviceInfo, updateIntake, updateAudioVisualization, recordingTime]
   );
 
-  // Start recording with constraints and mobile-friendly fallbacks
+  // Start recording - getUserMedia FIRST to preserve user gesture context
   const startRecording = async () => {
     if (startingRef.current || recording || countdown !== null) return;
+
     try {
       startingRef.current = true;
-      setError(null);
-      setIsProcessing(true);
 
-      if (!deviceInfo) throw new Error('Device information not available');
-
-      // re-check permission
-      if (permissionState.status !== 'granted') {
-        const st = await checkMicrophonePermission();
-        setPermissionState(st);
-        if (st.status !== 'granted') {
-          setError('Microphone permission required. Please tap "Allow" when prompted and try again.');
-          setIsProcessing(false);
-          startingRef.current = false;
-          return;
-        }
+      if (!deviceInfo) {
+        setError('Device information not available. Please refresh the page.');
+        startingRef.current = false;
+        return;
       }
 
+      // CRITICAL: Call getUserMedia() IMMEDIATELY to preserve user gesture context
+      // No async operations or state updates before this call!
       let stream: MediaStream | null = null;
 
       try {
         // Try with ideal constraints first
-        const constraints: MediaStreamConstraints = {
+        stream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: !deviceInfo.isIOS,
             noiseSuppression: !deviceInfo.isIOS,
@@ -544,9 +570,7 @@ const VocalStep = () => {
             sampleRate: { ideal: deviceInfo.sampleRate },
             channelCount: deviceInfo.channelCount
           }
-        };
-
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        });
       } catch (constraintErr: any) {
         console.warn('Ideal constraints failed, trying basic constraints:', constraintErr);
 
@@ -560,40 +584,68 @@ const VocalStep = () => {
             }
           });
         } catch (basicErr) {
+          console.warn('Basic constraints failed, trying bare minimum:', basicErr);
           // Last resort: bare minimum
           stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         }
       }
 
-      if (stream) {
-        await initWithStream(stream);
-      } else {
-        throw new Error('Failed to acquire microphone stream');
-      }
+      // SUCCESS - Now update UI states after we have the stream
+      setError(null);
+      setIsProcessing(true);
+      setPermissionState({
+        status: 'granted',
+        message: 'Microphone access granted',
+        canRetry: false
+      });
+
+      await initWithStream(stream);
+
     } catch (err: any) {
       console.error('Error starting recording:', err);
       setIsProcessing(false);
 
       const errorName = err?.name || '';
+      const isMobileBrowser = deviceInfo?.isMobile || /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
 
       if (errorName === 'NotAllowedError' || errorName === 'SecurityError') {
-        setError('Microphone access denied. Please tap "Allow" when prompted, then try again.');
+        const mobileMsg = 'Microphone access denied. To enable:\n' +
+          '1. Tap the "Aa" or lock icon in your address bar\n' +
+          '2. Select "Website Settings" or "Permissions"\n' +
+          '3. Allow microphone access\n' +
+          '4. Reload this page';
+        const desktopMsg = 'Microphone access denied. Click the lock icon in your address bar and allow microphone access.';
+
+        setError(isMobileBrowser ? mobileMsg : desktopMsg);
         setPermissionState({
           status: 'denied',
-          message: 'Please allow microphone access in your browser settings',
+          message: isMobileBrowser ? mobileMsg : desktopMsg,
           canRetry: true,
-          retryMethod: 'getUserMedia'
+          retryMethod: 'settings'
         });
       } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
-        setError('No microphone found. Please connect a microphone or check your device settings.');
+        setError('No microphone found. Please check that your device has a microphone and try again.');
+        setPermissionState({
+          status: 'error',
+          message: 'No microphone device found',
+          canRetry: true,
+          retryMethod: 'refresh'
+        });
       } else if (errorName === 'NotReadableError') {
-        setError('Microphone is in use by another app. Please close other apps using the microphone and try again.');
+        const msg = 'Microphone is in use by another app. Please close other apps using the microphone and try again.';
+        setError(msg);
+        setPermissionState({
+          status: 'error',
+          message: msg,
+          canRetry: true,
+          retryMethod: 'refresh'
+        });
       } else if (errorName === 'OverconstrainedError') {
-        setError('Audio settings not supported on this device. Please try a different browser or device.');
+        setError('Audio settings not supported on this device. Retrying with simpler settings...');
       } else if (errorName === 'AbortError') {
         setError('Microphone access was interrupted. Please try again.');
       } else {
-        setError(`Recording failed: ${err?.message || 'Unknown error'}. Please try again or use a different browser.`);
+        setError(`Recording failed: ${err?.message || 'Unknown error'}. Please try again.`);
       }
     } finally {
       startingRef.current = false;
@@ -832,8 +884,8 @@ const VocalStep = () => {
                   )}
                 </AnimatePresence>
 
-                {/* Start Recording (permission-gated) */}
-                {!recording && !recordingState && permissionState.status === 'granted' && (
+                {/* Start Recording (show for granted OR prompt status) */}
+                {!recording && !recordingState && (permissionState.status === 'granted' || permissionState.status === 'prompt') && (
                   <div className="text-center">
                     <GlassButton
                       onClick={startRecording}
@@ -919,8 +971,8 @@ const VocalStep = () => {
                       exit={{ opacity: 0, scale: 0.9 }}
                       className="glass-card-enhanced bg-red-500/10 border-red-400/30 p-4 rounded-xl"
                     >
-                      <p className="text-red-100 text-sm">{error}</p>
-                      {error.toLowerCase().includes('microphone') && deviceInfo?.isMobile && (
+                      <p className="text-red-100 text-sm whitespace-pre-line">{error}</p>
+                      {error.toLowerCase().includes('microphone') && deviceInfo?.isMobile && !error.includes('To enable:') && (
                         <p className="text-red-100/80 text-xs mt-2">Tip: Ensure no other apps are using your microphone.</p>
                       )}
                     </motion.div>
@@ -936,6 +988,9 @@ const VocalStep = () => {
                   <li>• Speak clearly and at a natural pace</li>
                   <li>• Keep your device 6–12 inches from your mouth</li>
                   {deviceInfo?.isMobile && <li>• Hold your device steady while recording</li>}
+                  {deviceInfo?.isMobile && permissionState.status === 'denied' && (
+                    <li className="text-yellow-300">• If microphone is blocked, tap the address bar icon and allow microphone access</li>
+                  )}
                 </ul>
               </motion.div>
             </div>

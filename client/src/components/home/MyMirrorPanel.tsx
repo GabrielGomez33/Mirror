@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getPersonalIntelligenceApi, requestNewAnalysisApi } from '../../services/mirrorDashboard';
+import { getPersonalIntelligenceApi } from '../../services/mirrorDashboard';
 
 // ============================================================================
 // TYPES (aligned to new server payload)
@@ -336,14 +336,14 @@ export function MyMirrorPanel() {
     fetchDashboard();
   }, []);
 
-  const handleRequestAnalysis = async (analysisType: string) => {
-    try {
-      await requestNewAnalysisApi(analysisType, 'normal');
-      setTimeout(() => fetchDashboard(true), 2500);
-    } catch (e) {
-      console.error('Analysis request failed:', e);
-    }
-  };
+  //const handleRequestAnalysis = async (analysisType: string) => {
+  //  try {
+  //    await requestNewAnalysisApi(analysisType, 'normal');
+  //    setTimeout(() => fetchDashboard(true), 2500);
+  //  } catch (e) {
+  //    console.error('Analysis request failed:', e);
+  //  }
+  //};
 
   const micro = useMemo(() => (data ? buildMicroNarratives(data) : []), [data]);
 
@@ -979,23 +979,7 @@ export function MyMirrorPanel() {
       </AnimatePresence>
 
       {/* Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
-        <button onClick={() => handleRequestAnalysis('pattern_analysis')} className="w-full enhanced-action-button">
-          <span className="enhanced-glass-text font-medium" style={{ color: THEME.textPrimary, textShadow: '0px 1px 3px #7e4151' }}>
-            Request Pattern Analysis
-          </span>
-        </button>
-        <button onClick={() => handleRequestAnalysis('personality_summary')} className="w-full enhanced-action-button">
-          <span className="enhanced-glass-text font-medium" style={{ color: THEME.textPrimary, textShadow: '0px 1px 3px #7e4151' }}>
-            Generate Personality Summary
-          </span>
-        </button>
-        <button onClick={() => (window.location.href = '/intake')} className="w-full enhanced-action-button">
-          <span className="enhanced-glass-text font-medium" style={{ color: THEME.textPrimary, textShadow: '0px 1px 3px #7e4151' }}>
-            Update Assessment
-          </span>
-        </button>
-      </div>
+
     </div>
   );
 }
