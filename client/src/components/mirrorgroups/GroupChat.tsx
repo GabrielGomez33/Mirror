@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useGroups } from '../../context/GroupContext';
+import { getToken } from '../../utils/token';
 
 interface ChatMessage {
   id: string;
@@ -56,8 +57,13 @@ export default function GroupChat({ groupId }: GroupChatProps) {
     const fetchMessages = async () => {
       setIsLoading(true);
       try {
-        const token = localStorage.getItem('accessToken');
-        const response = await fetch(`/mirror/api/groups/${groupId}/chat`, {
+        const token = getToken();
+        if (!token) {
+          console.error('No auth token available');
+          setIsLoading(false);
+          return;
+        }
+        const response = await fetch(`/mirror/api/groups/${groupId}/chat/messages`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -112,14 +118,20 @@ export default function GroupChat({ groupId }: GroupChatProps) {
     setMessages((prev) => [...prev, optimisticMessage]);
 
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/mirror/api/groups/${groupId}/chat`, {
+      const token = getToken();
+      if (!token) {
+        console.error('No auth token available');
+        setMessages((prev) => prev.filter((m) => m.id !== optimisticMessage.id));
+        setIsSending(false);
+        return;
+      }
+      const response = await fetch(`/mirror/api/groups/${groupId}/chat/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ content: messageContent }),
+        body: JSON.stringify({ content: messageContent, contentType: 'text' }),
       });
 
       if (!response.ok) {
