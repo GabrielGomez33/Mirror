@@ -9,6 +9,7 @@ import { MyMirrorPanel } from '../components/home/MyMirrorPanel';
 import { MyJournalPanel } from '../components/home/MyJournalPanel';
 import { useGroups } from '../context/GroupContext';
 import CreateGroupModal from '../components/mirrorgroups/CreateGroupModal';
+import type { Group } from '../types/groups';
 
 const mockReviews = [
   {
@@ -135,7 +136,7 @@ export default function Dashboard() {
   }, [navigate]);
 
   // Transform groups data for the panel component
-  const transformedMyGroups = myGroups.map(group => ({
+  const transformedMyGroups = myGroups.map((group: Group) => ({
     id: group.id,
     name: group.name,
     memberCount: group.memberCount,
@@ -144,7 +145,7 @@ export default function Dashboard() {
     description: group.description,
   }));
 
-  const transformedSuggestedGroups = suggestedGroups.map(group => ({
+  const transformedSuggestedGroups = suggestedGroups.map((group: Group) => ({
     id: group.id,
     name: group.name,
     memberCount: group.memberCount,

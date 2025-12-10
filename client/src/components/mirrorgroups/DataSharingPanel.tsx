@@ -3,7 +3,7 @@
 
 import { useState, useCallback } from 'react';
 import { useGroups } from '../../context/GroupContext';
-import type { ShareableDataType } from '../../types/groups';
+import type { ShareableDataType, GroupMember } from '../../types/groups';
 
 interface DataSharingPanelProps {
   groupId: string;
@@ -61,8 +61,10 @@ export default function DataSharingPanel({ groupId }: DataSharingPanelProps) {
   const [showSuccess, setShowSuccess] = useState(false);
 
   // Get current user's shared data (would need to be passed or fetched)
-  const currentUserMember = currentMembers.find((m) => m.userId === getCurrentUserId());
-  const alreadySharedTypes = new Set(currentUserMember?.sharedDataTypes || []);
+  const currentUserMember = currentMembers.find((m: GroupMember) => m.userId === getCurrentUserId());
+  const alreadySharedTypes = new Set<ShareableDataType>(
+    (currentUserMember?.sharedDataTypes || []) as ShareableDataType[]
+  );
 
   const toggleDataType = useCallback((type: ShareableDataType) => {
     setSelectedTypes((prev) => {
@@ -72,7 +74,7 @@ export default function DataSharingPanel({ groupId }: DataSharingPanelProps) {
       } else {
         // If selecting full_profile, clear others
         if (type === 'full_profile') {
-          return new Set(['full_profile']);
+          return new Set<ShareableDataType>(['full_profile']);
         }
         // If selecting specific type, remove full_profile
         next.delete('full_profile');
@@ -130,7 +132,7 @@ export default function DataSharingPanel({ groupId }: DataSharingPanelProps) {
         <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/30">
           <h4 className="text-green-300 text-sm font-medium mb-2">Currently Sharing</h4>
           <div className="flex flex-wrap gap-2">
-            {Array.from(alreadySharedTypes).map((type) => {
+            {Array.from(alreadySharedTypes).map((type: ShareableDataType) => {
               const dataType = DATA_TYPES.find((d) => d.type === type);
               return (
                 <span

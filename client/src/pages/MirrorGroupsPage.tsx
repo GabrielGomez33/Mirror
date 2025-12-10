@@ -34,7 +34,7 @@ export default function MirrorGroupsPage() {
   }, [fetchMyGroups, fetchSuggestedGroups]);
 
   // Filter groups
-  const filteredMyGroups = myGroups.filter((group) => {
+  const filteredMyGroups = myGroups.filter((group: Group) => {
     const matchesSearch =
       group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       group.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -201,7 +201,7 @@ export default function MirrorGroupsPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredMyGroups.map((group) => (
+                {filteredMyGroups.map((group: Group) => (
                   <div
                     key={group.id}
                     onClick={() => setSelectedGroupId(group.id)}
@@ -251,7 +251,7 @@ export default function MirrorGroupsPage() {
                 Suggested Groups
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {suggestedGroups.map((group) => (
+                {suggestedGroups.map((group: Group) => (
                   <div key={group.id} className="enhanced-glass-card">
                     <div className="flex items-start gap-4 mb-4">
                       <div

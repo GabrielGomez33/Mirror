@@ -17,6 +17,7 @@ import {
   joinGroup as joinGroupApi,
   leaveGroup as leaveGroupApi,
   createGroup as createGroupApi,
+  deleteGroup as deleteGroupApi,
   getInsights,
   getActiveVotes,
   triggerAnalysis as triggerAnalysisApi,
@@ -253,6 +254,7 @@ interface GroupContextType extends GroupsState {
   createGroup: (data: CreateGroupFormData) => Promise<string | null>;
   joinGroup: (groupId: string, joinCode?: string) => Promise<boolean>;
   leaveGroup: (groupId: string) => Promise<boolean>;
+  deleteGroup: (groupId: string) => Promise<boolean>;
   selectGroup: (groupId: string | null) => void;
 
   // Data sharing
@@ -455,6 +457,37 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
       }
     },
     [isAuthenticated]
+  );
+
+  const deleteGroup = useCallback(
+    async (groupId: string): Promise<boolean> => {
+      if (!isAuthenticated) return false;
+
+      dispatch({ type: 'SET_LOADING', payload: true });
+      try {
+        await deleteGroupApi(groupId);
+        dispatch({ type: 'REMOVE_GROUP', payload: groupId });
+
+        // Unsubscribe from WebSocket
+        if (wsConnectedRef.current) {
+          unsubscribeFromGroup(groupId);
+        }
+
+        // Clear current group if we just deleted it
+        if (state.currentGroup?.id === groupId) {
+          dispatch({ type: 'SET_CURRENT_GROUP', payload: null });
+          dispatch({ type: 'SET_CURRENT_MEMBERS', payload: [] });
+        }
+
+        return true;
+      } catch (error) {
+        dispatch({ type: 'SET_ERROR', payload: getGroupsErrorMessage(error) });
+        return false;
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }
+    },
+    [isAuthenticated, state.currentGroup?.id]
   );
 
   const selectGroup = useCallback(
@@ -755,6 +788,7 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
     createGroup,
     joinGroup,
     leaveGroup,
+    deleteGroup,
     selectGroup,
     shareData,
     triggerAnalysis,

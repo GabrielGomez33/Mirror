@@ -7,6 +7,7 @@ import GroupInsightsPanel from './GroupInsightsPanel';
 import VotingSystem from './VotingSystem';
 import GroupMembersList from './GroupMembersList';
 import DataSharingPanel from './DataSharingPanel';
+import GroupChat from './GroupChat';
 import type { Group, GroupMember } from '../../types/groups';
 
 interface GroupDetailViewProps {
@@ -14,15 +15,30 @@ interface GroupDetailViewProps {
   onBack: () => void;
 }
 
-type TabType = 'overview' | 'members' | 'insights' | 'voting' | 'sharing';
+type TabType = 'overview' | 'chat' | 'members' | 'insights' | 'voting' | 'sharing';
 
 const TABS: Array<{ id: TabType; label: string; icon: string }> = [
   { id: 'overview', label: 'Overview', icon: '📋' },
+  { id: 'chat', label: 'Chat', icon: '💬' },
   { id: 'members', label: 'Members', icon: '👥' },
-  { id: 'insights', label: 'AI Insights', icon: '🧠' },
+  { id: 'insights', label: 'Insights', icon: '🧠' },
   { id: 'voting', label: 'Voting', icon: '🗳️' },
-  { id: 'sharing', label: 'Data Sharing', icon: '🔐' },
+  { id: 'sharing', label: 'Sharing', icon: '🔐' },
 ];
+
+// Helper to get current user ID
+const getCurrentUserId = (): number => {
+  try {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      return user.id;
+    }
+  } catch {
+    console.error('Failed to get current user');
+  }
+  return 0;
+};
 
 export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProps) {
   const {
@@ -36,11 +52,18 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
     fetchInsights,
     fetchActiveVotes,
     leaveGroup,
+    deleteGroup,
     triggerAnalysis,
   } = useGroups();
 
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Check if current user is the owner
+  const currentUserId = getCurrentUserId();
+  const isOwner = currentGroup?.creatorId === currentUserId;
 
   // Fetch group data on mount
   useEffect(() => {
@@ -55,6 +78,15 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
       onBack();
     }
   }, [leaveGroup, groupId, onBack]);
+
+  const handleDeleteGroup = useCallback(async () => {
+    setIsDeleting(true);
+    const success = await deleteGroup(groupId);
+    setIsDeleting(false);
+    if (success) {
+      onBack();
+    }
+  }, [deleteGroup, groupId, onBack]);
 
   const handleTriggerAnalysis = useCallback(async () => {
     await triggerAnalysis(groupId);
@@ -127,11 +159,19 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
           </button>
 
           <div className="flex gap-2">
+            {isOwner && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="px-4 py-2 rounded-lg bg-red-600/30 border border-red-600/50 text-red-200 text-sm hover:bg-red-600/40 transition-colors"
+              >
+                🗑️ Delete
+              </button>
+            )}
             <button
               onClick={() => setShowLeaveConfirm(true)}
               className="px-4 py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-300 text-sm hover:bg-red-500/30 transition-colors"
             >
-              Leave Group
+              Leave
             </button>
           </div>
         </div>
@@ -183,7 +223,7 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
           </div>
           <div className="enhanced-stat-container">
             <div className="enhanced-stat-number text-2xl">
-              {currentMembers.filter((m) => m.hasSharedData).length}
+              {currentMembers.filter((m: GroupMember) => m.hasSharedData).length}
             </div>
             <div className="enhanced-stat-label text-xs">Sharing</div>
           </div>
@@ -243,6 +283,8 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
           />
         )}
 
+        {activeTab === 'chat' && <GroupChat groupId={groupId} />}
+
         {activeTab === 'members' && (
           <GroupMembersList groupId={groupId} members={currentMembers} />
         )}
@@ -288,6 +330,53 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
                 className="px-4 py-2 rounded-lg bg-red-500/30 text-red-300 hover:bg-red-500/40 transition-colors"
               >
                 Leave Group
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => !isDeleting && setShowDeleteConfirm(false)}
+          />
+          <div className="relative enhanced-glass-panel p-6 max-w-md">
+            <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#dc2626' }}>
+              ⚠️ Delete Group?
+            </h3>
+            <p className="enhanced-glass-body mb-6" style={{ color: '#7e4151' }}>
+              This action <strong>cannot be undone</strong>. All group data, chat history, and member
+              connections will be permanently deleted.
+            </p>
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 mb-6">
+              <p className="text-red-300 text-sm">
+                Deleting: <strong>{currentGroup.name}</strong>
+              </p>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-lg bg-white/10 text-white/80 hover:bg-white/20 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteGroup}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-lg bg-red-600/50 text-white hover:bg-red-600/70 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <span className="animate-spin">⏳</span>
+                    Deleting...
+                  </>
+                ) : (
+                  <>🗑️ Delete Permanently</>
+                )}
               </button>
             </div>
           </div>
