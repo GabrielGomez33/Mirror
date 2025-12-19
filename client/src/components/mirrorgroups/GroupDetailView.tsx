@@ -7,7 +7,9 @@ import GroupInsightsPanel from './GroupInsightsPanel';
 import VotingSystem from './VotingSystem';
 import GroupMembersList from './GroupMembersList';
 import DataSharingPanel from './DataSharingPanel';
-import GroupChat from './GroupChat';
+import ChatWindow from '../chat/ChatWindow';
+import InviteMembersModal from './InviteMembersModal';
+import { preloadGroupMessages } from '../../services/chatCache';
 import type { Group, GroupMember } from '../../types/groups';
 
 interface GroupDetailViewProps {
@@ -32,7 +34,7 @@ const getCurrentUserId = (): number => {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       const user = JSON.parse(userStr);
-      return user.id;
+      return Number(user.id);
     }
   } catch {
     console.error('Failed to get current user');
@@ -59,17 +61,27 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Check if current user is the owner
+  // Check if current user is the owner (use == for type coercion)
   const currentUserId = getCurrentUserId();
-  const isOwner = currentGroup?.creatorId === currentUserId;
+  // eslint-disable-next-line eqeqeq
+  const isOwner = currentGroup?.creatorId == currentUserId;
 
-  // Fetch group data on mount
+  // Check if user can invite (owner, admin, or creator role)
+  const currentMember = currentMembers.find((m) => Number(m.userId) === currentUserId);
+  const canInvite = isOwner || (currentMember && ['admin', 'creator'].includes(currentMember.role));
+
+  // Fetch group data on mount (including chat preload)
   useEffect(() => {
+    // Fetch all group data in parallel
     fetchGroupDetails(groupId);
     fetchInsights(groupId);
     fetchActiveVotes(groupId);
+
+    // Preload chat messages so they're ready when user clicks Chat tab
+    preloadGroupMessages(groupId);
   }, [groupId, fetchGroupDetails, fetchInsights, fetchActiveVotes]);
 
   const handleLeaveGroup = useCallback(async () => {
@@ -159,12 +171,21 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
           </button>
 
           <div className="flex gap-2">
+            {/* Invite button - visible to owner and admins */}
+            {canInvite && (
+              <button
+                onClick={() => setShowInviteModal(true)}
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-pink-400/20 to-purple-400/20 border border-pink-400/30 text-pink-200 text-sm hover:from-pink-400/30 hover:to-purple-400/30 transition-colors"
+              >
+                + Invite
+              </button>
+            )}
             {isOwner && (
               <button
                 onClick={() => setShowDeleteConfirm(true)}
                 className="px-4 py-2 rounded-lg bg-red-600/30 border border-red-600/50 text-red-200 text-sm hover:bg-red-600/40 transition-colors"
               >
-                🗑️ Delete
+                Delete
               </button>
             )}
             <button
@@ -283,7 +304,7 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
           />
         )}
 
-        {activeTab === 'chat' && <GroupChat groupId={groupId} />}
+        {activeTab === 'chat' && <ChatWindow groupId={groupId} groupName={currentGroup.name} />}
 
         {activeTab === 'members' && (
           <GroupMembersList groupId={groupId} members={currentMembers} />
@@ -375,12 +396,25 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
                     Deleting...
                   </>
                 ) : (
-                  <>🗑️ Delete Permanently</>
+                  <>Delete Permanently</>
                 )}
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Invite Members Modal */}
+      {showInviteModal && currentGroup && (
+        <InviteMembersModal
+          groupId={groupId}
+          groupName={currentGroup.name}
+          currentMembers={currentMembers}
+          onClose={() => setShowInviteModal(false)}
+          onInviteSent={() => {
+            fetchGroupDetails(groupId);
+          }}
+        />
       )}
     </div>
   );
@@ -401,7 +435,6 @@ interface OverviewTabProps {
 function OverviewTab({ group, members, insights, onAnalyze, isAnalyzing }: OverviewTabProps) {
   return (
     <div className="space-y-6">
-      {/* Quick Summary */}
       {insights?.llmSynthesis && (
         <div className="enhanced-glass-card">
           <h3 className="enhanced-glass-heading text-lg mb-3" style={{ color: '#784552' }}>
@@ -425,7 +458,6 @@ function OverviewTab({ group, members, insights, onAnalyze, isAnalyzing }: Overv
         </div>
       )}
 
-      {/* Analysis Status */}
       {!insights?.llmSynthesis && (
         <div className="enhanced-glass-card text-center">
           <span className="text-4xl mb-4 block">🧪</span>
@@ -446,7 +478,6 @@ function OverviewTab({ group, members, insights, onAnalyze, isAnalyzing }: Overv
         </div>
       )}
 
-      {/* Recent Activity */}
       <div className="enhanced-glass-card">
         <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#784552' }}>
           Members
@@ -471,7 +502,6 @@ function OverviewTab({ group, members, insights, onAnalyze, isAnalyzing }: Overv
         </div>
       </div>
 
-      {/* Group Settings Info */}
       <div className="enhanced-glass-card">
         <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#784552' }}>
           Group Settings

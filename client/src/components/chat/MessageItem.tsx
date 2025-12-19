@@ -138,6 +138,48 @@ export default function MessageItem({
     );
   }, [message.reactions, handleReaction]);
 
+  // Render read receipt checkmarks for own messages
+  const renderReadReceipt = useMemo(() => {
+    if (!isOwnMessage) return null;
+    if (isPending || isFailed) return null;
+
+    const hasReaders = message.readBy && message.readBy.length > 0;
+    const isDelivered = message.status === 'delivered' || message.status === 'sent';
+
+    // Double check (read by someone)
+    if (hasReaders) {
+      return (
+        <span className="chat-read-receipt" title="Read">
+          <svg className="chat-read-receipt-icon double-check read" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M2 12l5 5L17 7" />
+            <path d="M7 12l5 5L22 7" />
+          </svg>
+        </span>
+      );
+    }
+
+    // Double check (delivered but not read)
+    if (isDelivered) {
+      return (
+        <span className="chat-read-receipt" title="Delivered">
+          <svg className="chat-read-receipt-icon double-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M2 12l5 5L17 7" />
+            <path d="M7 12l5 5L22 7" />
+          </svg>
+        </span>
+      );
+    }
+
+    // Single check (sent)
+    return (
+      <span className="chat-read-receipt" title="Sent">
+        <svg className="chat-read-receipt-icon single-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M5 12l5 5L20 7" />
+        </svg>
+      </span>
+    );
+  }, [isOwnMessage, isPending, isFailed, message.readBy, message.status]);
+
   // Render message status
   const renderStatus = useMemo(() => {
     if (isPending) {
@@ -227,6 +269,7 @@ export default function MessageItem({
           <div className="chat-message-meta">
             <span className="chat-message-time">{formatTime(message.createdAt)}</span>
             {renderStatus}
+            {renderReadReceipt}
           </div>
         </div>
 

@@ -45,14 +45,23 @@ export default function ChatWindow({ groupId, groupName, onClose }: ChatWindowPr
   const [showPinned, setShowPinned] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
 
-  // Initialize chat for this group
+  // Store callbacks in refs to avoid dependency issues
+  const openGroupChatRef = useRef(openGroupChat);
+  const closeGroupChatRef = useRef(closeGroupChat);
+
   useEffect(() => {
-    openGroupChat(groupId);
+    openGroupChatRef.current = openGroupChat;
+    closeGroupChatRef.current = closeGroupChat;
+  }, [openGroupChat, closeGroupChat]);
+
+  // Initialize chat for this group - only re-run when groupId changes
+  useEffect(() => {
+    openGroupChatRef.current(groupId);
 
     return () => {
-      closeGroupChat();
+      closeGroupChatRef.current();
     };
-  }, [groupId, openGroupChat, closeGroupChat]);
+  }, [groupId]); // Only depend on groupId to prevent infinite loops
 
   // Scroll to bottom on new messages (if at bottom)
   useEffect(() => {

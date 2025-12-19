@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useGroups } from '../../context/GroupContext';
 import { getToken } from '../../utils/token';
+import { getCachedMessages, setCachedMessages } from '../../services/chatCache';
 
 interface ChatMessage {
   id: string;
@@ -20,9 +21,31 @@ interface GroupChatProps {
 
 export default function GroupChat({ groupId }: GroupChatProps) {
   const { currentMembers } = useGroups();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+  // Initialize with cached messages if available for instant display
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    const cached = getCachedMessages(groupId);
+    if (cached) {
+      // Get current user ID for isOwn flag
+      let currentUserId = 0;
+      try {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          currentUserId = JSON.parse(userStr).id;
+        }
+      } catch {}
+
+      return cached.map((msg) => ({
+        ...msg,
+        isOwn: msg.userId === currentUserId,
+        timestamp: msg.createdAt,
+      }));
+    }
+    return [];
+  });
   const [newMessage, setNewMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  // If we have cached messages, don't show loading state
+  const [isLoading, setIsLoading] = useState(() => !getCachedMessages(groupId));
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -52,26 +75,42 @@ export default function GroupChat({ groupId }: GroupChatProps) {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
+  // Track if we had cached data on mount (to avoid showing loading spinner unnecessarily)
+  const hadCachedDataRef = useRef(!!getCachedMessages(groupId));
+
   // Fetch chat history
   useEffect(() => {
-    const fetchMessages = async () => {
-      setIsLoading(true);
+    let isMounted = true;
+    const hadCachedData = hadCachedDataRef.current;
+
+    const fetchMessages = async (isInitialFetch = false) => {
+      // Only show loading on initial fetch if no cached data was available
+      if (isInitialFetch && !hadCachedData) {
+        setIsLoading(true);
+      }
+
       try {
         const token = getToken();
         if (!token) {
           console.error('No auth token available');
-          setIsLoading(false);
+          if (isMounted) setIsLoading(false);
           return;
         }
+
         const response = await fetch(`/mirror/api/groups/${groupId}/chat/messages`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
-        if (response.ok) {
+        if (response.ok && isMounted) {
           const data = await response.json();
-          const formattedMessages = (data.messages || []).map((msg: {
+          const rawMessages = data.messages || [];
+
+          // Update cache with fresh messages
+          setCachedMessages(groupId, rawMessages);
+
+          const formattedMessages = rawMessages.map((msg: {
             id: string;
             userId: number;
             username: string;
@@ -87,15 +126,20 @@ export default function GroupChat({ groupId }: GroupChatProps) {
       } catch (error) {
         console.error('Failed to fetch chat messages:', error);
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     };
 
-    fetchMessages();
+    // Initial fetch
+    fetchMessages(true);
 
     // Poll for new messages every 5 seconds
-    const interval = setInterval(fetchMessages, 5000);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => fetchMessages(false), 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [groupId, currentUserId]);
 
   // Send message

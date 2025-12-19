@@ -458,8 +458,15 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   const cleanupRef = useRef<Array<() => void>>([]);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const markReadDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Ref to track currentGroupId without causing callback recreation
+  const currentGroupIdRef = useRef<string | null>(null);
 
   const currentUserId = user?.id ?? null;
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    currentGroupIdRef.current = state.currentGroupId;
+  }, [state.currentGroupId]);
 
   // ==================== DATA FETCHING ====================
 
@@ -728,20 +735,28 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       dispatch({ type: 'UPDATE_REACTIONS', payload: { messageId, reactions } });
     }
 
+    // Use REST API as primary (more reliable), WebSocket for real-time broadcast
     try {
-      // Use WebSocket for real-time
+      await addReactionApi(state.currentGroupId, messageId, emoji);
+      // Also send via WebSocket for real-time notification to others
       addChatReaction(state.currentGroupId, messageId, emoji);
     } catch (error) {
-      // Fallback to REST
-      await addReactionApi(state.currentGroupId, messageId, emoji);
+      // Revert optimistic update on failure
+      if (message) {
+        dispatch({ type: 'UPDATE_REACTIONS', payload: { messageId, reactions: message.reactions || [] } });
+      }
+      console.error('Failed to add reaction:', error);
     }
   }, [state.currentGroupId, state.messages, currentUserId]);
 
   const removeReaction = useCallback(async (messageId: string, emoji: string) => {
     if (!state.currentGroupId) return;
 
-    // Optimistic update
+    // Store original reactions for rollback
     const message = state.messages.find((m) => m.id === messageId);
+    const originalReactions = message?.reactions || [];
+
+    // Optimistic update
     if (message && currentUserId) {
       const reactions = (message.reactions || [])
         .map((r) => {
@@ -759,10 +774,15 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       dispatch({ type: 'UPDATE_REACTIONS', payload: { messageId, reactions } });
     }
 
+    // Use REST API as primary (more reliable), WebSocket for real-time broadcast
     try {
+      await removeReactionApi(state.currentGroupId, messageId, emoji);
+      // Also send via WebSocket for real-time notification to others
       removeChatReaction(state.currentGroupId, messageId, emoji);
     } catch (error) {
-      await removeReactionApi(state.currentGroupId, messageId, emoji);
+      // Revert optimistic update on failure
+      dispatch({ type: 'UPDATE_REACTIONS', payload: { messageId, reactions: originalReactions } });
+      console.error('Failed to remove reaction:', error);
     }
   }, [state.currentGroupId, state.messages, currentUserId]);
 
@@ -873,7 +893,8 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   // ==================== GROUP MANAGEMENT ====================
 
   const openGroupChat = useCallback(async (groupId: string) => {
-    if (state.currentGroupId === groupId) return;
+    // Use ref to check current group to avoid infinite loops
+    if (currentGroupIdRef.current === groupId) return;
 
     dispatch({ type: 'SET_CURRENT_GROUP', payload: groupId });
 
@@ -916,19 +937,21 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
     // Update presence to online
     updateChatPresence(groupId, 'online', 'web');
-  }, [state.currentGroupId, loadMessages, loadPinnedMessages]);
+  }, [loadMessages, loadPinnedMessages]); // Removed state.currentGroupId - using ref instead
 
   const closeGroupChat = useCallback(() => {
-    if (state.currentGroupId) {
+    // Use ref to get current group to avoid infinite loops
+    const groupId = currentGroupIdRef.current;
+    if (groupId) {
       // Update presence to offline
-      updateChatPresence(state.currentGroupId, 'offline', 'web');
+      updateChatPresence(groupId, 'offline', 'web');
 
       // Leave WebSocket room
-      leaveChatGroup(state.currentGroupId);
+      leaveChatGroup(groupId);
     }
 
     dispatch({ type: 'SET_CURRENT_GROUP', payload: null });
-  }, [state.currentGroupId]);
+  }, []); // Removed state.currentGroupId - using ref instead
 
   // ==================== WEBSOCKET ====================
 
@@ -988,12 +1011,32 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     if (!isAuthenticated) return;
 
     // Connection handlers
-    const unsubConnect = onChatConnect(() => {
+    const unsubConnect = onChatConnect(async () => {
       dispatch({ type: 'SET_CONNECTED', payload: true });
 
-      // Rejoin current group if any
-      if (state.currentGroupId) {
-        joinChatGroup(state.currentGroupId);
+      // Rejoin current group and reload messages if any
+      const groupId = currentGroupIdRef.current;
+      if (groupId) {
+        joinChatGroup(groupId);
+        // Reload messages after reconnection to ensure we have latest
+        try {
+          const response = await getMessages(groupId, {
+            limit: CHAT_CONFIG.DEFAULT_PAGE_SIZE,
+            includeReactions: true,
+          });
+          if (response.success && response.data) {
+            dispatch({
+              type: 'SET_MESSAGES',
+              payload: {
+                messages: response.data.messages,
+                hasMore: response.data.hasMore,
+                cursor: response.data.nextCursor || null,
+              },
+            });
+          }
+        } catch (error) {
+          console.error('Failed to reload messages after reconnection:', error);
+        }
       }
     });
     cleanupRef.current.push(unsubConnect);
