@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useGroups } from '../../context/GroupContext';
-import { getToken } from '../../utils/token';
+import { getToken, getUserInfo } from '../../utils/token';
 import { getCachedMessages, setCachedMessages } from '../../services/chatCache';
 
 interface ChatMessage {
@@ -27,13 +27,7 @@ export default function GroupChat({ groupId }: GroupChatProps) {
     const cached = getCachedMessages(groupId);
     if (cached) {
       // Get current user ID for isOwn flag
-      let currentUserId = 0;
-      try {
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-          currentUserId = JSON.parse(userStr).id;
-        }
-      } catch {}
+      const currentUserId = getUserInfo()?.userId ?? 0;
 
       return cached.map((msg) => ({
         ...msg,
@@ -50,21 +44,8 @@ export default function GroupChat({ groupId }: GroupChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Get current user ID from localStorage
-  const getCurrentUserId = (): number => {
-    try {
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        return user.id;
-      }
-    } catch {
-      console.error('Failed to get current user');
-    }
-    return 0;
-  };
-
-  const currentUserId = getCurrentUserId();
+  // Get current user ID from token.ts for consistency
+  const currentUserId = getUserInfo()?.userId ?? 0;
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = useCallback(() => {

@@ -6,6 +6,7 @@ import { searchUsers } from '../../services/userApi';
 import type { SearchedUser } from '../../services/userApi';
 import { inviteMember } from '../../services/groupsApi';
 import type { GroupMember } from '../../types/groups';
+import { getUserInfo } from '../../utils/token';
 
 interface InviteMembersModalProps {
   groupId: string;
@@ -34,6 +35,9 @@ export default function InviteMembersModal({
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Get current user ID to exclude self from search results
+  const currentUserId = getUserInfo()?.userId ?? null;
+
   // Get current member user IDs to filter out from search results
   const currentMemberIds = new Set(currentMembers.map((m) => m.userId));
 
@@ -60,10 +64,13 @@ export default function InviteMembersModal({
       const response = await searchUsers(searchQuery, 20);
 
       if (response.success && response.data) {
-        // Filter out users who are already members or already selected
+        // Filter out users who are already members, already selected, or the current user (self)
         const selectedIds = new Set(selectedUsers.map((u) => u.id));
         const filtered = response.data.users.filter(
-          (user) => !currentMemberIds.has(user.id) && !selectedIds.has(user.id)
+          (user) =>
+            !currentMemberIds.has(user.id) &&
+            !selectedIds.has(user.id) &&
+            user.id !== currentUserId  // Exclude self
         );
         setSearchResults(filtered);
       } else {
@@ -80,7 +87,7 @@ export default function InviteMembersModal({
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchQuery, selectedUsers, currentMemberIds]);
+  }, [searchQuery, selectedUsers, currentMemberIds, currentUserId]);
 
   const handleSelectUser = useCallback((user: SearchedUser) => {
     setSelectedUsers((prev) => [...prev, user]);

@@ -50,11 +50,13 @@ export function getUserInfo(): StoredUserInfo | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
-    // Basic shape check without over-engineering
-    if (typeof parsed?.userId === 'number') return parsed as StoredUserInfo;
+    // Handle userId as either string or number from API
+    const userId = Number(parsed?.userId);
+    if (!isNaN(userId) && userId > 0) {
+      return { ...parsed, userId } as StoredUserInfo;
+    }
     return null;
   } catch {
     return null;
   }
-  };
-
+}

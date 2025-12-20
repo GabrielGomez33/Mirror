@@ -11,6 +11,7 @@ import React, {
   useMemo,
 } from 'react';
 import { useAuth } from './AuthContext';
+import { getCachedMessages, setCachedMessages } from '../services/chatCache';
 import {
   getMessages,
   getMessage,
@@ -121,11 +122,19 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, isConnected: action.payload };
 
     case 'SET_CURRENT_GROUP':
-      if (action.payload === state.currentGroupId) return state;
+      console.log('[ChatReducer] SET_CURRENT_GROUP:', action.payload, 'current:', state.currentGroupId);
+      if (action.payload === state.currentGroupId) {
+        console.log('[ChatReducer] Same group, no state change');
+        return state;
+      }
+      // Don't reset messages - let them be loaded fresh or from cache
+      // This prevents the flicker when switching tabs
+      console.log('[ChatReducer] Switching to new group, preserving connection state');
       return {
         ...initialState,
         currentGroupId: action.payload,
         isConnected: state.isConnected,
+        // Keep the WebSocket connected
       };
 
     case 'SET_MESSAGES': {
@@ -473,12 +482,56 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   const loadMessages = useCallback(async (groupId: string) => {
     if (!isAuthenticated || !groupId) return;
 
+    console.log('[ChatContext] loadMessages called for group:', groupId);
+    console.time('[ChatContext] loadMessages total');
+
     dispatch({ type: 'SET_LOADING', payload: true });
+
+    // First check if we have cached messages for instant display
+    console.time('[ChatContext] getCachedMessages');
+    const cachedMessages = getCachedMessages(groupId);
+    console.timeEnd('[ChatContext] getCachedMessages');
+    console.log('[ChatContext] Cached messages found:', cachedMessages?.length ?? 0);
+
+    if (cachedMessages && cachedMessages.length > 0) {
+      // Transform cached messages to ChatMessage format for immediate display
+      const transformedCached = cachedMessages.map((m) => ({
+        id: m.id,
+        groupId,
+        senderUserId: m.userId,
+        senderUsername: m.username,
+        content: m.content,
+        contentType: 'text' as const,
+        parentMessageId: null,
+        threadRootId: null,
+        status: 'sent' as const,
+        isEdited: false,
+        isDeleted: false,
+        createdAt: m.createdAt,
+        updatedAt: m.createdAt,
+        reactions: [],
+      }));
+
+      // Immediately show cached messages while fetching fresh data
+      console.log('[ChatContext] Dispatching cached messages to UI');
+      dispatch({
+        type: 'SET_MESSAGES',
+        payload: {
+          messages: transformedCached,
+          hasMore: true, // Assume there might be more until we fetch
+          cursor: null,
+        },
+      });
+    }
+
     try {
+      console.time('[ChatContext] API getMessages');
+      console.log('[ChatContext] Fetching fresh messages from API...');
       const response = await getMessages(groupId, {
         limit: CHAT_CONFIG.DEFAULT_PAGE_SIZE,
         includeReactions: true,
       });
+      console.timeEnd('[ChatContext] API getMessages');
 
       if (response.success && response.data) {
         dispatch({
@@ -489,10 +542,27 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
             cursor: response.data.nextCursor || null,
           },
         });
+
+        // Update cache with fresh data
+        const cacheMessages = response.data.messages.map((m) => ({
+          id: m.id,
+          userId: m.senderUserId,
+          username: m.senderUsername || '',
+          content: m.content,
+          createdAt: m.createdAt,
+        }));
+        setCachedMessages(groupId, cacheMessages);
       }
     } catch (error) {
-      dispatch({ type: 'SET_ERROR', payload: getChatErrorMessage(error) });
+      console.error('[ChatContext] API getMessages failed:', error);
+      // If we showed cached data and fetch fails, keep the cached data visible
+      if (!cachedMessages || cachedMessages.length === 0) {
+        dispatch({ type: 'SET_ERROR', payload: getChatErrorMessage(error) });
+      } else {
+        console.warn('[ChatContext] Failed to refresh messages, showing cached data:', error);
+      }
     }
+    console.timeEnd('[ChatContext] loadMessages total');
   }, [isAuthenticated]);
 
   const loadOlderMessages = useCallback(async () => {
@@ -893,50 +963,57 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   // ==================== GROUP MANAGEMENT ====================
 
   const openGroupChat = useCallback(async (groupId: string) => {
+    console.log('[ChatContext] openGroupChat called:', groupId);
+    console.log('[ChatContext] currentGroupIdRef:', currentGroupIdRef.current);
+    console.time('[ChatContext] openGroupChat total');
+
     // Use ref to check current group to avoid infinite loops
-    if (currentGroupIdRef.current === groupId) return;
+    if (currentGroupIdRef.current === groupId) {
+      console.log('[ChatContext] Already in this group, skipping reload');
+      console.timeEnd('[ChatContext] openGroupChat total');
+      return;
+    }
 
     dispatch({ type: 'SET_CURRENT_GROUP', payload: groupId });
 
-    // Join WebSocket room
+    // Join WebSocket room (don't await - let it happen in background)
     if (wsConnectedRef.current) {
-      try {
-        await joinChatGroup(groupId);
-      } catch (error) {
-        console.error('Failed to join chat group:', error);
-      }
+      console.log('[ChatContext] Joining WebSocket room...');
+      joinChatGroup(groupId).catch((error) => {
+        console.error('[ChatContext] Failed to join chat group:', error);
+      });
     }
 
-    // Load initial data
+    // Load initial data - messages are critical, others can be parallel
+    console.time('[ChatContext] Load messages + pinned');
     await Promise.all([
       loadMessages(groupId),
       loadPinnedMessages(groupId),
     ]);
+    console.timeEnd('[ChatContext] Load messages + pinned');
 
-    // Load presence
-    try {
-      const response = await getGroupPresence(groupId);
+    // Load presence and unread in background (non-blocking)
+    getGroupPresence(groupId).then((response) => {
       if (response.success && response.data) {
         const presenceMap = new Map<number, UserPresence>();
         response.data.presence.forEach((p) => presenceMap.set(p.userId, p));
         dispatch({ type: 'SET_PRESENCE_MAP', payload: presenceMap });
       }
-    } catch (error) {
-      console.error('Failed to load presence:', error);
-    }
+    }).catch((error) => {
+      console.error('[ChatContext] Failed to load presence:', error);
+    });
 
-    // Load unread count
-    try {
-      const response = await getUnreadCount(groupId);
+    getUnreadCount(groupId).then((response) => {
       if (response.success && response.data) {
         dispatch({ type: 'SET_UNREAD_COUNT', payload: response.data.unreadCount });
       }
-    } catch (error) {
-      console.error('Failed to load unread count:', error);
-    }
+    }).catch((error) => {
+      console.error('[ChatContext] Failed to load unread count:', error);
+    });
 
     // Update presence to online
     updateChatPresence(groupId, 'online', 'web');
+    console.timeEnd('[ChatContext] openGroupChat total');
   }, [loadMessages, loadPinnedMessages]); // Removed state.currentGroupId - using ref instead
 
   const closeGroupChat = useCallback(() => {

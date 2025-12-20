@@ -10,6 +10,7 @@ import DataSharingPanel from './DataSharingPanel';
 import ChatWindow from '../chat/ChatWindow';
 import InviteMembersModal from './InviteMembersModal';
 import { preloadGroupMessages } from '../../services/chatCache';
+import { getUserInfo } from '../../utils/token';
 import type { Group, GroupMember } from '../../types/groups';
 
 interface GroupDetailViewProps {
@@ -28,18 +29,12 @@ const TABS: Array<{ id: TabType; label: string; icon: string }> = [
   { id: 'sharing', label: 'Sharing', icon: '🔐' },
 ];
 
-// Helper to get current user ID
+// Helper to get current user ID - uses getUserInfo from token.ts for consistency
 const getCurrentUserId = (): number => {
-  try {
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      const user = JSON.parse(userStr);
-      return Number(user.id);
-    }
-  } catch {
-    console.error('Failed to get current user');
-  }
-  return 0;
+  const userInfo = getUserInfo();
+  console.log('[DEBUG] getUserInfo() returned:', userInfo);
+  console.log('[DEBUG] localStorage userInfo:', localStorage.getItem('userInfo'));
+  return userInfo?.userId ?? 0;
 };
 
 export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProps) {
@@ -64,14 +59,29 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Check if current user is the owner (use == for type coercion)
+  // Check if current user is the owner (handle both camelCase and snake_case from API)
   const currentUserId = getCurrentUserId();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const groupCreatorId = currentGroup?.creatorId ?? (currentGroup as any)?.creator_id;
   // eslint-disable-next-line eqeqeq
-  const isOwner = currentGroup?.creatorId == currentUserId;
+  const isOwner = groupCreatorId != null && groupCreatorId == currentUserId;
 
   // Check if user can invite (owner, admin, or creator role)
-  const currentMember = currentMembers.find((m) => Number(m.userId) === currentUserId);
-  const canInvite = isOwner || (currentMember && ['admin', 'creator'].includes(currentMember.role));
+  // Handle both camelCase and snake_case for userId
+  const currentMember = currentMembers.find((m) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const memberId = m.userId ?? (m as any).user_id;
+    return Number(memberId) === currentUserId;
+  });
+  const canInvite = isOwner || !!(currentMember && ['owner', 'admin', 'creator'].includes(currentMember.role));
+
+  // Debug logging
+  console.log('[DEBUG] currentUserId:', currentUserId);
+  console.log('[DEBUG] groupCreatorId:', groupCreatorId);
+  console.log('[DEBUG] isOwner:', isOwner);
+  console.log('[DEBUG] currentMembers:', currentMembers);
+  console.log('[DEBUG] currentMember:', currentMember);
+  console.log('[DEBUG] canInvite:', canInvite);
 
   // Fetch group data on mount (including chat preload)
   useEffect(() => {
@@ -171,15 +181,6 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
           </button>
 
           <div className="flex gap-2">
-            {/* Invite button - visible to owner and admins */}
-            {canInvite && (
-              <button
-                onClick={() => setShowInviteModal(true)}
-                className="px-4 py-2 rounded-lg bg-gradient-to-r from-pink-400/20 to-purple-400/20 border border-pink-400/30 text-pink-200 text-sm hover:from-pink-400/30 hover:to-purple-400/30 transition-colors"
-              >
-                + Invite
-              </button>
-            )}
             {isOwner && (
               <button
                 onClick={() => setShowDeleteConfirm(true)}
@@ -301,6 +302,8 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
             insights={currentInsights}
             onAnalyze={handleTriggerAnalysis}
             isAnalyzing={isLoadingInsights}
+            canInvite={canInvite}
+            onInvite={() => setShowInviteModal(true)}
           />
         )}
 
@@ -430,9 +433,11 @@ interface OverviewTabProps {
   insights: import('../../types/groups').GroupInsights | null;
   onAnalyze: () => void;
   isAnalyzing: boolean;
+  canInvite: boolean;
+  onInvite: () => void;
 }
 
-function OverviewTab({ group, members, insights, onAnalyze, isAnalyzing }: OverviewTabProps) {
+function OverviewTab({ group, members, insights, onAnalyze, isAnalyzing, canInvite, onInvite }: OverviewTabProps) {
   return (
     <div className="space-y-6">
       {insights?.llmSynthesis && (
@@ -479,9 +484,19 @@ function OverviewTab({ group, members, insights, onAnalyze, isAnalyzing }: Overv
       )}
 
       <div className="enhanced-glass-card">
-        <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#784552' }}>
-          Members
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="enhanced-glass-heading text-lg" style={{ color: '#784552' }}>
+            Members
+          </h3>
+          {canInvite && (
+            <button
+              onClick={onInvite}
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-pink-400/20 to-purple-400/20 border border-pink-400/30 text-pink-200 text-sm hover:from-pink-400/30 hover:to-purple-400/30 transition-all hover:scale-105"
+            >
+              + Invite Members
+            </button>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
           {members.slice(0, 8).map((member) => (
             <div

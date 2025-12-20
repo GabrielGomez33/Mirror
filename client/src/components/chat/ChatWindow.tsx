@@ -55,13 +55,18 @@ export default function ChatWindow({ groupId, groupName, onClose }: ChatWindowPr
   }, [openGroupChat, closeGroupChat]);
 
   // Initialize chat for this group - only re-run when groupId changes
+  // NOTE: We intentionally do NOT close the chat on unmount because:
+  // - Switching tabs within GroupDetailView should preserve messages
+  // - Only leaving the group entirely should close the chat
   useEffect(() => {
+    console.log('[ChatWindow] Mounting/updating for groupId:', groupId);
+    console.time('[ChatWindow] openGroupChat');
     openGroupChatRef.current(groupId);
+    console.timeEnd('[ChatWindow] openGroupChat');
 
-    return () => {
-      closeGroupChatRef.current();
-    };
-  }, [groupId]); // Only depend on groupId to prevent infinite loops
+    // Don't cleanup on unmount - let messages persist when switching tabs
+    // closeGroupChat should only be called when leaving GroupDetailView
+  }, [groupId]);
 
   // Scroll to bottom on new messages (if at bottom)
   useEffect(() => {
