@@ -26,7 +26,8 @@ export interface GetUserResponse {
   error?: string;
 }
 
-const API_BASE = '/mirror/api/users';
+// Note: Backend uses singular 'user' not 'users'
+const API_BASE = '/mirror/api/user';
 
 /**
  * Search users by username
