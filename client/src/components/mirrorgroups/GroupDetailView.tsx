@@ -32,8 +32,6 @@ const TABS: Array<{ id: TabType; label: string; icon: string }> = [
 // Helper to get current user ID - uses getUserInfo from token.ts for consistency
 const getCurrentUserId = (): number => {
   const userInfo = getUserInfo();
-  console.log('[DEBUG] getUserInfo() returned:', userInfo);
-  console.log('[DEBUG] localStorage userInfo:', localStorage.getItem('userInfo'));
   return userInfo?.userId ?? 0;
 };
 
@@ -76,12 +74,6 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
   // canInvite: owner, creator, or admin can invite
   const canInvite = !!(currentMember && ['owner', 'creator', 'admin'].includes(memberRole as string));
 
-  // Debug logging
-  console.log('[DEBUG] currentUserId:', currentUserId);
-  console.log('[DEBUG] currentMember?.role:', currentMember?.role);
-  console.log('[DEBUG] isOwner:', isOwner);
-  console.log('[DEBUG] canInvite:', canInvite);
-
   // Fetch group data on mount (including chat preload)
   useEffect(() => {
     // Fetch all group data in parallel
@@ -94,9 +86,13 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
   }, [groupId, fetchGroupDetails, fetchInsights, fetchActiveVotes]);
 
   const handleLeaveGroup = useCallback(async () => {
-    const success = await leaveGroup(groupId);
-    if (success) {
-      onBack();
+    try {
+      const success = await leaveGroup(groupId);
+      if (success) {
+        onBack();
+      }
+    } catch (error) {
+      console.error('Failed to leave group:', error);
     }
   }, [leaveGroup, groupId, onBack]);
 
@@ -179,23 +175,80 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
             <span className="enhanced-glass-subtle text-sm">Back to Groups</span>
           </button>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 relative z-20">
             {isOwner && (
               <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="px-4 py-2 rounded-lg bg-red-600/30 border border-red-600/50 text-red-200 text-sm hover:bg-red-600/40 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDeleteConfirm(true);
+                }}
+                className="px-4 py-2 rounded-lg bg-red-600/30 border border-red-600/50 text-red-200 text-sm hover:bg-red-600/40 transition-colors cursor-pointer"
+                type="button"
               >
                 Delete
               </button>
             )}
             <button
-              onClick={() => setShowLeaveConfirm(true)}
-              className="px-4 py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-300 text-sm hover:bg-red-500/30 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowLeaveConfirm(!showLeaveConfirm);
+              }}
+              className={`px-4 py-2 rounded-lg border text-sm transition-colors cursor-pointer ${
+                showLeaveConfirm
+                  ? 'bg-red-500/40 border-red-500/50 text-red-200'
+                  : 'bg-red-500/20 border-red-500/30 text-red-300 hover:bg-red-500/30'
+              }`}
+              type="button"
             >
-              Leave
+              {showLeaveConfirm ? 'Cancel' : 'Leave'}
             </button>
           </div>
         </div>
+
+        {/* Leave Confirmation Panel - Inline slide-down */}
+        {showLeaveConfirm && (
+          <div
+            className="mt-4 rounded-xl bg-red-500/10 border border-red-500/20 overflow-hidden"
+            style={{ animation: 'slideDown 0.2s ease-out' }}
+          >
+            <style>{`
+              @keyframes slideDown {
+                from { opacity: 0; transform: translateY(-10px); max-height: 0; }
+                to { opacity: 1; transform: translateY(0); max-height: 200px; }
+              }
+            `}</style>
+
+            <div className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                  <span className="text-lg">⚠️</span>
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-red-200 font-medium mb-1">Leave this group?</h4>
+                  <p className="text-red-300/70 text-sm mb-4">
+                    Your shared data will be removed and you'll need to be invited again to rejoin.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowLeaveConfirm(false)}
+                      className="px-4 py-2 rounded-lg bg-white/10 text-white/80 text-sm hover:bg-white/20 transition-colors"
+                      type="button"
+                    >
+                      Keep Membership
+                    </button>
+                    <button
+                      onClick={handleLeaveGroup}
+                      className="px-4 py-2 rounded-lg bg-red-500/30 text-red-200 text-sm hover:bg-red-500/40 transition-colors font-medium"
+                      type="button"
+                    >
+                      Leave Group
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Group Info */}
         <div className="flex items-start gap-6">
@@ -327,47 +380,14 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
         {activeTab === 'sharing' && <DataSharingPanel groupId={groupId} />}
       </div>
 
-      {/* Leave Confirmation Modal */}
-      {showLeaveConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setShowLeaveConfirm(false)}
-          />
-          <div className="relative enhanced-glass-panel p-6 max-w-md">
-            <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#784552' }}>
-              Leave Group?
-            </h3>
-            <p className="enhanced-glass-body mb-6" style={{ color: '#7e4151' }}>
-              Are you sure you want to leave "{currentGroup.name}"? Your shared data will be removed
-              and you'll need to be invited again to rejoin.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowLeaveConfirm(false)}
-                className="px-4 py-2 rounded-lg bg-white/10 text-white/80 hover:bg-white/20 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleLeaveGroup}
-                className="px-4 py-2 rounded-lg bg-red-500/30 text-red-300 hover:bg-red-500/40 transition-colors"
-              >
-                Leave Group
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => !isDeleting && setShowDeleteConfirm(false)}
           />
-          <div className="relative enhanced-glass-panel p-6 max-w-md">
+          <div className="relative enhanced-glass-panel p-6 max-w-md mx-4" style={{ overflow: 'visible' }}>
             <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#dc2626' }}>
               ⚠️ Delete Group?
             </h3>
@@ -384,14 +404,16 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
               <button
                 onClick={() => setShowDeleteConfirm(false)}
                 disabled={isDeleting}
-                className="px-4 py-2 rounded-lg bg-white/10 text-white/80 hover:bg-white/20 transition-colors disabled:opacity-50"
+                className="px-4 py-2 rounded-lg bg-white/10 text-white/80 hover:bg-white/20 transition-colors disabled:opacity-50 cursor-pointer"
+                type="button"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteGroup}
                 disabled={isDeleting}
-                className="px-4 py-2 rounded-lg bg-red-600/50 text-white hover:bg-red-600/70 transition-colors disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 rounded-lg bg-red-600/50 text-white hover:bg-red-600/70 transition-colors disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                type="button"
               >
                 {isDeleting ? (
                   <>

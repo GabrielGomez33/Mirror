@@ -434,13 +434,21 @@
   border: 1px solid var(--glass-border);
   border-radius: 24px;
   padding: 32px;
-  box-shadow: 
+  box-shadow:
     var(--glass-shadow),
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
     inset 0 -1px 0 rgba(255, 255, 255, 0.06);
   transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   position: relative;
-  overflow: hidden;
+  /* Changed from hidden to visible to ensure buttons and children are clickable */
+  overflow: visible;
+}
+
+/* Ensure all buttons inside enhanced panels are clickable */
+.enhanced-glass-panel button {
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
 }
 
 .enhanced-glass-panel::before {
@@ -450,13 +458,14 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, 
+  background: linear-gradient(90deg,
     transparent,
     rgba(255, 182, 193, 0.5),
     rgba(255, 255, 255, 0.3),
     rgba(218, 112, 214, 0.5),
     transparent
   );
+  pointer-events: none;
 }
 
 .enhanced-glass-panel:hover {
@@ -521,11 +530,19 @@
   left: 20px;
   right: 20px;
   height: 1px;
-  background: linear-gradient(90deg, 
+  background: linear-gradient(90deg,
     transparent,
     rgba(255, 182, 193, 0.3),
     transparent
   );
+  pointer-events: none;
+}
+
+/* Ensure buttons in cards are clickable */
+.enhanced-glass-card button {
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
 }
 
 /* ===== ENHANCED STATS CONTAINERS ===== */
@@ -549,13 +566,14 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(45deg, 
+  background: linear-gradient(45deg,
     rgba(255, 105, 180, 0.1) 0%,
     transparent 50%,
     rgba(218, 112, 214, 0.1) 100%
   );
   opacity: 0;
   transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
 .enhanced-stat-container:hover::before {

@@ -436,11 +436,19 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
 
   const leaveGroup = useCallback(
     async (groupId: string): Promise<boolean> => {
-      if (!isAuthenticated) return false;
+      console.log('[DEBUG] GroupContext.leaveGroup called with groupId:', groupId);
+      console.log('[DEBUG] isAuthenticated:', isAuthenticated);
+
+      if (!isAuthenticated) {
+        console.warn('[DEBUG] leaveGroup early return: not authenticated');
+        return false;
+      }
 
       dispatch({ type: 'SET_LOADING', payload: true });
       try {
+        console.log('[DEBUG] Calling leaveGroupApi...');
         await leaveGroupApi(groupId);
+        console.log('[DEBUG] leaveGroupApi succeeded');
         dispatch({ type: 'REMOVE_GROUP', payload: groupId });
 
         // Unsubscribe from WebSocket
@@ -450,6 +458,7 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
 
         return true;
       } catch (error) {
+        console.error('[DEBUG] leaveGroupApi error:', error);
         dispatch({ type: 'SET_ERROR', payload: getGroupsErrorMessage(error) });
         return false;
       } finally {

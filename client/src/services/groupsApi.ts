@@ -360,6 +360,43 @@ class GroupsApiClient {
     });
   }
 
+  async acceptInvitation(
+    groupId: string,
+    requestId: string
+  ): Promise<ApiResponse<{ message: string }>> {
+    const result = await this.makeRequest<ApiResponse<{ message: string }>>(`/${groupId}/accept`, {
+      method: 'POST',
+      body: JSON.stringify({ requestId }),
+    });
+
+    // Invalidate caches since membership changed
+    cache.invalidate(`groups:list`);
+    cache.invalidate(`groups:/${groupId}`);
+    return result;
+  }
+
+  async getMyInvitations(): Promise<ApiResponse<{ invitations: Array<{
+    request_id: string;
+    group_id: string;
+    group_name: string;
+    group_description: string;
+    inviter_username: string;
+    inviter_id: number;
+    requested_at: string;
+    status: string;
+  }> }>> {
+    return this.makeRequest<ApiResponse<{ invitations: Array<{
+      request_id: string;
+      group_id: string;
+      group_name: string;
+      group_description: string;
+      inviter_username: string;
+      inviter_id: number;
+      requested_at: string;
+      status: string;
+    }> }>>('/my-invitations', { method: 'GET' });
+  }
+
   async removeMember(
     groupId: string,
     userId: number
@@ -675,6 +712,9 @@ export const removeMember = (groupId: string, userId: number) =>
   groupsApi.removeMember(groupId, userId);
 export const updateMemberRole = (groupId: string, userId: number, role: string) =>
   groupsApi.updateMemberRole(groupId, userId, role);
+export const acceptInvitation = (groupId: string, requestId: string) =>
+  groupsApi.acceptInvitation(groupId, requestId);
+export const getMyInvitations = () => groupsApi.getMyInvitations();
 
 // Join Requests
 export const getJoinRequests = (groupId: string) => groupsApi.getJoinRequests(groupId);

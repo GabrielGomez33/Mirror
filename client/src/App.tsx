@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext';
 import { IntakeProvider } from './context/IntakeContext';
 import { GroupProvider } from './context/GroupContext';
 import { ChatProvider } from './context/ChatContext';
+import { NotificationProvider } from './context/NotificationContext';
 import IntakeErrorBoundary from './components/intake/IntakeErrorBoundary';
 import { ProtectedRoute, ConditionalRender } from './components/auth/RouteProtection';
 import { AccessLevel, SecurityLevel } from './context/AuthContext';
@@ -104,6 +105,7 @@ const App: React.FC = () => {
       <IntakeProvider>
         <GroupProvider>
           <ChatProvider>
+          <NotificationProvider>
           <div className="App min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
           {/* Conditionally render Global Dashboard only for authenticated users */}
           <ConditionalRender condition="authenticated">
@@ -240,6 +242,7 @@ const App: React.FC = () => {
             />
           </Routes>
           </div>
+          </NotificationProvider>
           </ChatProvider>
         </GroupProvider>
       </IntakeProvider>

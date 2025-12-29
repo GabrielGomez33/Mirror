@@ -368,8 +368,12 @@ export function MirrorGroupsPanel({ joinedGroups, suggestedGroups, onJoinGroup, 
           </span>
         </button>
         <button
-          onClick={onViewAllGroups}
-          className="w-full enhanced-action-button py-3"
+          onClick={joinedGroups.length > 0 ? onViewAllGroups : undefined}
+          disabled={joinedGroups.length === 0}
+          className={`w-full enhanced-action-button py-3 transition-opacity ${
+            joinedGroups.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+          title={joinedGroups.length === 0 ? 'Join a group first to view all groups' : 'View all your groups'}
         >
           <span className="enhanced-glass-text font-medium" style={{ color: '#6a1f33', textShadow: '0px 1px 3px #7e4151' }}>
             View All Groups
