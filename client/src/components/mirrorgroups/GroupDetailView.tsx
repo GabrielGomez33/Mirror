@@ -85,16 +85,25 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
     preloadGroupMessages(groupId);
   }, [groupId, fetchGroupDetails, fetchInsights, fetchActiveVotes]);
 
-  const handleLeaveGroup = useCallback(async () => {
+  const [isLeaving, setIsLeaving] = useState(false);
+
+  const handleLeaveGroup = async () => {
+    if (isLeaving) return;
+    setIsLeaving(true);
+
     try {
       const success = await leaveGroup(groupId);
       if (success) {
+        // Navigate back immediately
         onBack();
+      } else {
+        setIsLeaving(false);
       }
     } catch (error) {
       console.error('Failed to leave group:', error);
+      setIsLeaving(false);
     }
-  }, [leaveGroup, groupId, onBack]);
+  };
 
   const handleDeleteGroup = useCallback(async () => {
     setIsDeleting(true);
@@ -238,10 +247,11 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
                     </button>
                     <button
                       onClick={handleLeaveGroup}
-                      className="px-4 py-2 rounded-lg bg-red-500/30 text-red-200 text-sm hover:bg-red-500/40 transition-colors font-medium"
+                      disabled={isLeaving}
+                      className="px-4 py-2 rounded-lg bg-red-500/30 text-red-200 text-sm hover:bg-red-500/40 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                       type="button"
                     >
-                      Leave Group
+                      {isLeaving ? 'Leaving...' : 'Leave Group'}
                     </button>
                   </div>
                 </div>

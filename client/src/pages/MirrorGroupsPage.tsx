@@ -27,10 +27,17 @@ export default function MirrorGroupsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
 
-  // Initial fetch
+  // Initial fetch and polling every 3 seconds
   useEffect(() => {
     fetchMyGroups();
     fetchSuggestedGroups();
+
+    // Poll for updates every 3 seconds
+    const pollInterval = setInterval(() => {
+      fetchMyGroups();
+    }, 3000);
+
+    return () => clearInterval(pollInterval);
   }, [fetchMyGroups, fetchSuggestedGroups]);
 
   // Filter groups

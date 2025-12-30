@@ -703,21 +703,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initializeAuth();
   }, []);
 
-  // Auto-refresh tokens when expiring
+  // Auto-refresh tokens before expiry
   useEffect(() => {
-    if (!state.isAuthenticated || !isTokenExpiring()) return;
+    if (!state.isAuthenticated) return;
 
-    const refreshTimer = setInterval(async () => {
+    // Immediate check if token is expiring
+    const checkAndRefresh = async () => {
       if (isTokenExpiring()) {
+        console.log('[AuthContext] Token expiring, attempting refresh...');
         const success = await refreshTokens();
         if (!success) {
+          console.log('[AuthContext] Token refresh failed, logging out');
           await logout();
+        } else {
+          console.log('[AuthContext] Token refreshed successfully');
         }
       }
-    }, 60000); // Check every minute
+    };
+
+    // Check immediately
+    checkAndRefresh();
+
+    // Then check every 30 seconds
+    const refreshTimer = setInterval(checkAndRefresh, 30000);
 
     return () => clearInterval(refreshTimer);
-  }, []);
+  }, [state.isAuthenticated, state.tokenExpiry, isTokenExpiring, refreshTokens, logout]);
 
   // Update activity timestamp on user interaction
   useEffect(() => {

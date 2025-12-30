@@ -136,6 +136,7 @@ function groupsReducer(state: GroupsState, action: GroupsAction): GroupsState {
         ...state,
         myGroups: state.myGroups.filter((g) => g.id !== action.payload),
         currentGroup: state.currentGroup?.id === action.payload ? null : state.currentGroup,
+        currentMembers: state.currentGroup?.id === action.payload ? [] : state.currentMembers,
       };
 
     case 'ADD_MEMBER':
@@ -436,19 +437,11 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
 
   const leaveGroup = useCallback(
     async (groupId: string): Promise<boolean> => {
-      console.log('[DEBUG] GroupContext.leaveGroup called with groupId:', groupId);
-      console.log('[DEBUG] isAuthenticated:', isAuthenticated);
-
-      if (!isAuthenticated) {
-        console.warn('[DEBUG] leaveGroup early return: not authenticated');
-        return false;
-      }
+      if (!isAuthenticated) return false;
 
       dispatch({ type: 'SET_LOADING', payload: true });
       try {
-        console.log('[DEBUG] Calling leaveGroupApi...');
         await leaveGroupApi(groupId);
-        console.log('[DEBUG] leaveGroupApi succeeded');
         dispatch({ type: 'REMOVE_GROUP', payload: groupId });
 
         // Unsubscribe from WebSocket
@@ -456,16 +449,19 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
           unsubscribeFromGroup(groupId);
         }
 
+        // Refresh groups list to ensure consistency
+        await fetchMyGroups();
+
         return true;
       } catch (error) {
-        console.error('[DEBUG] leaveGroupApi error:', error);
+        console.error('Failed to leave group:', error);
         dispatch({ type: 'SET_ERROR', payload: getGroupsErrorMessage(error) });
         return false;
       } finally {
         dispatch({ type: 'SET_LOADING', payload: false });
       }
     },
-    [isAuthenticated]
+    [isAuthenticated, fetchMyGroups]
   );
 
   const deleteGroup = useCallback(

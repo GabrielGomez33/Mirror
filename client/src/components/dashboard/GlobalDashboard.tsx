@@ -1,9 +1,10 @@
 // src/components/dashboard/GlobalDashboard.tsx
 // System-wide dashboard with real user data, notifications, and connection status
 
-import { useState, useEffect } from 'react';
-import GlassCard, { GlassOverlay } from '../ui/GlassCard';
+import { useState, useEffect, useRef } from 'react';
+import GlassCard from '../ui/GlassCard';
 import { useNotifications } from '../../context/NotificationContext';
+import { useGroups } from '../../context/GroupContext';
 import { getUserInfo } from '../../utils/token';
 import { isWebSocketConnected } from '../../services/groupsWebSocket';
 import type { Notification } from '../../types/notifications';
@@ -198,7 +199,9 @@ function NotificationItem({ notification, onAccept, onDecline, onDismiss }: Noti
 
 export default function GlobalDashboard() {
   const [showDashboard, setShowDashboard] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const {
     notifications,
@@ -211,8 +214,57 @@ export default function GlobalDashboard() {
     clearAll,
   } = useNotifications();
 
+  const { fetchMyGroups } = useGroups();
+
   const userInfo = getUserInfo();
   const visibleNotifications = notifications.filter((n) => !n.dismissed);
+
+  // Wrapper to refresh groups after accepting invite
+  const handleAcceptInvite = async (notification: Notification): Promise<boolean> => {
+    const success = await acceptInvite(notification);
+    if (success) {
+      // Refresh groups list immediately
+      await fetchMyGroups();
+    }
+    return success;
+  };
+
+  // Handle closing with animation
+  const handleClose = () => {
+    if (isClosing) return;
+    setIsClosing(true);
+    setTimeout(() => {
+      setShowDashboard(false);
+      setIsClosing(false);
+    }, 300);
+  };
+
+  // Handle opening
+  const handleOpen = () => {
+    setShowDashboard(true);
+    setIsClosing(false);
+  };
+
+  // Click outside to close
+  useEffect(() => {
+    if (!showDashboard) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+        handleClose();
+      }
+    };
+
+    // Add listener with a small delay to prevent immediate close
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDashboard]);
 
   // Check WebSocket status periodically
   useEffect(() => {
@@ -228,14 +280,16 @@ export default function GlobalDashboard() {
 
   return (
     <>
-      {/* Dashboard toggle button - moved to top-20 to avoid overlap with settings, increased size and z-index */}
+      {/* Dashboard toggle button - positioned on left side, fades out when dashboard is open */}
       <button
-        onClick={() => setShowDashboard(true)}
-        className="fixed top-20 right-4 z-[60] w-16 h-16 bg-white/15 backdrop-blur-xl border-2 border-white/30 rounded-full flex items-center justify-center text-white hover:bg-white/25 transition-all duration-300 hover:scale-105 shadow-xl group"
+        onClick={handleOpen}
+        className={`fixed top-4 left-4 z-[60] w-10 h-10 bg-white/15 backdrop-blur-xl border border-white/30 rounded-full flex items-center justify-center text-white hover:bg-white/25 transition-all duration-300 hover:scale-110 shadow-lg group ${
+          showDashboard ? 'opacity-0 pointer-events-none' : 'opacity-100'
+        }`}
         title="Open Dashboard"
         style={{ minWidth: '25px', minHeight: '25px' }}
       >
-        <svg className="w-7 h-7 transition-transform group-hover:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5 transition-transform group-hover:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
@@ -243,7 +297,7 @@ export default function GlobalDashboard() {
         {/* Unread badge */}
         {unreadCount > 0 && (
           <div
-            className="absolute -top-1 -right-1 min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center text-xs font-semibold text-white"
+            className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full flex items-center justify-center text-[10px] font-semibold text-white"
             style={{
               background: 'linear-gradient(135deg, #f472b6, #ec4899)',
               boxShadow: '0 2px 8px rgba(236, 72, 153, 0.4)',
@@ -257,15 +311,26 @@ export default function GlobalDashboard() {
       {/* Dashboard overlay */}
       {showDashboard && (
         <>
-          <GlassOverlay
-            className="fixed inset-0 z-[70]"
-            onClose={() => setShowDashboard(false)}
-          >
-            <div />
-          </GlassOverlay>
+          {/* Backdrop - click to close */}
+          <div
+            className={`fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm transition-opacity duration-300 cursor-pointer ${
+              isClosing ? 'opacity-0' : 'opacity-100'
+            }`}
+            onClick={handleClose}
+            role="button"
+            aria-label="Close dashboard"
+          />
 
-          {/* Dashboard panel - responsive width, proper z-index, better margins */}
-          <div className="fixed top-0 right-0 h-full w-[min(400px,90vw)] z-[80] transform transition-transform duration-500">
+          {/* Dashboard panel - slides in from left */}
+          <div
+            ref={panelRef}
+            className={`fixed top-0 left-0 h-full w-[min(400px,90vw)] z-[80] transition-transform duration-300 ease-out ${
+              isClosing ? '-translate-x-full' : 'translate-x-0'
+            }`}
+            style={{
+              animation: isClosing ? undefined : 'slideInFromLeft 0.3s ease-out',
+            }}
+          >
             <div className="h-full m-3 sm:m-4 flex flex-col">
               <GlassCard enhanced hover={false} className="h-full flex flex-col overflow-hidden">
                 {/* Header with user info - increased close button touch target */}
@@ -289,7 +354,7 @@ export default function GlobalDashboard() {
                     </div>
                   </div>
                   <button
-                    onClick={() => setShowDashboard(false)}
+                    onClick={handleClose}
                     className="w-12 h-12 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 text-3xl transition-all rounded-full -mr-2 -mt-1"
                     aria-label="Close dashboard"
                     type="button"
@@ -359,7 +424,7 @@ export default function GlobalDashboard() {
                           <NotificationItem
                             key={notification.id}
                             notification={notification}
-                            onAccept={acceptInvite}
+                            onAccept={handleAcceptInvite}
                             onDecline={declineInvite}
                             onDismiss={dismiss}
                           />
@@ -415,6 +480,16 @@ export default function GlobalDashboard() {
 
       {/* Scoped CSS */}
       <style>{`
+        @keyframes slideInFromLeft {
+          from {
+            transform: translateX(-100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
         .custom-scrollbar::-webkit-scrollbar {
           width: 4px;
         }
