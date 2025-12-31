@@ -245,8 +245,19 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       return;
     }
 
+    // Create a deterministic ID based on notification content to prevent duplicates
+    const contentHash = `${notificationType}-${data.metadata?.groupId || ''}-${data.metadata?.userId || ''}-${data.title || ''}-${data.message || ''}`;
+    const deterministicId = `${contentHash}-${Math.floor(Date.now() / 5000)}`; // Group by 5-second windows
+
+    // Check if we already have this notification (using ref for latest state)
+    const isDuplicate = notificationsRef.current.some((n) => n.id === deterministicId);
+    if (isDuplicate) {
+      console.log('[NotificationContext] Skipping duplicate notification:', deterministicId);
+      return;
+    }
+
     const notification: Notification = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: deterministicId,
       type: notificationType,
       title: data.title || 'Notification',
       message: data.message || '',

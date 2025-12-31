@@ -6,6 +6,7 @@ export type NotificationType =
   | 'member_joined'
   | 'member_left'
   | 'vote_proposed'
+  | 'vote_cast'
   | 'vote_completed'
   | 'chat_mention'
   | 'chat_message'

@@ -2,18 +2,20 @@
 // Group members management component
 
 import { useState } from 'react';
-import { useGroups } from '../../context/GroupContext';
+import InviteMembersPanel from './InviteMembersModal';
 import type { GroupMember, MemberRole } from '../../types/groups';
 
 interface GroupMembersListProps {
   groupId: string;
   members: GroupMember[];
+  canInvite?: boolean;
+  onRefresh?: () => void;
 }
 
-export default function GroupMembersList({ groupId, members }: GroupMembersListProps) {
-  const { setShowInviteModal } = useGroups();
+export default function GroupMembersList({ groupId, members, canInvite = false, onRefresh }: GroupMembersListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMember, setSelectedMember] = useState<GroupMember | null>(null);
+  const [showInvitePanel, setShowInvitePanel] = useState(false);
 
   const filteredMembers = members.filter(
     (m) =>
@@ -22,23 +24,25 @@ export default function GroupMembersList({ groupId, members }: GroupMembersListP
   );
 
   const sortedMembers = [...filteredMembers].sort((a, b) => {
-    const roleOrder: Record<MemberRole, number> = {
+    const roleOrder: Record<string, number> = {
+      owner: 0,
       creator: 0,
       admin: 1,
       moderator: 2,
       member: 3,
     };
-    return roleOrder[a.role] - roleOrder[b.role];
+    return (roleOrder[a.role] ?? 3) - (roleOrder[b.role] ?? 3);
   });
 
   const getRoleBadge = (role: MemberRole) => {
-    const badges: Record<MemberRole, { label: string; color: string; icon: string }> = {
+    const badges: Record<string, { label: string; color: string; icon: string }> = {
+      owner: { label: 'Owner', color: 'bg-yellow-500/20 text-yellow-300', icon: '👑' },
       creator: { label: 'Creator', color: 'bg-yellow-500/20 text-yellow-300', icon: '👑' },
       admin: { label: 'Admin', color: 'bg-purple-500/20 text-purple-300', icon: '⚡' },
       moderator: { label: 'Mod', color: 'bg-blue-500/20 text-blue-300', icon: '🛡️' },
       member: { label: 'Member', color: 'bg-white/10 text-white/70', icon: '' },
     };
-    return badges[role];
+    return badges[role] || badges['member'];
   };
 
   return (
@@ -48,15 +52,29 @@ export default function GroupMembersList({ groupId, members }: GroupMembersListP
         <h3 className="enhanced-glass-heading text-lg" style={{ color: '#784552' }}>
           Members ({members.length})
         </h3>
-        <button
-          onClick={() => setShowInviteModal(true)}
-          className="enhanced-action-button px-4 py-2"
-        >
-          <span className="enhanced-glass-text text-sm" style={{ color: '#6a1f33' }}>
-            + Invite
-          </span>
-        </button>
+        {canInvite && (
+          <button
+            onClick={() => setShowInvitePanel(!showInvitePanel)}
+            className={`px-4 py-2 rounded-lg bg-gradient-to-r from-pink-400/20 to-purple-400/20 border border-pink-400/30 text-pink-200 text-sm hover:from-pink-400/30 hover:to-purple-400/30 transition-all ${showInvitePanel ? 'ring-2 ring-pink-400/50' : 'hover:scale-105'}`}
+          >
+            {showInvitePanel ? '− Close' : '+ Invite Members'}
+          </button>
+        )}
       </div>
+
+      {/* Inline Invite Panel */}
+      {canInvite && (
+        <InviteMembersPanel
+          groupId={groupId}
+          currentMembers={members}
+          isOpen={showInvitePanel}
+          onClose={() => setShowInvitePanel(false)}
+          onInviteSent={() => {
+            onRefresh?.();
+            setShowInvitePanel(false);
+          }}
+        />
+      )}
 
       {/* Search */}
       <div className="relative">
@@ -195,13 +213,14 @@ interface MemberDetailModalProps {
 
 function MemberDetailModal({ member, onClose }: MemberDetailModalProps) {
   const getRoleBadge = (role: MemberRole) => {
-    const badges: Record<MemberRole, { label: string; color: string; icon: string }> = {
+    const badges: Record<string, { label: string; color: string; icon: string }> = {
+      owner: { label: 'Owner', color: 'bg-yellow-500/20 text-yellow-300', icon: '👑' },
       creator: { label: 'Creator', color: 'bg-yellow-500/20 text-yellow-300', icon: '👑' },
       admin: { label: 'Admin', color: 'bg-purple-500/20 text-purple-300', icon: '⚡' },
       moderator: { label: 'Mod', color: 'bg-blue-500/20 text-blue-300', icon: '🛡️' },
       member: { label: 'Member', color: 'bg-white/10 text-white/70', icon: '' },
     };
-    return badges[role];
+    return badges[role] || badges['member'];
   };
 
   const roleBadge = getRoleBadge(member.role);

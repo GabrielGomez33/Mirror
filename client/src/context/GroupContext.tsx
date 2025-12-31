@@ -20,6 +20,7 @@ import {
   deleteGroup as deleteGroupApi,
   getInsights,
   getActiveVotes,
+  getVoteHistory,
   triggerAnalysis as triggerAnalysisApi,
   proposeVote as proposeVoteApi,
   castVote as castVoteApi,
@@ -198,6 +199,25 @@ function groupsReducer(state: GroupsState, action: GroupsAction): GroupsState {
         ),
       };
 
+    case 'COMPLETE_VOTE': {
+      const completedVote = state.activeVotes.find((v) => v.id === action.payload.voteId);
+      if (!completedVote) return state;
+
+      const updatedVote: Vote = {
+        ...completedVote,
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+        results: action.payload.results,
+        participationRate: action.payload.participationRate,
+      };
+
+      return {
+        ...state,
+        activeVotes: state.activeVotes.filter((v) => v.id !== action.payload.voteId),
+        voteHistory: [updatedVote, ...state.voteHistory],
+      };
+    }
+
     case 'SET_VOTE_HISTORY':
       return { ...state, voteHistory: action.payload };
 
@@ -250,6 +270,7 @@ interface GroupContextType extends GroupsState {
   fetchGroupDetails: (groupId: string) => Promise<void>;
   fetchInsights: (groupId: string) => Promise<void>;
   fetchActiveVotes: (groupId: string) => Promise<void>;
+  fetchVoteHistory: (groupId: string) => Promise<void>;
 
   // Group actions
   createGroup: (data: CreateGroupFormData) => Promise<string | null>;
@@ -385,6 +406,24 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
     [isAuthenticated]
   );
 
+  const fetchVoteHistory = useCallback(
+    async (groupId: string) => {
+      if (!isAuthenticated) return;
+
+      try {
+        const response = await getVoteHistory(groupId, 50);
+        // Filter to only completed votes and set as vote history
+        const completedVotes = (response.votes || []).filter(
+          (v: Vote) => v.status === 'completed'
+        );
+        dispatch({ type: 'SET_VOTE_HISTORY', payload: completedVotes });
+      } catch (error) {
+        console.error('Failed to fetch vote history:', error);
+      }
+    },
+    [isAuthenticated]
+  );
+
   // ==================== GROUP ACTIONS ====================
 
   const createGroup = useCallback(
@@ -503,14 +542,16 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
         fetchGroupDetails(groupId);
         fetchInsights(groupId);
         fetchActiveVotes(groupId);
+        fetchVoteHistory(groupId);
       } else {
         dispatch({ type: 'SET_CURRENT_GROUP', payload: null });
         dispatch({ type: 'SET_CURRENT_MEMBERS', payload: [] });
         dispatch({ type: 'SET_CURRENT_INSIGHTS', payload: null });
         dispatch({ type: 'SET_ACTIVE_VOTES', payload: [] });
+        dispatch({ type: 'SET_VOTE_HISTORY', payload: [] });
       }
     },
-    [fetchGroupDetails, fetchInsights, fetchActiveVotes]
+    [fetchGroupDetails, fetchInsights, fetchActiveVotes, fetchVoteHistory]
   );
 
   // ==================== DATA SHARING ====================
@@ -563,13 +604,15 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
         if (response.data) {
           dispatch({ type: 'ADD_VOTE', payload: response.data });
         }
+        // Refetch votes to ensure state is accurate
+        await fetchActiveVotes(groupId);
         return true;
       } catch (error) {
         dispatch({ type: 'SET_ERROR', payload: getGroupsErrorMessage(error) });
         return false;
       }
     },
-    [isAuthenticated]
+    [isAuthenticated, fetchActiveVotes]
   );
 
   const castVote = useCallback(
@@ -578,13 +621,15 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
 
       try {
         await castVoteApi(groupId, voteId, request);
+        // Refetch votes to reflect updated vote counts
+        await fetchActiveVotes(groupId);
         return true;
       } catch (error) {
         dispatch({ type: 'SET_ERROR', payload: getGroupsErrorMessage(error) });
         return false;
       }
     },
-    [isAuthenticated]
+    [isAuthenticated, fetchActiveVotes]
   );
 
   // ==================== WEBSOCKET ====================
@@ -628,6 +673,7 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
         fetchGroupDetails(state.selectedGroupId),
         fetchInsights(state.selectedGroupId),
         fetchActiveVotes(state.selectedGroupId),
+        fetchVoteHistory(state.selectedGroupId),
       ]);
     }
   }, [
@@ -636,6 +682,7 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
     fetchGroupDetails,
     fetchInsights,
     fetchActiveVotes,
+    fetchVoteHistory,
     state.selectedGroupId,
   ]);
 
@@ -728,32 +775,26 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
     );
     cleanupRef.current.push(unsubMemberLeftUnderscore);
 
-    // Vote events
+    // Vote events - refetch to ensure data is accurate
     const unsubVoteProposed = onWebSocketEvent(
       'vote:proposed',
       (data: unknown) => {
         const typedData = data as WSVoteProposed;
-        const vote: Vote = {
-          id: typedData.voteId,
-          groupId: state.currentGroup?.id || '',
-          proposerId: 0,
-          proposerUsername: typedData.proposer,
-          topic: typedData.topic,
-          argument: typedData.argument,
-          voteType: typedData.voteType,
-          options: typedData.options,
-          status: 'active',
-          durationSeconds: 60,
-          createdAt: new Date().toISOString(),
-          expiresAt: typedData.expiresAt,
-        };
-        dispatch({ type: 'ADD_VOTE', payload: vote });
+        console.log('[GroupContext] Vote proposed:', typedData);
+        // Refetch active votes to get the new vote
+        if (state.currentGroup?.id) {
+          fetchActiveVotes(state.currentGroup.id);
+        }
       }
     );
     cleanupRef.current.push(unsubVoteProposed);
 
     const unsubVoteCast = onWebSocketEvent('vote:cast', (_data: unknown) => {
-      // Could update UI with vote progress here
+      console.log('[GroupContext] Vote cast received');
+      // Refetch active votes to get updated counts
+      if (state.currentGroup?.id) {
+        fetchActiveVotes(state.currentGroup.id);
+      }
     });
     cleanupRef.current.push(unsubVoteCast);
 
@@ -761,10 +802,12 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
       'vote:completed',
       (data: unknown) => {
         const typedData = data as WSVoteCompleted;
-        dispatch({
-          type: 'SET_ACTIVE_VOTES',
-          payload: state.activeVotes.filter((v) => v.id !== typedData.voteId),
-        });
+        console.log('[GroupContext] Vote completed:', typedData);
+        // Refetch both active votes and history
+        if (state.currentGroup?.id) {
+          fetchActiveVotes(state.currentGroup.id);
+          fetchVoteHistory(state.currentGroup.id);
+        }
       }
     );
     cleanupRef.current.push(unsubVoteCompleted);
@@ -824,6 +867,7 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
     fetchGroupDetails,
     fetchInsights,
     fetchActiveVotes,
+    fetchVoteHistory,
     createGroup,
     joinGroup,
     leaveGroup,

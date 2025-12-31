@@ -41,11 +41,13 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
     currentMembers,
     currentInsights,
     activeVotes,
+    voteHistory,
     isLoading,
     isLoadingInsights,
     fetchGroupDetails,
     fetchInsights,
     fetchActiveVotes,
+    fetchVoteHistory,
     leaveGroup,
     deleteGroup,
     triggerAnalysis,
@@ -80,10 +82,11 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
     fetchGroupDetails(groupId);
     fetchInsights(groupId);
     fetchActiveVotes(groupId);
+    fetchVoteHistory(groupId);
 
     // Preload chat messages so they're ready when user clicks Chat tab
     preloadGroupMessages(groupId);
-  }, [groupId, fetchGroupDetails, fetchInsights, fetchActiveVotes]);
+  }, [groupId, fetchGroupDetails, fetchInsights, fetchActiveVotes, fetchVoteHistory]);
 
   const [isLeaving, setIsLeaving] = useState(false);
 
@@ -180,12 +183,7 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
             className="flex items-center gap-2 text-white/70 hover:text-white transition-colors"
           >
             <span>←</span>
-            <span className="enhanced-glass-subtle text-sm"
-			style={{
-                  color: 'rgb(120, 69, 82)',
-                  textShadow: '0 3px 12px rgba(0, 0, 0, .4), 0 1px 3px rgba(255, 255, 255, .15)',
-            }}
-            >Back to Groups</span>
+            <span className="enhanced-glass-subtle text-sm">Back to Groups</span>
           </button>
 
           <div className="flex gap-2 relative z-20">
@@ -377,7 +375,12 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
         {activeTab === 'chat' && <ChatWindow groupId={groupId} groupName={currentGroup.name} />}
 
         {activeTab === 'members' && (
-          <GroupMembersList groupId={groupId} members={currentMembers} />
+          <GroupMembersList
+            groupId={groupId}
+            members={currentMembers}
+            canInvite={canInvite}
+            onRefresh={() => fetchGroupDetails(groupId)}
+          />
         )}
 
         {activeTab === 'insights' && (
@@ -389,7 +392,7 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
           />
         )}
 
-        {activeTab === 'voting' && <VotingSystem groupId={groupId} votes={activeVotes} />}
+        {activeTab === 'voting' && <VotingSystem groupId={groupId} votes={activeVotes} pastVotes={voteHistory} />}
 
         {activeTab === 'sharing' && <DataSharingPanel groupId={groupId} />}
       </div>

@@ -54,6 +54,7 @@ function NotificationItem({
       member_joined: { icon: '🎉', color: '#4ade80' },
       member_left: { icon: '👋', color: '#fbbf24' },
       vote_proposed: { icon: '🗳️', color: '#60a5fa' },
+      vote_cast: { icon: '✋', color: '#a78bfa' },
       vote_completed: { icon: '✅', color: '#22c55e' },
       chat_mention: { icon: '💬', color: '#f472b6' },
       chat_message: { icon: '💬', color: '#60a5fa' },

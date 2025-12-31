@@ -8,15 +8,18 @@ import type { Vote, VoteType, ProposeVoteRequest } from '../../types/groups';
 interface VotingSystemProps {
   groupId: string;
   votes: Vote[];
+  pastVotes?: Vote[];
 }
 
-export default function VotingSystem({ groupId, votes }: VotingSystemProps) {
+export default function VotingSystem({ groupId, votes, pastVotes = [] }: VotingSystemProps) {
   const { proposeVote, castVote, isLoadingVotes } = useGroups();
   const [showNewVote, setShowNewVote] = useState(false);
   const [selectedVote, setSelectedVote] = useState<Vote | null>(null);
 
   const activeVotes = votes.filter((v) => v.status === 'active');
-  const completedVotes = votes.filter((v) => v.status === 'completed');
+
+  // Use pastVotes from props (fetched from API) - show all completed votes
+  const completedVotes = pastVotes.filter((v) => v.status === 'completed');
 
   return (
     <div className="space-y-6">
@@ -25,15 +28,26 @@ export default function VotingSystem({ groupId, votes }: VotingSystemProps) {
         <h3 className="enhanced-glass-heading text-lg" style={{ color: '#784552' }}>
           Group Voting
         </h3>
-        <button
-          onClick={() => setShowNewVote(true)}
-          className="enhanced-action-button px-4 py-2"
-        >
-          <span className="enhanced-glass-text text-sm" style={{ color: '#6a1f33' }}>
-            + New Vote
-          </span>
-        </button>
+        {!showNewVote && (
+          <button
+            onClick={() => setShowNewVote(true)}
+            className="enhanced-action-button px-4 py-2"
+          >
+            <span className="enhanced-glass-text text-sm" style={{ color: '#6a1f33' }}>
+              + New Vote
+            </span>
+          </button>
+        )}
       </div>
+
+      {/* Inline New Vote Form */}
+      {showNewVote && (
+        <NewVoteInlineForm
+          groupId={groupId}
+          onClose={() => setShowNewVote(false)}
+          onSubmit={proposeVote}
+        />
+      )}
 
       {/* Active Votes */}
       {activeVotes.length > 0 && (
@@ -54,7 +68,7 @@ export default function VotingSystem({ groupId, votes }: VotingSystemProps) {
       )}
 
       {/* No Active Votes */}
-      {activeVotes.length === 0 && !isLoadingVotes && (
+      {activeVotes.length === 0 && !isLoadingVotes && !showNewVote && (
         <div className="text-center py-8">
           <span className="text-4xl mb-4 block">🗳️</span>
           <p className="enhanced-glass-body mb-2" style={{ color: '#7e4151' }}>
@@ -70,21 +84,12 @@ export default function VotingSystem({ groupId, votes }: VotingSystemProps) {
       {completedVotes.length > 0 && (
         <div className="space-y-4">
           <h4 className="enhanced-glass-text text-sm" style={{ color: '#6a1f33' }}>
-            Vote History
+            Vote History ({completedVotes.length})
           </h4>
-          {completedVotes.slice(0, 5).map((vote) => (
+          {completedVotes.map((vote) => (
             <CompletedVoteCard key={vote.id} vote={vote} />
           ))}
         </div>
-      )}
-
-      {/* New Vote Modal */}
-      {showNewVote && (
-        <NewVoteModal
-          groupId={groupId}
-          onClose={() => setShowNewVote(false)}
-          onSubmit={proposeVote}
-        />
       )}
 
       {/* Vote Detail Modal */}
@@ -252,35 +257,142 @@ function ActiveVoteCard({ vote, groupId, onCastVote, onSelect }: ActiveVoteCardP
 // COMPLETED VOTE CARD
 // ============================================================================
 
+interface VoteResultDisplay {
+  option: string;
+  count: number;
+  percentage: number;
+}
+
 function CompletedVoteCard({ vote }: { vote: Vote }) {
+  const [showResults, setShowResults] = useState(false);
+
+  // Parse results from either the expected format or the raw final_results from backend
+  const parseResults = (): VoteResultDisplay[] => {
+    // If we have properly formatted results array, use it
+    if (vote.results && Array.isArray(vote.results) && vote.results.length > 0) {
+      return vote.results;
+    }
+
+    // Otherwise, try to parse from finalResults (backend format: {yes: 2, no: 0, total: 2, winner: "yes"})
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const finalResults = (vote as any).finalResults || (vote as any).final_results;
+    if (finalResults) {
+      const parsed = typeof finalResults === 'string' ? JSON.parse(finalResults) : finalResults;
+      const total = parsed.total || 0;
+
+      // For yes/no votes
+      if (vote.voteType === 'yes_no') {
+        const yesCount = parsed.yes || 0;
+        const noCount = parsed.no || 0;
+        return [
+          { option: 'Yes', count: yesCount, percentage: total > 0 ? (yesCount / total) * 100 : 0 },
+          { option: 'No', count: noCount, percentage: total > 0 ? (noCount / total) * 100 : 0 },
+        ];
+      }
+
+      // For multiple choice, extract options from the parsed results
+      const results: VoteResultDisplay[] = [];
+      for (const [key, value] of Object.entries(parsed)) {
+        if (!['total', 'winner', 'totalMembers'].includes(key) && typeof value === 'number') {
+          results.push({
+            option: key.charAt(0).toUpperCase() + key.slice(1),
+            count: value,
+            percentage: total > 0 ? (value / total) * 100 : 0,
+          });
+        }
+      }
+      return results;
+    }
+
+    return [];
+  };
+
+  const results = parseResults();
+  const winningResult = results.reduce((prev, curr) =>
+    (curr.count > (prev?.count || 0)) ? curr : prev
+  , results[0]);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const finalResults = (vote as any).finalResults || (vote as any).final_results;
+  const parsedFinal = finalResults ? (typeof finalResults === 'string' ? JSON.parse(finalResults) : finalResults) : null;
+  const participationRate = vote.participationRate ?? (parsedFinal?.totalMembers ? (parsedFinal.total / parsedFinal.totalMembers) : undefined);
+
   return (
-    <div className="enhanced-glass-card opacity-75">
-      <div className="flex items-center justify-between mb-2">
-        <span className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
-          {vote.topic}
-        </span>
-        <span className="text-xs text-white/50">
-          {new Date(vote.completedAt || vote.createdAt).toLocaleDateString()}
-        </span>
+    <div className="enhanced-glass-card">
+      <div
+        className="cursor-pointer"
+        onClick={() => setShowResults(!showResults)}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-green-400">✓</span>
+            <span className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+              {vote.topic}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {participationRate !== undefined && (
+              <span className="text-xs px-2 py-0.5 rounded bg-white/10 text-white/60">
+                {Math.round(participationRate * 100)}% voted
+              </span>
+            )}
+            <span className="text-xs text-white/50">
+              {new Date(vote.completedAt || vote.createdAt).toLocaleDateString()}
+            </span>
+            <span className="text-white/40 text-sm">
+              {showResults ? '▲' : '▼'}
+            </span>
+          </div>
+        </div>
+
+        {winningResult && (
+          <p className="enhanced-glass-subtle text-xs" style={{ color: '#6a1f33' }}>
+            Winner: <span className="text-pink-400 font-medium">{winningResult.option}</span>
+            {' '}({winningResult.percentage.toFixed(0)}%)
+          </p>
+        )}
       </div>
-      <p className="enhanced-glass-subtle text-xs" style={{ color: '#6a1f33' }}>
-        Completed
-      </p>
+
+      {/* Expanded Results */}
+      {showResults && results.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-white/10 space-y-2">
+          {results.map((result, idx) => (
+            <div key={idx} className="flex items-center gap-3">
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="enhanced-glass-text text-xs" style={{ color: '#7e4151' }}>
+                    {result.option}
+                  </span>
+                  <span className="text-xs text-white/60">
+                    {result.count} vote{result.count !== 1 ? 's' : ''} ({result.percentage.toFixed(0)}%)
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-pink-400 to-purple-400"
+                    style={{ width: `${result.percentage}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 // ============================================================================
-// NEW VOTE MODAL
+// NEW VOTE INLINE FORM
 // ============================================================================
 
-interface NewVoteModalProps {
+interface NewVoteInlineFormProps {
   groupId: string;
   onClose: () => void;
   onSubmit: (groupId: string, request: ProposeVoteRequest) => Promise<boolean>;
 }
 
-function NewVoteModal({ groupId, onClose, onSubmit }: NewVoteModalProps) {
+function NewVoteInlineForm({ groupId, onClose, onSubmit }: NewVoteInlineFormProps) {
   const [topic, setTopic] = useState('');
   const [argument, setArgument] = useState('');
   const [voteType, setVoteType] = useState<VoteType>('yes_no');
@@ -327,151 +439,155 @@ function NewVoteModal({ groupId, onClose, onSubmit }: NewVoteModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-
-      <div className="relative w-full max-w-lg enhanced-glass-panel p-6">
-        <h3 className="enhanced-glass-heading text-xl mb-6" style={{ color: '#784552' }}>
+    <div className="enhanced-glass-card border-l-4 border-purple-400">
+      <div className="flex items-center justify-between mb-4">
+        <h4 className="enhanced-glass-heading text-lg" style={{ color: '#784552' }}>
           Create New Vote
-        </h3>
+        </h4>
+        <button
+          onClick={onClose}
+          className="text-white/50 hover:text-white/80 transition-colors text-xl"
+        >
+          ×
+        </button>
+      </div>
 
-        <div className="space-y-4">
-          {/* Topic */}
-          <div>
-            <label className="block enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
-              Question *
-            </label>
-            <input
-              type="text"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-pink-400/50"
-              placeholder="What should we decide?"
-              maxLength={200}
-            />
+      <div className="space-y-4">
+        {/* Topic */}
+        <div>
+          <label className="block enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
+            Question *
+          </label>
+          <input
+            type="text"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-pink-400/50"
+            placeholder="What should we decide?"
+            maxLength={200}
+          />
+        </div>
+
+        {/* Argument */}
+        <div>
+          <label className="block enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
+            Context (optional)
+          </label>
+          <textarea
+            value={argument}
+            onChange={(e) => setArgument(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-pink-400/50 resize-none"
+            placeholder="Provide more context..."
+            rows={2}
+            maxLength={1000}
+          />
+        </div>
+
+        {/* Vote Type */}
+        <div>
+          <label className="block enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
+            Vote Type
+          </label>
+          <div className="flex gap-2">
+            {[
+              { value: 'yes_no', label: 'Yes/No', icon: '👍' },
+              { value: 'multiple_choice', label: 'Multiple Choice', icon: '📋' },
+            ].map((type) => (
+              <button
+                key={type.value}
+                onClick={() => setVoteType(type.value as VoteType)}
+                className={`flex-1 p-3 rounded-lg border transition-all ${
+                  voteType === type.value
+                    ? 'bg-gradient-to-r from-pink-400/20 to-purple-400/20 border-pink-400/50'
+                    : 'bg-white/5 border-white/10 hover:bg-white/10'
+                }`}
+              >
+                <span className="mr-2">{type.icon}</span>
+                <span className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+                  {type.label}
+                </span>
+              </button>
+            ))}
           </div>
+        </div>
 
-          {/* Argument */}
+        {/* Options for Multiple Choice */}
+        {voteType === 'multiple_choice' && (
           <div>
             <label className="block enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
-              Context (optional)
+              Options
             </label>
-            <textarea
-              value={argument}
-              onChange={(e) => setArgument(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-pink-400/50 resize-none"
-              placeholder="Provide more context..."
-              rows={2}
-              maxLength={1000}
-            />
-          </div>
-
-          {/* Vote Type */}
-          <div>
-            <label className="block enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
-              Vote Type
-            </label>
-            <div className="flex gap-2">
-              {[
-                { value: 'yes_no', label: 'Yes/No', icon: '👍' },
-                { value: 'multiple_choice', label: 'Multiple Choice', icon: '📋' },
-              ].map((type) => (
-                <button
-                  key={type.value}
-                  onClick={() => setVoteType(type.value as VoteType)}
-                  className={`flex-1 p-3 rounded-lg border transition-all ${
-                    voteType === type.value
-                      ? 'bg-gradient-to-r from-pink-400/20 to-purple-400/20 border-pink-400/50'
-                      : 'bg-white/5 border-white/10 hover:bg-white/10'
-                  }`}
-                >
-                  <span className="mr-2">{type.icon}</span>
-                  <span className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
-                    {type.label}
-                  </span>
-                </button>
+            <div className="space-y-2">
+              {options.map((option, index) => (
+                <div key={index} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={option}
+                    onChange={(e) => handleOptionChange(index, e.target.value)}
+                    className="flex-1 px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-pink-400/50"
+                    placeholder={`Option ${index + 1}`}
+                    maxLength={100}
+                  />
+                  {options.length > 2 && (
+                    <button
+                      onClick={() => handleRemoveOption(index)}
+                      className="px-3 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
               ))}
+              {options.length < 10 && (
+                <button
+                  onClick={handleAddOption}
+                  className="text-pink-400 text-sm hover:text-pink-300"
+                >
+                  + Add Option
+                </button>
+              )}
             </div>
           </div>
+        )}
 
-          {/* Options for Multiple Choice */}
-          {voteType === 'multiple_choice' && (
-            <div>
-              <label className="block enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
-                Options
-              </label>
-              <div className="space-y-2">
-                {options.map((option, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input
-                      type="text"
-                      value={option}
-                      onChange={(e) => handleOptionChange(index, e.target.value)}
-                      className="flex-1 px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-pink-400/50"
-                      placeholder={`Option ${index + 1}`}
-                      maxLength={100}
-                    />
-                    {options.length > 2 && (
-                      <button
-                        onClick={() => handleRemoveOption(index)}
-                        className="px-3 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                ))}
-                {options.length < 10 && (
-                  <button
-                    onClick={handleAddOption}
-                    className="text-pink-400 text-sm hover:text-pink-300"
-                  >
-                    + Add Option
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Duration */}
-          <div>
-            <label className="block enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
-              Duration: {duration} seconds
-            </label>
-            <input
-              type="range"
-              min="30"
-              max="300"
-              step="30"
-              value={duration}
-              onChange={(e) => setDuration(parseInt(e.target.value))}
-              className="w-full accent-pink-400"
-            />
-            <div className="flex justify-between text-xs text-white/40 mt-1">
-              <span>30s</span>
-              <span>5 min</span>
-            </div>
+        {/* Duration */}
+        <div>
+          <label className="block enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
+            Duration: {duration} seconds
+          </label>
+          <input
+            type="range"
+            min="30"
+            max="300"
+            step="30"
+            value={duration}
+            onChange={(e) => setDuration(parseInt(e.target.value))}
+            className="w-full accent-pink-400"
+          />
+          <div className="flex justify-between text-xs text-white/40 mt-1">
+            <span>30s</span>
+            <span>5 min</span>
           </div>
         </div>
+      </div>
 
-        {/* Actions */}
-        <div className="flex gap-3 mt-6">
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2 rounded-lg bg-white/10 text-white/80 hover:bg-white/20 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={!topic.trim() || isSubmitting}
-            className="flex-1 enhanced-action-button py-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
-              {isSubmitting ? 'Creating...' : 'Start Vote'}
-            </span>
-          </button>
-        </div>
+      {/* Actions */}
+      <div className="flex gap-3 mt-6">
+        <button
+          onClick={onClose}
+          className="flex-1 px-4 py-2 rounded-lg bg-white/10 text-white/80 hover:bg-white/20 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSubmit}
+          disabled={!topic.trim() || isSubmitting}
+          className="flex-1 enhanced-action-button py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
+            {isSubmitting ? 'Creating...' : 'Start Vote'}
+          </span>
+        </button>
       </div>
     </div>
   );
@@ -490,7 +606,7 @@ interface VoteDetailModalProps {
 
 function VoteDetailModal({ vote, onClose }: VoteDetailModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative w-full max-w-lg enhanced-glass-panel p-6">

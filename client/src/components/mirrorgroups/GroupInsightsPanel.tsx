@@ -48,7 +48,7 @@ export default function GroupInsightsPanel({
     );
   }
 
-  const { llmSynthesis, compatibility, patterns, conflicts } = insights;
+  const { llmSynthesis, compatibility, patterns = [], conflicts = [] } = insights;
 
   return (
     <div className="space-y-6">
@@ -80,7 +80,7 @@ export default function GroupInsightsPanel({
           </p>
 
           {/* Key Insights */}
-          {llmSynthesis.keyInsights.length > 0 && (
+          {llmSynthesis.keyInsights?.length > 0 && (
             <div className="mb-4">
               <h4 className="enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
                 Key Insights
@@ -99,7 +99,7 @@ export default function GroupInsightsPanel({
           )}
 
           {/* Recommendations */}
-          {llmSynthesis.recommendations.length > 0 && (
+          {llmSynthesis.recommendations?.length > 0 && (
             <div className="bg-white/5 rounded-lg p-4">
               <h4 className="enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
                 Recommendations
@@ -150,7 +150,7 @@ export default function GroupInsightsPanel({
       )}
 
       {/* Compatibility Matrix */}
-      {compatibility && compatibility.scores.length > 0 && (
+      {compatibility && compatibility.scores?.length > 0 && (
         <div className="enhanced-glass-card">
           <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#784552' }}>
             Compatibility Matrix
@@ -335,7 +335,7 @@ function ConflictCard({ conflict }: { conflict: ConflictRisk }) {
       <p className="enhanced-glass-subtle text-sm mb-2" style={{ color: '#7e4151' }}>
         {conflict.description}
       </p>
-      {conflict.mitigationStrategies.length > 0 && (
+      {conflict.mitigationStrategies?.length > 0 && (
         <div className="bg-white/5 rounded p-2 mt-2">
           <p className="text-xs text-green-300 mb-1">Suggested:</p>
           <p className="enhanced-glass-subtle text-xs" style={{ color: '#7e4151' }}>

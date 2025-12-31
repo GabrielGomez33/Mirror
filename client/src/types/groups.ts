@@ -7,7 +7,7 @@
 
 export type GroupType = 'family' | 'friends' | 'professional' | 'therapy' | 'anonymous' | 'open' | 'private';
 export type GroupPrivacy = 'public' | 'private' | 'secret';
-export type MemberRole = 'creator' | 'admin' | 'moderator' | 'member';
+export type MemberRole = 'owner' | 'creator' | 'admin' | 'moderator' | 'member';
 export type MemberStatus = 'active' | 'inactive' | 'banned' | 'pending';
 export type JoinRequestStatus = 'pending' | 'approved' | 'rejected';
 
@@ -180,6 +180,12 @@ export interface GroupInsights {
 export type VoteType = 'yes_no' | 'multiple_choice' | 'rating';
 export type VoteStatus = 'active' | 'completed' | 'cancelled';
 
+export interface VoteResult {
+  option: string;
+  count: number;
+  percentage: number;
+}
+
 export interface Vote {
   id: string;
   groupId: string;
@@ -194,6 +200,8 @@ export interface Vote {
   createdAt: string;
   completedAt?: string;
   expiresAt: string;
+  results?: VoteResult[];
+  participationRate?: number;
 }
 
 export interface VoteResponse {
@@ -476,6 +484,7 @@ export type GroupsAction =
   | { type: 'SET_ACTIVE_VOTES'; payload: Vote[] }
   | { type: 'ADD_VOTE'; payload: Vote }
   | { type: 'UPDATE_VOTE'; payload: Vote }
+  | { type: 'COMPLETE_VOTE'; payload: { voteId: string; results: VoteResult[]; participationRate: number } }
   | { type: 'SET_VOTE_HISTORY'; payload: Vote[] }
   | { type: 'SET_LOADING_VOTES'; payload: boolean }
   | { type: 'SET_ACTIVE_SESSIONS'; payload: GroupSession[] }
