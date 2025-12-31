@@ -8,6 +8,17 @@ export type NotificationType =
   | 'vote_proposed'
   | 'vote_completed'
   | 'chat_mention'
+  | 'chat_message'
+  | 'chat_typing'
+  | 'chat_presence'
+  | 'video_call_started'
+  | 'drawing_session_started'
+  | 'admin_promoted'
+  | 'admin_demoted'
+  | 'peer_review_received'
+  | 'compatibility_updated'
+  | 'conversation_insight'
+  | 'conversation_summary'
   | 'analysis_complete'
   | 'system_alert'
   | 'connection_status';
@@ -88,8 +99,32 @@ export interface WSNotificationMessage {
       inviterName?: string;
       inviteCode?: string;
       requestId?: string;
+      memberName?: string;
+      userId?: number;
+      username?: string;
+      sessionId?: string;
+      initiatorName?: string;
+      senderUsername?: string;
+      status?: 'online' | 'offline' | 'away';
       [key: string]: unknown;
     };
   };
 }
 
+// Chat-specific notification data
+export interface ChatNotificationData {
+  groupId: string;
+  messageId?: string;
+  senderId?: number;
+  senderUsername?: string;
+  content?: string;
+  isTyping?: boolean;
+}
+
+// Presence notification data
+export interface PresenceNotificationData {
+  groupId: string;
+  userId: number;
+  username: string;
+  status: 'online' | 'offline' | 'away';
+}

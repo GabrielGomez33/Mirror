@@ -259,9 +259,10 @@ interface MirrorGroupsPanelProps {
   onLeaveGroup: (groupId: string) => void;
   onCreateGroup?: () => void;
   onViewAllGroups?: () => void;
+  onSelectGroup?: (groupId: string) => void;
 }
 
-export function MirrorGroupsPanel({ joinedGroups, suggestedGroups, onJoinGroup, onLeaveGroup, onCreateGroup, onViewAllGroups }: MirrorGroupsPanelProps) {
+export function MirrorGroupsPanel({ joinedGroups, suggestedGroups, onJoinGroup, onLeaveGroup, onCreateGroup, onViewAllGroups, onSelectGroup }: MirrorGroupsPanelProps) {
   const getGroupIcon = (type: Group['type']) => {
     switch (type) {
       case 'open': return '🌐';
@@ -295,7 +296,11 @@ export function MirrorGroupsPanel({ joinedGroups, suggestedGroups, onJoinGroup, 
         <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#784552' }}>My Groups</h3>
         <div className="space-y-3 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
           {joinedGroups.map((group) => (
-            <div key={group.id} className="enhanced-glass-card">
+            <div
+              key={group.id}
+              className="enhanced-glass-card cursor-pointer hover:scale-[1.02] transition-transform"
+              onClick={() => onSelectGroup?.(group.id)}
+            >
               <div className="flex items-start gap-4">
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${getGroupGradient(group.type)} backdrop-blur-sm flex items-center justify-center flex-shrink-0`}>
                   <span className="text-xl">{getGroupIcon(group.type)}</span>
@@ -305,7 +310,13 @@ export function MirrorGroupsPanel({ joinedGroups, suggestedGroups, onJoinGroup, 
                     <h4 className="enhanced-glass-heading text-sm font-medium truncate" style={{ color: '#784552' }}>
                       {group.name}
                     </h4>
-                    <button onClick={() => onLeaveGroup(group.id)} className="text-red-400 hover:text-red-300 transition-colors text-xs font-medium ml-2 flex-shrink-0">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onLeaveGroup(group.id);
+                      }}
+                      className="text-red-400 hover:text-red-300 transition-colors text-xs font-medium ml-2 flex-shrink-0"
+                    >
                       Leave
                     </button>
                   </div>

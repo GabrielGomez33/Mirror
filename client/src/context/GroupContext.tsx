@@ -672,12 +672,14 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
     });
     cleanupRef.current.push(unsubDisconnect);
 
-    // Member events
+    // Member events - colon format (member:joined)
     const unsubMemberJoined = onWebSocketEvent(
       'member:joined',
       (data: unknown) => {
         const typedData = data as WSMemberJoined;
         dispatch({ type: 'ADD_MEMBER', payload: typedData.member });
+        // Refresh the group list to show updated member count
+        fetchMyGroups();
       }
     );
     cleanupRef.current.push(unsubMemberJoined);
@@ -690,9 +692,41 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
           type: 'REMOVE_MEMBER',
           payload: { groupId: typedData.groupId, userId: typedData.userId },
         });
+        // Refresh the group list to show updated member count
+        fetchMyGroups();
       }
     );
     cleanupRef.current.push(unsubMemberLeft);
+
+    // Member events - underscore format (member_joined) - backend notification format
+    const unsubMemberJoinedUnderscore = onWebSocketEvent(
+      'member_joined',
+      (data: unknown) => {
+        const typedData = data as WSMemberJoined;
+        if (typedData.member) {
+          dispatch({ type: 'ADD_MEMBER', payload: typedData.member });
+        }
+        // Refresh the group list to show updated member count
+        fetchMyGroups();
+      }
+    );
+    cleanupRef.current.push(unsubMemberJoinedUnderscore);
+
+    const unsubMemberLeftUnderscore = onWebSocketEvent(
+      'member_left',
+      (data: unknown) => {
+        const typedData = data as WSMemberLeft;
+        if (typedData.groupId && typedData.userId) {
+          dispatch({
+            type: 'REMOVE_MEMBER',
+            payload: { groupId: typedData.groupId, userId: typedData.userId },
+          });
+        }
+        // Refresh the group list to show updated member count
+        fetchMyGroups();
+      }
+    );
+    cleanupRef.current.push(unsubMemberLeftUnderscore);
 
     // Vote events
     const unsubVoteProposed = onWebSocketEvent(
@@ -772,7 +806,7 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
       cleanupRef.current.forEach((cleanup) => cleanup());
       cleanupRef.current = [];
     };
-  }, [isAuthenticated, state.myGroups, state.currentGroup?.id, state.activeVotes, fetchInsights]);
+  }, [isAuthenticated, state.myGroups, state.currentGroup?.id, state.activeVotes, fetchInsights, fetchMyGroups]);
 
   // Auto-connect WebSocket
   useEffect(() => {

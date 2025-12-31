@@ -129,6 +129,35 @@ function sanitizeString(input: string, maxLength: number = 1000): string {
 }
 
 // ============================================================================
+// SNAKE_CASE TO CAMELCASE TRANSFORMATION
+// ============================================================================
+
+function snakeToCamel(str: string): string {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+function transformKeys<T>(obj: unknown): T {
+  if (obj === null || obj === undefined) {
+    return obj as T;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map((item) => transformKeys(item)) as T;
+  }
+
+  if (typeof obj === 'object') {
+    const transformed: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      const camelKey = snakeToCamel(key);
+      transformed[camelKey] = transformKeys(value);
+    }
+    return transformed as T;
+  }
+
+  return obj as T;
+}
+
+// ============================================================================
 // FETCH WITH RETRY
 // ============================================================================
 
@@ -269,7 +298,9 @@ class GroupsApiClient {
       true,
       60000 // 1 minute cache
     );
-    return response.data || { groups: [], total: 0 };
+    const data = response.data || { groups: [], total: 0 };
+    // Transform snake_case keys to camelCase
+    return transformKeys<GroupListResponse>(data);
   }
 
   async getSuggestedGroups(): Promise<GroupListResponse> {
@@ -279,7 +310,9 @@ class GroupsApiClient {
       true,
       300000 // 5 minute cache
     );
-    return response.data || { groups: [], total: 0 };
+    const data = response.data || { groups: [], total: 0 };
+    // Transform snake_case keys to camelCase
+    return transformKeys<GroupListResponse>(data);
   }
 
   async getGroupDetails(groupId: string): Promise<GroupDetailResponse> {
@@ -294,7 +327,8 @@ class GroupsApiClient {
       throw new Error('Group not found');
     }
 
-    return response.data;
+    // Transform snake_case keys to camelCase
+    return transformKeys<GroupDetailResponse>(response.data);
   }
 
   async joinGroup(groupId: string, joinCode?: string): Promise<ApiResponse<{ message: string }>> {
@@ -395,6 +429,20 @@ class GroupsApiClient {
       requested_at: string;
       status: string;
     }> }>>('/my-invitations', { method: 'GET' });
+  }
+
+  async declineInvitation(
+    groupId: string,
+    requestId: string
+  ): Promise<ApiResponse<{ message: string }>> {
+    const result = await this.makeRequest<ApiResponse<{ message: string }>>(`/${groupId}/decline`, {
+      method: 'POST',
+      body: JSON.stringify({ requestId }),
+    });
+
+    // Invalidate caches since invitation is now declined
+    cache.invalidate('groups:');
+    return result;
   }
 
   async removeMember(
@@ -714,6 +762,8 @@ export const updateMemberRole = (groupId: string, userId: number, role: string) 
   groupsApi.updateMemberRole(groupId, userId, role);
 export const acceptInvitation = (groupId: string, requestId: string) =>
   groupsApi.acceptInvitation(groupId, requestId);
+export const declineInvitation = (groupId: string, requestId: string) =>
+  groupsApi.declineInvitation(groupId, requestId);
 export const getMyInvitations = () => groupsApi.getMyInvitations();
 
 // Join Requests

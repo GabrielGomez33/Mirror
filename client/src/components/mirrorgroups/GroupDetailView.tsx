@@ -91,17 +91,16 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
     if (isLeaving) return;
     setIsLeaving(true);
 
+    // Navigate FIRST to prevent "Group not found" flash
+    // (leaveGroup dispatches REMOVE_GROUP which sets currentGroup to null)
+    onBack();
+
     try {
-      const success = await leaveGroup(groupId);
-      if (success) {
-        // Navigate back immediately
-        onBack();
-      } else {
-        setIsLeaving(false);
-      }
+      // Process leave in background after navigation
+      await leaveGroup(groupId);
     } catch (error) {
       console.error('Failed to leave group:', error);
-      setIsLeaving(false);
+      // User already navigated - they can rejoin if needed
     }
   };
 
@@ -181,7 +180,12 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
             className="flex items-center gap-2 text-white/70 hover:text-white transition-colors"
           >
             <span>←</span>
-            <span className="enhanced-glass-subtle text-sm">Back to Groups</span>
+            <span className="enhanced-glass-subtle text-sm"
+			style={{
+                  color: 'rgb(120, 69, 82)',
+                  textShadow: '0 3px 12px rgba(0, 0, 0, .4), 0 1px 3px rgba(255, 255, 255, .15)',
+            }}
+            >Back to Groups</span>
           </button>
 
           <div className="flex gap-2 relative z-20">

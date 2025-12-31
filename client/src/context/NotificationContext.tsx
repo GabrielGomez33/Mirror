@@ -16,7 +16,7 @@ import {
   isWebSocketConnected,
 } from '../services/groupsWebSocket';
 import { getToken } from '../utils/token';
-import { acceptInvitation, getMyInvitations } from '../services/groupsApi';
+import { acceptInvitation, declineInvitation, getMyInvitations } from '../services/groupsApi';
 
 // ============================================================================
 // CONSTANTS
@@ -140,6 +140,12 @@ const NotificationContext = createContext<NotificationContextValue | null>(null)
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(notificationReducer, initialState);
   const initialized = useRef(false);
+  const notificationsRef = useRef(state.notifications);
+
+  // Keep ref in sync with state for polling
+  useEffect(() => {
+    notificationsRef.current = state.notifications;
+  }, [state.notifications]);
 
   // Load persisted notifications on mount
   useEffect(() => {
@@ -171,63 +177,141 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   }, [state.notifications]);
 
-  // Fetch pending invitations from API on mount
-  useEffect(() => {
-    const fetchPendingInvitations = async () => {
-      const token = getToken();
-      if (!token) return;
+  // Fetch pending invitations - uses ref to avoid stale closure
+  const fetchPendingInvitations = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
 
-      try {
-        const response = await getMyInvitations();
-        if (response.success && response.data?.invitations) {
-          const invitations = response.data.invitations;
+    try {
+      const response = await getMyInvitations();
+      if (response.success && response.data?.invitations) {
+        const invitations = response.data.invitations;
 
-          // Convert invitations to notifications, avoiding duplicates
-          invitations.forEach((inv) => {
-            // Check if this invitation already exists in notifications
-            const exists = state.notifications.some(
-              (n) => n.inviteData?.requestId === inv.request_id
-            );
+        // Convert invitations to notifications, avoiding duplicates
+        invitations.forEach((inv) => {
+          // Use ref to check for existing notifications (stable reference)
+          const exists = notificationsRef.current.some(
+            (n) => n.inviteData?.requestId === inv.request_id
+          );
 
-            if (!exists) {
-              const notification: Notification = {
-                id: `invite-${inv.request_id}`,
-                type: 'group_invite',
-                title: `Group Invitation: ${inv.group_name}`,
-                message: `${inv.inviter_username || 'Someone'} invited you to join "${inv.group_name}"`,
-                priority: 'normal',
-                timestamp: new Date(inv.requested_at),
-                read: false,
-                dismissed: false,
+          if (!exists) {
+            const notification: Notification = {
+              id: `invite-${inv.request_id}`,
+              type: 'group_invite',
+              title: `Group Invitation: ${inv.group_name}`,
+              message: `${inv.inviter_username || 'Someone'} invited you to join "${inv.group_name}"`,
+              priority: 'normal',
+              timestamp: new Date(inv.requested_at),
+              read: false,
+              dismissed: false,
+              groupId: inv.group_id,
+              groupName: inv.group_name,
+              requestId: inv.request_id,
+              inviteData: {
+                requestId: inv.request_id,
                 groupId: inv.group_id,
                 groupName: inv.group_name,
-                requestId: inv.request_id,
-                inviteData: {
-                  requestId: inv.request_id,
-                  groupId: inv.group_id,
-                  groupName: inv.group_name,
-                  inviterName: inv.inviter_username || 'Someone',
-                  inviterUsername: inv.inviter_username || '',
-                },
-                actions: [
-                  { label: 'Accept', action: 'accept', variant: 'primary' },
-                  { label: 'Decline', action: 'decline', variant: 'secondary' },
-                ],
-              };
+                inviterName: inv.inviter_username || 'Someone',
+                inviterUsername: inv.inviter_username || '',
+              },
+              actions: [
+                { label: 'Accept', action: 'accept', variant: 'primary' },
+                { label: 'Decline', action: 'decline', variant: 'secondary' },
+              ],
+            };
 
-              dispatch({ type: 'ADD_NOTIFICATION', payload: notification });
-            }
-          });
-        }
-      } catch (err) {
-        console.error('[NotificationContext] Failed to fetch pending invitations:', err);
+            dispatch({ type: 'ADD_NOTIFICATION', payload: notification });
+          }
+        });
       }
+    } catch (err) {
+      console.error('[NotificationContext] Failed to fetch pending invitations:', err);
+    }
+  }, []); // No dependencies - uses ref
+
+  // Handle incoming WebSocket notification - defined BEFORE useEffect that uses it
+  const handleIncomingNotification = useCallback((data: WSNotificationMessage['data']) => {
+    console.log('[NotificationContext] Processing notification:', data);
+
+    // Backend sends inviteCode, map it to requestId for consistency
+    const requestId = data.metadata?.requestId || data.metadata?.inviteCode;
+    const notificationType = data.notificationType || 'system_alert';
+
+    // Skip transient notifications that shouldn't be stored in the panel
+    const transientTypes = ['chat_typing', 'chat_presence'];
+    if (transientTypes.includes(notificationType)) {
+      console.log(`[NotificationContext] Skipping transient notification: ${notificationType}`);
+      // These are handled by other components (e.g., chat UI) - just emit event
+      return;
+    }
+
+    const notification: Notification = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: notificationType,
+      title: data.title || 'Notification',
+      message: data.message || '',
+      priority: 'normal',
+      timestamp: new Date(data.timestamp || Date.now()),
+      read: false,
+      dismissed: false,
+      groupId: data.metadata?.groupId,
+      groupName: data.metadata?.groupName,
+      requestId: requestId,
+      userId: data.metadata?.userId,
+      username: data.metadata?.username || data.metadata?.memberName,
     };
 
-    // Small delay to ensure auth is ready
-    const timeoutId = setTimeout(fetchPendingInvitations, 500);
-    return () => clearTimeout(timeoutId);
-  }, []); // Only run on mount
+    // Add invite-specific data
+    if (notificationType === 'group_invite' && data.metadata) {
+      notification.inviteData = {
+        requestId: requestId as string,
+        groupId: data.metadata.groupId as string,
+        groupName: data.metadata.groupName as string,
+        inviterName: data.metadata.inviterName as string,
+        inviterUsername: (data.metadata.inviterUsername as string) || '',
+      };
+      notification.actions = [
+        { label: 'Accept', action: 'accept', variant: 'primary' },
+        { label: 'Decline', action: 'decline', variant: 'secondary' },
+      ];
+    }
+
+    // Add action URL for certain notification types
+    if (notificationType === 'member_joined' || notificationType === 'member_left') {
+      if (data.metadata?.groupId) {
+        notification.actionUrl = `/groups/${data.metadata.groupId}`;
+      }
+    }
+
+    // Add action for video calls
+    if (notificationType === 'video_call_started' && data.metadata) {
+      notification.actionUrl = data.metadata.joinUrl as string;
+      notification.actions = [
+        { label: 'Join', action: 'join', variant: 'primary' },
+      ];
+    }
+
+    // Add action for drawing sessions
+    if (notificationType === 'drawing_session_started' && data.metadata) {
+      notification.actionUrl = data.metadata.joinUrl as string;
+      notification.actions = [
+        { label: 'Join', action: 'join', variant: 'primary' },
+      ];
+    }
+
+    dispatch({ type: 'ADD_NOTIFICATION', payload: notification });
+  }, []);
+
+  // Initial fetch only (WebSocket handles real-time updates)
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+
+    // Fetch existing pending invitations on mount
+    const initialTimeout = setTimeout(fetchPendingInvitations, 500);
+
+    return () => clearTimeout(initialTimeout);
+  }, [fetchPendingInvitations]);
 
   // Connect WebSocket and set up handlers
   useEffect(() => {
@@ -242,6 +326,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     // Connection status handlers
     const unsubConnect = onWebSocketConnect(() => {
       dispatch({ type: 'SET_CONNECTED', payload: true });
+      // Fetch any missed notifications on reconnect
+      fetchPendingInvitations();
     });
 
     const unsubDisconnect = onWebSocketDisconnect(() => {
@@ -251,8 +337,20 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     // Set initial connection state
     dispatch({ type: 'SET_CONNECTED', payload: isWebSocketConnected() });
 
-    // Notification handler
+    // Periodic sync of connection status (in case events are missed)
+    const syncInterval = setInterval(() => {
+      const connected = isWebSocketConnected();
+      dispatch({ type: 'SET_CONNECTED', payload: connected });
+    }, 2000);
+
+    // Notification handlers - listen for both event types
     const unsubNotification = onWebSocketEvent('notification:received', (data: unknown) => {
+      handleIncomingNotification(data as WSNotificationMessage['data']);
+    });
+
+    // Handle group_notification events from server
+    const unsubGroupNotification = onWebSocketEvent('group_notification', (data: unknown) => {
+      console.log('[NotificationContext] Received group_notification:', data);
       handleIncomingNotification(data as WSNotificationMessage['data']);
     });
 
@@ -260,42 +358,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       unsubConnect();
       unsubDisconnect();
       unsubNotification();
+      unsubGroupNotification();
+      clearInterval(syncInterval);
     };
-  }, []);
-
-  // Handle incoming WebSocket notification
-  const handleIncomingNotification = useCallback((data: WSNotificationMessage['data']) => {
-    const notification: Notification = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      type: data.notificationType || 'system_alert',
-      title: data.title || 'Notification',
-      message: data.message || '',
-      priority: 'normal',
-      timestamp: new Date(data.timestamp || Date.now()),
-      read: false,
-      dismissed: false,
-      groupId: data.metadata?.groupId,
-      groupName: data.metadata?.groupName,
-      requestId: data.metadata?.requestId,
-    };
-
-    // Add invite-specific data
-    if (data.notificationType === 'group_invite' && data.metadata) {
-      notification.inviteData = {
-        requestId: data.metadata.requestId as string,
-        groupId: data.metadata.groupId as string,
-        groupName: data.metadata.groupName as string,
-        inviterName: data.metadata.inviterName as string,
-        inviterUsername: (data.metadata.inviterUsername as string) || '',
-      };
-      notification.actions = [
-        { label: 'Accept', action: 'accept', variant: 'primary' },
-        { label: 'Decline', action: 'decline', variant: 'secondary' },
-      ];
-    }
-
-    dispatch({ type: 'ADD_NOTIFICATION', payload: notification });
-  }, []);
+  }, [handleIncomingNotification, fetchPendingInvitations]);
 
   // Actions
   const addNotification = useCallback(
@@ -385,10 +451,30 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   // Decline invite
   const declineInvite = useCallback(async (notification: Notification): Promise<boolean> => {
-    // For now, just dismiss the notification
-    // TODO: Implement decline API call if needed
-    dispatch({ type: 'DISMISS', payload: notification.id });
-    return true;
+    if (!notification.inviteData) return false;
+
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      const response = await declineInvitation(
+        notification.inviteData.groupId,
+        notification.inviteData.requestId
+      );
+
+      if (response.success) {
+        dispatch({ type: 'DISMISS', payload: notification.id });
+        return true;
+      } else {
+        dispatch({ type: 'SET_ERROR', payload: response.error || 'Failed to decline invitation' });
+        return false;
+      }
+    } catch (err) {
+      console.error('[NotificationContext] Failed to decline invitation:', err);
+      // Still dismiss locally even if API fails
+      dispatch({ type: 'DISMISS', payload: notification.id });
+      return true;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
   }, []);
 
   const value: NotificationContextValue = {

@@ -235,7 +235,7 @@ class AuthApiClient {
 
   async refreshToken(): Promise<RefreshTokenResponse> {
     console.log('FUNCTION: refreshToken');
-    
+
     const refreshToken = getToken('refreshToken');
     if (!refreshToken) {
       throw new Error('No refresh token available');
@@ -244,9 +244,7 @@ class AuthApiClient {
     try {
       const response = await this.makeRequest<RefreshTokenResponse>('/refresh', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${refreshToken}`
-        }
+        body: JSON.stringify({ refreshToken })
       });
 
       // Update access token

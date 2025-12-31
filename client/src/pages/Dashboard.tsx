@@ -135,6 +135,11 @@ export default function Dashboard() {
     navigate('/groups');
   }, [navigate]);
 
+  const handleSelectGroup = useCallback((groupId: string) => {
+    // Navigate to groups page with selected group
+    navigate('/groups', { state: { selectedGroupId: groupId } });
+  }, [navigate]);
+
   // Transform groups data for the panel component
   const transformedMyGroups = myGroups.map((group: Group) => ({
     id: group.id,
@@ -184,6 +189,7 @@ export default function Dashboard() {
               onLeaveGroup={handleLeaveGroup}
               onCreateGroup={handleCreateGroup}
               onViewAllGroups={() => navigate('/groups')}
+              onSelectGroup={handleSelectGroup}
             />
           </div>
         );

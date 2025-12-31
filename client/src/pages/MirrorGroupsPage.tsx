@@ -1,7 +1,8 @@
 // src/pages/MirrorGroupsPage.tsx
 // Main MirrorGroups page with full functionality
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useGroups } from '../context/GroupContext';
 import CreateGroupModal from '../components/mirrorgroups/CreateGroupModal';
 import GroupDetailView from '../components/mirrorgroups/GroupDetailView';
@@ -10,6 +11,8 @@ import '../styles/enhanced-glass.css';
 import type { Group } from '../types/groups';
 
 export default function MirrorGroupsPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const {
     myGroups,
     suggestedGroups,
@@ -23,22 +26,35 @@ export default function MirrorGroupsPage() {
     isConnected,
   } = useGroups();
 
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  // Check for navigation state (e.g., from Dashboard clicking a group)
+  const initialGroupId = (location.state as { selectedGroupId?: string } | null)?.selectedGroupId || null;
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(initialGroupId);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
 
+  // Use refs for stable polling (prevents interval reset on function recreation)
+  const fetchMyGroupsRef = useRef(fetchMyGroups);
+  const fetchSuggestedGroupsRef = useRef(fetchSuggestedGroups);
+
+  // Keep refs in sync with latest functions
+  useEffect(() => {
+    fetchMyGroupsRef.current = fetchMyGroups;
+    fetchSuggestedGroupsRef.current = fetchSuggestedGroups;
+  }, [fetchMyGroups, fetchSuggestedGroups]);
+
   // Initial fetch and polling every 3 seconds
   useEffect(() => {
-    fetchMyGroups();
-    fetchSuggestedGroups();
+    // Initial fetch
+    fetchMyGroupsRef.current();
+    fetchSuggestedGroupsRef.current();
 
-    // Poll for updates every 3 seconds
+    // Poll for updates every 3 seconds using refs (stable interval)
     const pollInterval = setInterval(() => {
-      fetchMyGroups();
+      fetchMyGroupsRef.current();
     }, 3000);
 
     return () => clearInterval(pollInterval);
-  }, [fetchMyGroups, fetchSuggestedGroups]);
+  }, []); // Empty deps - uses refs for stability
 
   // Filter groups
   const filteredMyGroups = myGroups.filter((group: Group) => {
@@ -107,12 +123,41 @@ export default function MirrorGroupsPage() {
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="enhanced-glass-panel mb-6">
+            {/* Back to Dashboard Button */}
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="mb-4 flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 transition-all duration-200 group"
+            >
+              <span className="text-lg group-hover:-translate-x-1 transition-transform">←</span>
+              <span
+                className="font-medium"
+                style={{
+                  color: 'rgb(120, 69, 82)',
+                  textShadow: '0 3px 12px rgba(0, 0, 0, .4), 0 1px 3px rgba(255, 255, 255, .15)',
+                }}
+              >
+                Back to Dashboard
+              </span>
+            </button>
+
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h1 className="enhanced-glass-heading text-3xl mb-2" style={{ color: '#784552' }}>
+                <h1
+                  className="enhanced-glass-heading text-3xl mb-2"
+                  style={{
+                    color: 'rgb(120, 69, 82)',
+                    textShadow: '0 3px 12px rgba(0, 0, 0, .4), 0 1px 3px rgba(255, 255, 255, .15)',
+                  }}
+                >
                   MirrorGroups
                 </h1>
-                <p className="enhanced-glass-body" style={{ color: '#7e4151' }}>
+                <p
+                  className="enhanced-glass-body"
+                  style={{
+                    color: 'rgb(120, 69, 82)',
+                    textShadow: '0 3px 12px rgba(0, 0, 0, .4), 0 1px 3px rgba(255, 255, 255, .15)',
+                  }}
+                >
                   Connect with others for collective intelligence and deeper insights
                 </p>
               </div>

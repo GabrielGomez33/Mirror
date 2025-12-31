@@ -1,5 +1,5 @@
 // src/context/AuthContext.tsx
-import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
 import { getToken, setToken, clearToken } from '../utils/token';
 import { verifyTokenApi, refreshTokenApi, logoutApi } from '../services/authApi';
 
@@ -703,18 +703,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initializeAuth();
   }, []);
 
+  // Refs for stable token refresh (prevents timer reset on function recreation)
+  const refreshTokensRef = useRef(refreshTokens);
+  const logoutRef = useRef(logout);
+  const tokenExpiryRef = useRef(state.tokenExpiry);
+
+  // Keep refs in sync
+  useEffect(() => {
+    refreshTokensRef.current = refreshTokens;
+    logoutRef.current = logout;
+    tokenExpiryRef.current = state.tokenExpiry;
+  }, [refreshTokens, logout, state.tokenExpiry]);
+
   // Auto-refresh tokens before expiry
   useEffect(() => {
     if (!state.isAuthenticated) return;
 
-    // Immediate check if token is expiring
+    // Check if token is expiring using ref (stable reference)
+    const isExpiring = (): boolean => {
+      const expiry = tokenExpiryRef.current;
+      if (!expiry) return true;
+      const timeUntilExpiry = expiry - Date.now();
+      return timeUntilExpiry < 300000; // Less than 5 minutes
+    };
+
     const checkAndRefresh = async () => {
-      if (isTokenExpiring()) {
+      if (isExpiring()) {
         console.log('[AuthContext] Token expiring, attempting refresh...');
-        const success = await refreshTokens();
+        const success = await refreshTokensRef.current();
         if (!success) {
           console.log('[AuthContext] Token refresh failed, logging out');
-          await logout();
+          await logoutRef.current();
         } else {
           console.log('[AuthContext] Token refreshed successfully');
         }
@@ -724,11 +743,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Check immediately
     checkAndRefresh();
 
-    // Then check every 30 seconds
+    // Then check every 30 seconds (stable interval)
     const refreshTimer = setInterval(checkAndRefresh, 30000);
 
     return () => clearInterval(refreshTimer);
-  }, [state.isAuthenticated, state.tokenExpiry, isTokenExpiring, refreshTokens, logout]);
+  }, [state.isAuthenticated]); // Only re-run when auth state changes
 
   // Update activity timestamp on user interaction
   useEffect(() => {

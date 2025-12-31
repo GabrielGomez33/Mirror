@@ -50,6 +50,10 @@ interface EventHandlers {
   'member:updated': EventHandler<unknown>[];
   'data:shared': EventHandler<unknown>[];
 
+  // Backend uses underscore format - map both
+  'member_joined': EventHandler<WSMemberJoined>[];
+  'member_left': EventHandler<WSMemberLeft>[];
+
   // Insights events
   'insights:updated': EventHandler<unknown>[];
   'analysis:started': EventHandler<WSAnalysisUpdate>[];
@@ -64,12 +68,21 @@ interface EventHandlers {
   'conversation:insight': EventHandler<WSConversationInsight>[];
   'conversation:summary': EventHandler<unknown>[];
 
+  // Chat events
+  'chat_message': EventHandler<unknown>[];
+  'chat_typing': EventHandler<unknown>[];
+  'chat_presence': EventHandler<unknown>[];
+  'chat_mention': EventHandler<unknown>[];
+
   // Session events
   'session:started': EventHandler<unknown>[];
   'session:ended': EventHandler<unknown>[];
+  'video_call_started': EventHandler<unknown>[];
+  'drawing_session_started': EventHandler<unknown>[];
 
   // Notifications
   'notification:received': EventHandler<unknown>[];
+  'group_notification': EventHandler<unknown>[];
 }
 
 // ============================================================================
@@ -94,6 +107,8 @@ class GroupsWebSocketClient {
     'member:left': [],
     'member:updated': [],
     'data:shared': [],
+    'member_joined': [],
+    'member_left': [],
     'insights:updated': [],
     'analysis:started': [],
     'analysis:completed': [],
@@ -102,9 +117,16 @@ class GroupsWebSocketClient {
     'vote:completed': [],
     'conversation:insight': [],
     'conversation:summary': [],
+    'chat_message': [],
+    'chat_typing': [],
+    'chat_presence': [],
+    'chat_mention': [],
     'session:started': [],
     'session:ended': [],
+    'video_call_started': [],
+    'drawing_session_started': [],
     'notification:received': [],
+    'group_notification': [],
   };
 
   // ==================== CONNECTION MANAGEMENT ====================
@@ -197,7 +219,7 @@ class GroupsWebSocketClient {
 
   private handleMessage(data: string): void {
     try {
-      const message: WSMessage = JSON.parse(data);
+      const message = JSON.parse(data) as WSMessage & { data?: unknown };
 
       // Handle pong (heartbeat response)
       if ((message.type as string) === 'pong') {
@@ -212,13 +234,17 @@ class GroupsWebSocketClient {
       }
 
       // Route message to appropriate handlers
+      // Support both 'payload' and 'data' fields (server may use either)
       const eventType = message.type as WSEventType;
+      const messageData = message.payload ?? message.data;
       const handlers = this.handlers[eventType as keyof EventHandlers];
 
-      if (Array.isArray(handlers)) {
+      console.log(`[GroupsWS] Received ${eventType}:`, messageData);
+
+      if (Array.isArray(handlers) && handlers.length > 0) {
         handlers.forEach((handler) => {
           try {
-            (handler as EventHandler)(message.payload);
+            (handler as EventHandler)(messageData);
           } catch (err) {
             console.error(`[GroupsWS] Handler error for ${eventType}:`, err);
           }
