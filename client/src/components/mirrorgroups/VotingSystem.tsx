@@ -282,8 +282,8 @@ function CompletedVoteCard({ vote }: { vote: Vote }) {
 
       // For yes/no votes
       if (vote.voteType === 'yes_no') {
-        const yesCount = parsed.yes || 0;
-        const noCount = parsed.no || 0;
+        const yesCount = parsed.yes || parsed.Yes || 0;
+        const noCount = parsed.no || parsed.No || 0;
         return [
           { option: 'Yes', count: yesCount, percentage: total > 0 ? (yesCount / total) * 100 : 0 },
           { option: 'No', count: noCount, percentage: total > 0 ? (noCount / total) * 100 : 0 },
@@ -293,7 +293,7 @@ function CompletedVoteCard({ vote }: { vote: Vote }) {
       // For multiple choice, extract options from the parsed results
       const results: VoteResultDisplay[] = [];
       for (const [key, value] of Object.entries(parsed)) {
-        if (!['total', 'winner', 'totalMembers'].includes(key) && typeof value === 'number') {
+        if (!['total', 'winner', 'totalMembers', 'participationRate'].includes(key) && typeof value === 'number') {
           results.push({
             option: key.charAt(0).toUpperCase() + key.slice(1),
             count: value,
@@ -308,20 +308,25 @@ function CompletedVoteCard({ vote }: { vote: Vote }) {
   };
 
   const results = parseResults();
-  const winningResult = results.reduce((prev, curr) =>
-    (curr.count > (prev?.count || 0)) ? curr : prev
-  , results[0]);
+  const winningResult = results.length > 0
+    ? results.reduce((prev, curr) => (curr.count > (prev?.count || 0)) ? curr : prev, results[0])
+    : null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const finalResults = (vote as any).finalResults || (vote as any).final_results;
   const parsedFinal = finalResults ? (typeof finalResults === 'string' ? JSON.parse(finalResults) : finalResults) : null;
-  const participationRate = vote.participationRate ?? (parsedFinal?.totalMembers ? (parsedFinal.total / parsedFinal.totalMembers) : undefined);
+  const participationRate = vote.participationRate ?? (parsedFinal?.totalMembers ? (parsedFinal.total / parsedFinal.totalMembers) * 100 : undefined);
+
+  const handleToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowResults(!showResults);
+  };
 
   return (
     <div className="enhanced-glass-card">
       <div
-        className="cursor-pointer"
-        onClick={() => setShowResults(!showResults)}
+        className="cursor-pointer select-none"
+        onClick={handleToggle}
       >
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -330,17 +335,17 @@ function CompletedVoteCard({ vote }: { vote: Vote }) {
               {vote.topic}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {participationRate !== undefined && (
               <span className="text-xs px-2 py-0.5 rounded bg-white/10 text-white/60">
-                {Math.round(participationRate * 100)}% voted
+                {Math.round(participationRate)}% voted
               </span>
             )}
             <span className="text-xs text-white/50">
               {new Date(vote.completedAt || vote.createdAt).toLocaleDateString()}
             </span>
-            <span className="text-white/40 text-sm">
-              {showResults ? '▲' : '▼'}
+            <span className="text-white/40 text-sm transition-transform duration-200" style={{ transform: showResults ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+              ▼
             </span>
           </div>
         </div>
@@ -354,28 +359,34 @@ function CompletedVoteCard({ vote }: { vote: Vote }) {
       </div>
 
       {/* Expanded Results */}
-      {showResults && results.length > 0 && (
+      {showResults && (
         <div className="mt-3 pt-3 border-t border-white/10 space-y-2">
-          {results.map((result, idx) => (
-            <div key={idx} className="flex items-center gap-3">
-              <div className="flex-1">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="enhanced-glass-text text-xs" style={{ color: '#7e4151' }}>
-                    {result.option}
-                  </span>
-                  <span className="text-xs text-white/60">
-                    {result.count} vote{result.count !== 1 ? 's' : ''} ({result.percentage.toFixed(0)}%)
-                  </span>
-                </div>
-                <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-pink-400 to-purple-400"
-                    style={{ width: `${result.percentage}%` }}
-                  />
+          {results.length > 0 ? (
+            results.map((result, idx) => (
+              <div key={idx} className="flex items-center gap-3">
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="enhanced-glass-text text-xs" style={{ color: '#7e4151' }}>
+                      {result.option}
+                    </span>
+                    <span className="text-xs text-white/60">
+                      {result.count} vote{result.count !== 1 ? 's' : ''} ({result.percentage.toFixed(0)}%)
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-pink-400 to-purple-400"
+                      style={{ width: `${result.percentage}%` }}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          ) : (
+            <p className="text-xs text-white/50 text-center py-2">
+              Detailed results not available
+            </p>
+          )}
         </div>
       )}
     </div>

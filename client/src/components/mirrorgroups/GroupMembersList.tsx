@@ -1,9 +1,10 @@
 // src/components/mirrorgroups/GroupMembersList.tsx
-// Group members management component
+// Group members management component with inline expandable details
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import InviteMembersPanel from './InviteMembersModal';
-import type { GroupMember, MemberRole } from '../../types/groups';
+import type { GroupMember, MemberRole, ExtendedGroupMember } from '../../types/groups';
+import { getMemberDetails } from '../../services/groupsApi';
 
 interface GroupMembersListProps {
   groupId: string;
@@ -14,7 +15,7 @@ interface GroupMembersListProps {
 
 export default function GroupMembersList({ groupId, members, canInvite = false, onRefresh }: GroupMembersListProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMember, setSelectedMember] = useState<GroupMember | null>(null);
+  const [expandedMemberId, setExpandedMemberId] = useState<number | null>(null);
   const [showInvitePanel, setShowInvitePanel] = useState(false);
 
   const filteredMembers = members.filter(
@@ -34,15 +35,8 @@ export default function GroupMembersList({ groupId, members, canInvite = false, 
     return (roleOrder[a.role] ?? 3) - (roleOrder[b.role] ?? 3);
   });
 
-  const getRoleBadge = (role: MemberRole) => {
-    const badges: Record<string, { label: string; color: string; icon: string }> = {
-      owner: { label: 'Owner', color: 'bg-yellow-500/20 text-yellow-300', icon: '👑' },
-      creator: { label: 'Creator', color: 'bg-yellow-500/20 text-yellow-300', icon: '👑' },
-      admin: { label: 'Admin', color: 'bg-purple-500/20 text-purple-300', icon: '⚡' },
-      moderator: { label: 'Mod', color: 'bg-blue-500/20 text-blue-300', icon: '🛡️' },
-      member: { label: 'Member', color: 'bg-white/10 text-white/70', icon: '' },
-    };
-    return badges[role] || badges['member'];
+  const handleToggleExpand = (memberId: number) => {
+    setExpandedMemberId(expandedMemberId === memberId ? null : memberId);
   };
 
   return (
@@ -105,78 +99,16 @@ export default function GroupMembersList({ groupId, members, canInvite = false, 
       </div>
 
       {/* Members List */}
-      <div className="space-y-2 max-h-[400px] overflow-y-auto">
-        {sortedMembers.map((member) => {
-          const roleBadge = getRoleBadge(member.role);
-
-          return (
-            <div
-              key={member.id}
-              onClick={() => setSelectedMember(member)}
-              className="enhanced-glass-card cursor-pointer hover:bg-white/10 transition-colors"
-            >
-              <div className="flex items-center gap-4">
-                {/* Avatar */}
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400/30 to-purple-400/30 flex items-center justify-center text-xl">
-                  {member.avatar || '👤'}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="enhanced-glass-text font-medium truncate"
-                      style={{ color: '#784552' }}
-                    >
-                      {member.displayName || member.username}
-                    </span>
-                    {roleBadge.icon && <span className="text-sm">{roleBadge.icon}</span>}
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs ${roleBadge.color}`}
-                    >
-                      {roleBadge.label}
-                    </span>
-                    {member.hasSharedData && (
-                      <span className="text-green-400 text-xs">✓ Sharing</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Status indicator */}
-                <div className="flex flex-col items-end">
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      member.status === 'active' ? 'bg-green-400' : 'bg-gray-400'
-                    }`}
-                  />
-                  {member.lastActive && (
-                    <span className="enhanced-glass-subtle text-xs mt-1" style={{ color: '#6a1f33' }}>
-                      {formatRelativeTime(member.lastActive)}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Shared Data Types */}
-              {member.hasSharedData && member.sharedDataTypes.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-white/10">
-                  <div className="flex flex-wrap gap-1">
-                    {member.sharedDataTypes.map((type) => (
-                      <span
-                        key={type}
-                        className="px-2 py-0.5 rounded-full bg-white/10 text-xs text-white/70 capitalize"
-                      >
-                        {type}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+      <div className="space-y-2 max-h-[500px] overflow-y-auto">
+        {sortedMembers.map((member) => (
+          <MemberCard
+            key={member.id}
+            member={member}
+            groupId={groupId}
+            isExpanded={expandedMemberId === member.userId}
+            onToggleExpand={() => handleToggleExpand(member.userId)}
+          />
+        ))}
       </div>
 
       {/* Empty State */}
@@ -188,30 +120,47 @@ export default function GroupMembersList({ groupId, members, canInvite = false, 
           </p>
         </div>
       )}
-
-      {/* Member Detail Modal */}
-      {selectedMember && (
-        <MemberDetailModal
-          member={selectedMember}
-          groupId={groupId}
-          onClose={() => setSelectedMember(null)}
-        />
-      )}
     </div>
   );
 }
 
 // ============================================================================
-// MEMBER DETAIL MODAL
+// MEMBER CARD WITH INLINE EXPANDABLE DETAILS
 // ============================================================================
 
-interface MemberDetailModalProps {
+interface MemberCardProps {
   member: GroupMember;
   groupId: string;
-  onClose: () => void;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
 }
 
-function MemberDetailModal({ member, onClose }: MemberDetailModalProps) {
+function MemberCard({ member, groupId, isExpanded, onToggleExpand }: MemberCardProps) {
+  const [extendedDetails, setExtendedDetails] = useState<ExtendedGroupMember | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasSharedProfile, setHasSharedProfile] = useState(false);
+
+  // Fetch details when expanded
+  useEffect(() => {
+    if (isExpanded && !extendedDetails) {
+      const fetchDetails = async () => {
+        setIsLoading(true);
+        try {
+          const details = await getMemberDetails(groupId, member.userId);
+          if (details) {
+            setExtendedDetails(details);
+            setHasSharedProfile(member.sharedDataTypes?.includes('profile') || false);
+          }
+        } catch (error) {
+          console.error('Failed to fetch member details:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchDetails();
+    }
+  }, [isExpanded, groupId, member.userId, member.sharedDataTypes, extendedDetails]);
+
   const getRoleBadge = (role: MemberRole) => {
     const badges: Record<string, { label: string; color: string; icon: string }> = {
       owner: { label: 'Owner', color: 'bg-yellow-500/20 text-yellow-300', icon: '👑' },
@@ -223,96 +172,236 @@ function MemberDetailModal({ member, onClose }: MemberDetailModalProps) {
     return badges[role] || badges['member'];
   };
 
+  const formatBirthdate = (birthdate: string | undefined) => {
+    if (!birthdate) return null;
+    const date = new Date(birthdate);
+    const today = new Date();
+    const age = today.getFullYear() - date.getFullYear();
+    const monthDiff = today.getMonth() - date.getMonth();
+    const adjustedAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < date.getDate()) ? age - 1 : age;
+    return `${date.toLocaleDateString()} (${adjustedAge} years old)`;
+  };
+
   const roleBadge = getRoleBadge(member.role);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleExpand();
+  };
 
-      <div className="relative w-full max-w-md enhanced-glass-panel p-6">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-pink-400/30 to-purple-400/30 flex items-center justify-center text-3xl">
+  return (
+    <div className="enhanced-glass-card">
+      {/* Clickable Header */}
+      <div
+        className="cursor-pointer select-none"
+        onClick={handleClick}
+      >
+        <div className="flex items-center gap-4">
+          {/* Avatar */}
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400/30 to-purple-400/30 flex items-center justify-center text-xl">
             {member.avatar || '👤'}
           </div>
-          <div>
-            <h3 className="enhanced-glass-heading text-xl" style={{ color: '#784552' }}>
-              {member.displayName || member.username}
-            </h3>
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`px-2 py-0.5 rounded text-xs ${roleBadge.color}`}>
-                {roleBadge.icon} {roleBadge.label}
-              </span>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
               <span
-                className={`px-2 py-0.5 rounded text-xs ${
-                  member.status === 'active'
-                    ? 'bg-green-500/20 text-green-300'
-                    : 'bg-gray-500/20 text-gray-300'
-                }`}
+                className="enhanced-glass-text font-medium truncate"
+                style={{ color: '#784552' }}
               >
-                {member.status}
+                {member.displayName || member.username}
               </span>
+              {roleBadge.icon && <span className="text-sm">{roleBadge.icon}</span>}
             </div>
-          </div>
-        </div>
-
-        {/* Details */}
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white/5 rounded-lg p-3">
-              <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: '#6a1f33' }}>
-                Joined
-              </p>
-              <p className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
-                {new Date(member.joinedAt).toLocaleDateString()}
-              </p>
-            </div>
-            <div className="bg-white/5 rounded-lg p-3">
-              <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: '#6a1f33' }}>
-                Last Active
-              </p>
-              <p className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
-                {member.lastActive ? formatRelativeTime(member.lastActive) : 'Unknown'}
-              </p>
+            <div className="flex items-center gap-2 mt-1">
+              <span
+                className={`px-2 py-0.5 rounded text-xs ${roleBadge.color}`}
+              >
+                {roleBadge.label}
+              </span>
+              {member.hasSharedData && (
+                <span className="text-green-400 text-xs">✓ Sharing</span>
+              )}
             </div>
           </div>
 
-          {/* Shared Data */}
-          <div className="bg-white/5 rounded-lg p-3">
-            <p className="enhanced-glass-subtle text-xs mb-2" style={{ color: '#6a1f33' }}>
-              Shared Data
-            </p>
-            {member.hasSharedData && member.sharedDataTypes.length > 0 ? (
-              <div className="flex flex-wrap gap-1">
-                {member.sharedDataTypes.map((type) => (
-                  <span
-                    key={type}
-                    className="px-2 py-1 rounded-full bg-green-500/20 text-green-300 text-xs capitalize"
-                  >
-                    {type}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
-                Not sharing data
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="mt-6">
-          <button
-            onClick={onClose}
-            className="w-full enhanced-action-button py-2"
-          >
-            <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
-              Close
+          {/* Status & Expand Arrow */}
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col items-end">
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  member.status === 'active' ? 'bg-green-400' : 'bg-gray-400'
+                }`}
+              />
+              {member.lastActive && (
+                <span className="enhanced-glass-subtle text-xs mt-1" style={{ color: '#6a1f33' }}>
+                  {formatRelativeTime(member.lastActive)}
+                </span>
+              )}
+            </div>
+            <span
+              className="text-white/40 text-sm transition-transform duration-200"
+              style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+            >
+              ▼
             </span>
-          </button>
+          </div>
         </div>
+
+        {/* Shared Data Types Preview (collapsed) */}
+        {!isExpanded && member.hasSharedData && member.sharedDataTypes.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-white/10">
+            <div className="flex flex-wrap gap-1">
+              {member.sharedDataTypes.map((type) => (
+                <span
+                  key={type}
+                  className="px-2 py-0.5 rounded-full bg-white/10 text-xs text-white/70 capitalize"
+                >
+                  {type}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Expanded Details */}
+      {isExpanded && (
+        <div className="mt-4 pt-4 border-t border-white/10 space-y-4">
+          {isLoading ? (
+            <div className="text-center py-4">
+              <div className="animate-spin text-2xl mb-2">⏳</div>
+              <p className="text-white/50 text-sm">Loading details...</p>
+            </div>
+          ) : (
+            <>
+              {/* Username & Status */}
+              <div className="flex items-center gap-2">
+                <span className="text-white/50 text-sm">@{member.username}</span>
+                <span
+                  className={`px-2 py-0.5 rounded text-xs ${
+                    member.status === 'active'
+                      ? 'bg-green-500/20 text-green-300'
+                      : 'bg-gray-500/20 text-gray-300'
+                  }`}
+                >
+                  {member.status}
+                </span>
+              </div>
+
+              {/* Bio - only if profile shared */}
+              {hasSharedProfile && extendedDetails?.bio && (
+                <div className="bg-white/5 rounded-lg p-3">
+                  <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: '#6a1f33' }}>
+                    Bio
+                  </p>
+                  <p className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+                    {extendedDetails.bio}
+                  </p>
+                </div>
+              )}
+
+              {/* Basic Info Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white/5 rounded-lg p-3">
+                  <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: '#6a1f33' }}>
+                    Joined Group
+                  </p>
+                  <p className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+                    {new Date(member.joinedAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="bg-white/5 rounded-lg p-3">
+                  <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: '#6a1f33' }}>
+                    Last Active
+                  </p>
+                  <p className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+                    {member.lastActive ? formatRelativeTime(member.lastActive) : 'Unknown'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Contact Info - only if profile shared */}
+              {hasSharedProfile && (
+                <div className="grid grid-cols-2 gap-3">
+                  {extendedDetails?.email && (
+                    <div className="bg-white/5 rounded-lg p-3">
+                      <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: '#6a1f33' }}>
+                        Email
+                      </p>
+                      <p className="enhanced-glass-text text-sm truncate" style={{ color: '#7e4151' }}>
+                        {extendedDetails.email}
+                      </p>
+                    </div>
+                  )}
+                  {extendedDetails?.phone && (
+                    <div className="bg-white/5 rounded-lg p-3">
+                      <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: '#6a1f33' }}>
+                        Phone
+                      </p>
+                      <p className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+                        {extendedDetails.phone}
+                      </p>
+                    </div>
+                  )}
+                  {extendedDetails?.birthdate && (
+                    <div className="bg-white/5 rounded-lg p-3">
+                      <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: '#6a1f33' }}>
+                        Birthdate
+                      </p>
+                      <p className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+                        {formatBirthdate(extendedDetails.birthdate)}
+                      </p>
+                    </div>
+                  )}
+                  {extendedDetails?.location && (
+                    <div className="bg-white/5 rounded-lg p-3">
+                      <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: '#6a1f33' }}>
+                        Location
+                      </p>
+                      <p className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+                        {extendedDetails.location}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Shared Data */}
+              <div className="bg-white/5 rounded-lg p-3">
+                <p className="enhanced-glass-subtle text-xs mb-2" style={{ color: '#6a1f33' }}>
+                  Shared Data with Group
+                </p>
+                {member.hasSharedData && member.sharedDataTypes.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {member.sharedDataTypes.map((type) => (
+                      <span
+                        key={type}
+                        className="px-2 py-1 rounded-full bg-green-500/20 text-green-300 text-xs capitalize"
+                      >
+                        {type}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+                    Not sharing data
+                  </p>
+                )}
+              </div>
+
+              {/* Privacy note if profile not shared */}
+              {!hasSharedProfile && (
+                <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                  <p className="text-white/50 text-xs text-center">
+                    Contact info is only visible when the member shares their profile
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

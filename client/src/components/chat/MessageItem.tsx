@@ -12,6 +12,11 @@ interface MessageItemProps {
   isGroupedWithNext?: boolean;
 }
 
+// Check if message content contains @Dina mention
+function containsDinaMention(content: string): boolean {
+  return /@dina\b/i.test(content);
+}
+
 function formatTime(dateStr: string): string {
   const date = new Date(dateStr);
   return date.toLocaleTimeString(undefined, {
@@ -35,6 +40,7 @@ export default function MessageItem({
     selectMessage,
     editMessage,
     deleteMessage,
+    dinaProcessingMessages,
   } = useChat();
 
   const [showActions, setShowActions] = useState(false);
@@ -47,6 +53,14 @@ export default function MessageItem({
   const isPending = message.status === 'sending';
   const isFailed = message.status === 'failed';
   const isDeleted = message.isDeleted;
+
+  // Check if this message is waiting for @Dina response
+  const isAwaitingDinaResponse = useMemo(() => {
+    if (!dinaProcessingMessages || !containsDinaMention(message.content)) {
+      return false;
+    }
+    return dinaProcessingMessages.has(message.id);
+  }, [dinaProcessingMessages, message.id, message.content]);
 
   // Handle reaction click
   const handleReaction = useCallback((emoji: string) => {
@@ -262,7 +276,16 @@ export default function MessageItem({
               </div>
             </div>
           ) : (
-            <p className="chat-message-text">{message.content}</p>
+            <>
+              <p className="chat-message-text">{message.content}</p>
+              {/* @Dina Processing Indicator */}
+              {isAwaitingDinaResponse && (
+                <div className="dina-processing-indicator">
+                  <div className="dina-spinner" />
+                  <span className="dina-processing-text">@Dina is thinking...</span>
+                </div>
+              )}
+            </>
           )}
 
           {/* Time and status */}

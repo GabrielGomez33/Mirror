@@ -20,6 +20,9 @@ import type {
   ConversationInsight,
   SessionInsightsSummary,
   ApiResponse,
+  LLMSynthesis,
+  ExtendedGroupMember,
+  SharedDataDetail,
 } from '../types/groups';
 
 // ============================================================================
@@ -509,7 +512,7 @@ class GroupsApiClient {
     request: ShareDataRequest
   ): Promise<ApiResponse<{ sharedDataIds: string[] }>> {
     const result = await this.makeRequest<ApiResponse<{ sharedDataIds: string[] }>>(
-      `/${groupId}/share`,
+      `/${groupId}/share-data`,
       {
         method: 'POST',
         body: JSON.stringify(request),
@@ -571,6 +574,67 @@ class GroupsApiClient {
     return result;
   }
 
+  /**
+   * Generate new insights (Owner only)
+   * This queues a new full analysis with high priority
+   */
+  async generateInsights(
+    groupId: string,
+    forceRefresh: boolean = true
+  ): Promise<ApiResponse<{
+    jobId: string;
+    logId: string;
+    message: string;
+    estimatedTime: string;
+    membersWithData: number;
+  }>> {
+    const result = await this.makeRequest<
+      ApiResponse<{
+        jobId: string;
+        logId: string;
+        message: string;
+        estimatedTime: string;
+        membersWithData: number;
+      }>
+    >(
+      `/${groupId}/generate-insights`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ forceRefresh }),
+      }
+    );
+
+    cache.invalidate(`groups:/${groupId}/insights`);
+    return result;
+  }
+
+  /**
+   * Get insights generation status
+   */
+  async getInsightsGenerationStatus(
+    groupId: string,
+    logId: string
+  ): Promise<ApiResponse<{
+    logId: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    requestedBy: number;
+    createdAt: string;
+    completedAt: string | null;
+    errorMessage: string | null;
+  }>> {
+    return this.makeRequest<
+      ApiResponse<{
+        logId: string;
+        status: 'pending' | 'processing' | 'completed' | 'failed';
+        requestedBy: number;
+        createdAt: string;
+        completedAt: string | null;
+        errorMessage: string | null;
+      }>
+    >(`/${groupId}/insights/generation-status/${logId}`, { method: 'GET' });
+  }
+
   async getCompatibilityMatrix(groupId: string): Promise<ApiResponse<{ matrix: unknown }>> {
     return this.makeRequest<ApiResponse<{ matrix: unknown }>>(
       `/${groupId}/compatibility`,
@@ -596,6 +660,43 @@ class GroupsApiClient {
       true,
       60000
     );
+  }
+
+  async getInsightsHistory(
+    groupId: string,
+    limit: number = 20,
+    offset: number = 0
+  ): Promise<{
+    insights: LLMSynthesis[];
+    pagination: { total: number; limit: number; offset: number; hasMore: boolean };
+  }> {
+    const response = await this.makeRequest<
+      ApiResponse<{
+        insights: LLMSynthesis[];
+        pagination: { total: number; limit: number; offset: number; hasMore: boolean };
+      }>
+    >(`/${groupId}/insights/history?limit=${limit}&offset=${offset}`, { method: 'GET' });
+    return {
+      insights: response.data?.insights || [],
+      pagination: response.data?.pagination || { total: 0, limit, offset, hasMore: false },
+    };
+  }
+
+  async getMembersWithDetails(groupId: string): Promise<ExtendedGroupMember[]> {
+    const response = await this.makeRequest<
+      ApiResponse<{ members: ExtendedGroupMember[]; total: number }>
+    >(`/${groupId}/members-details`, { method: 'GET' });
+    return response.data?.members || [];
+  }
+
+  async getMemberDetails(
+    groupId: string,
+    memberId: string | number
+  ): Promise<ExtendedGroupMember | null> {
+    const response = await this.makeRequest<
+      ApiResponse<{ member: ExtendedGroupMember; sharedData: SharedDataDetail[]; hasSharedData: boolean }>
+    >(`/${groupId}/members/${memberId}`, { method: 'GET' });
+    return response.data?.member || null;
   }
 
   // ==================== VOTING ====================
@@ -783,10 +884,21 @@ export const revokeSharedData = (groupId: string, dataType: string) =>
 // Insights
 export const getInsights = (groupId: string) => groupsApi.getInsights(groupId);
 export const triggerAnalysis = (groupId: string) => groupsApi.triggerAnalysis(groupId);
+export const generateInsights = (groupId: string, forceRefresh?: boolean) =>
+  groupsApi.generateInsights(groupId, forceRefresh);
+export const getInsightsGenerationStatus = (groupId: string, logId: string) =>
+  groupsApi.getInsightsGenerationStatus(groupId, logId);
 export const getCompatibilityMatrix = (groupId: string) =>
   groupsApi.getCompatibilityMatrix(groupId);
 export const getCollectivePatterns = (groupId: string) => groupsApi.getCollectivePatterns(groupId);
 export const getConflictRisks = (groupId: string) => groupsApi.getConflictRisks(groupId);
+export const getInsightsHistory = (groupId: string, limit?: number, offset?: number) =>
+  groupsApi.getInsightsHistory(groupId, limit, offset);
+
+// Members with Extended Details
+export const getMembersWithDetails = (groupId: string) => groupsApi.getMembersWithDetails(groupId);
+export const getMemberDetails = (groupId: string, memberId: string | number) =>
+  groupsApi.getMemberDetails(groupId, memberId);
 
 // Voting
 export const proposeVote = (groupId: string, request: ProposeVoteRequest) =>

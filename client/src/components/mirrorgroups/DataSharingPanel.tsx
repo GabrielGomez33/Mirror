@@ -16,6 +16,12 @@ const DATA_TYPES: Array<{
   icon: string;
 }> = [
   {
+    type: 'profile',
+    label: 'Contact Information',
+    description: 'Email, phone, birthdate, location - visible to group members',
+    icon: '📇',
+  },
+  {
     type: 'personality',
     label: 'Personality Profile',
     description: 'Big Five traits, MBTI type, personality characteristics',

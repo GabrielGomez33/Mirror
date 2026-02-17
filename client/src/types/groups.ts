@@ -50,6 +50,22 @@ export interface GroupMember {
   sharedDataTypes: string[];
 }
 
+export interface ExtendedGroupMember extends GroupMember {
+  email?: string;
+  bio?: string;
+  birthdate?: string;
+  phone?: string;
+  location?: string;
+  timezone?: string;
+  sharedData?: SharedDataDetail[];
+}
+
+export interface SharedDataDetail {
+  dataType: string;
+  sharedAt: string;
+  dataVersion?: string;
+}
+
 export interface JoinRequest {
   id: string;
   groupId: string;
@@ -72,6 +88,7 @@ export type ShareableDataType =
   | 'facial'
   | 'voice'
   | 'astrological'
+  | 'profile'
   | 'full_profile';
 
 export interface SharedData {

@@ -287,7 +287,12 @@ export type ChatWSMessageType =
   | 'chat:group_left'
   | 'chat:ack'
   | 'chat:error'
-  | 'pong';
+  | 'pong'
+  // Dina AI events
+  | 'dina:processing_start'
+  | 'dina:stream_start'
+  | 'dina:stream_chunk'
+  | 'dina:stream_complete';
 
 export interface ChatWSMessage<T = unknown> {
   type: ChatWSMessageType;
@@ -326,6 +331,7 @@ export interface WSNewMessagePayload {
   groupId: string;
   senderUserId: number;
   senderUsername: string;
+  content?: string; // Present when broadcast includes full message (e.g. Dina responses)
   contentType: MessageContentType;
   parentMessageId: string | null;
   threadRootId: string | null;
@@ -442,6 +448,12 @@ export interface ChatState {
   // UI state
   showEmojiPicker: boolean;
   selectedMessageId: string | null;
+
+  // Dina AI state
+  dinaProcessing: boolean;
+  dinaProcessingQuery: string | null;
+  dinaStreamingMessage: { messageId: string; content: string } | null;
+  dinaProcessingMessages: Set<string>;
 }
 
 export type ChatAction =
@@ -481,7 +493,12 @@ export type ChatAction =
   | { type: 'MARK_MESSAGE_EDITED'; payload: { messageId: string; editedAt: string } }
   | { type: 'MARK_MESSAGE_DELETED'; payload: string }
   | { type: 'CLEAR_MESSAGES' }
-  | { type: 'RESET_STATE' };
+  | { type: 'RESET_STATE' }
+  | { type: 'SET_DINA_PROCESSING'; payload: { groupId: string; isProcessing: boolean; query?: string; messageId?: string } }
+  | { type: 'SET_DINA_STREAMING'; payload: { messageId: string; content: string } | null }
+  | { type: 'ADD_DINA_PROCESSING_MESSAGE'; payload: string }
+  | { type: 'REMOVE_DINA_PROCESSING_MESSAGE'; payload: string }
+  | { type: 'CLEAR_DINA_PROCESSING_MESSAGES' };
 
 // ============================================================================
 // ERROR TYPES
@@ -515,6 +532,10 @@ export interface EmojiReaction {
   emoji: string;
   label: string;
 }
+
+// Dina AI system user ID (matches DINA_USER_ID_SQL in mirror-server env)
+export const DINA_USER_ID = 59;
+export const DINA_USERNAME = 'Dina';
 
 // Common emoji reactions
 export const QUICK_REACTIONS: EmojiReaction[] = [

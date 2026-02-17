@@ -1,20 +1,47 @@
 // src/components/mirrorgroups/GroupInsightsPanel.tsx
-// AI-powered group insights display
+// AI-powered group insights display with history
 
-import type { GroupInsights, CompatibilityScore, CollectivePattern, ConflictRisk } from '../../types/groups';
+import { useState, useEffect } from 'react';
+import type { GroupInsights, CompatibilityScore, CollectivePattern, ConflictRisk, LLMSynthesis } from '../../types/groups';
+import { getInsightsHistory } from '../../services/groupsApi';
 
 interface GroupInsightsPanelProps {
   groupId: string;
   insights: GroupInsights | null;
   isLoading: boolean;
   onRefresh: () => void;
+  currentUserRole?: string; // Optional: 'owner', 'admin', or 'member'
 }
 
 export default function GroupInsightsPanel({
+  groupId,
   insights,
   isLoading,
   onRefresh,
 }: GroupInsightsPanelProps) {
+  const [insightsHistory, setInsightsHistory] = useState<LLMSynthesis[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+
+  // Fetch insights history
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!groupId) return;
+      setIsLoadingHistory(true);
+      try {
+        const result = await getInsightsHistory(groupId, 20, 0);
+        // Filter out the current insight (first one) since we display it separately
+        setInsightsHistory(result.insights.slice(1));
+      } catch (error) {
+        console.error('Failed to fetch insights history:', error);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+    fetchHistory();
+  }, [groupId, insights]);
+
   if (isLoading) {
     return (
       <div className="text-center py-8">
@@ -230,6 +257,113 @@ export default function GroupInsightsPanel({
           </div>
         </div>
       )}
+
+      {/* Insights History */}
+      <div className="enhanced-glass-card">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="enhanced-glass-heading text-lg" style={{ color: '#784552' }}>
+            Insights History
+          </h3>
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="px-3 py-1 rounded-lg bg-white/10 text-white/70 text-sm hover:bg-white/20 transition-colors"
+          >
+            {showHistory ? 'Hide' : 'Show'} ({insightsHistory.length})
+          </button>
+        </div>
+
+        {showHistory && (
+          <div className="space-y-3">
+            {isLoadingHistory ? (
+              <div className="text-center py-4">
+                <div className="animate-spin text-2xl mb-2">⏳</div>
+                <p className="text-white/50 text-sm">Loading history...</p>
+              </div>
+            ) : insightsHistory.length === 0 ? (
+              <p className="text-center text-white/50 py-4">No previous insights available</p>
+            ) : (
+              insightsHistory.map((historyInsight) => (
+                <div
+                  key={historyInsight.id}
+                  className="bg-white/5 rounded-lg border border-white/10 overflow-hidden"
+                >
+                  <button
+                    onClick={() =>
+                      setExpandedHistoryId(
+                        expandedHistoryId === historyInsight.id ? null : historyInsight.id
+                      )
+                    }
+                    className="w-full p-3 flex items-center justify-between hover:bg-white/5 transition-colors text-left"
+                  >
+                    <div>
+                      <h4 className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+                        {historyInsight.title || 'Group Analysis'}
+                      </h4>
+                      <p className="text-white/50 text-xs mt-1">
+                        {new Date(historyInsight.generatedAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {historyInsight.qualityScore && (
+                        <span
+                          className={`px-2 py-0.5 rounded text-xs ${
+                            historyInsight.qualityScore >= 0.8
+                              ? 'bg-green-500/20 text-green-300'
+                              : historyInsight.qualityScore >= 0.6
+                                ? 'bg-yellow-500/20 text-yellow-300'
+                                : 'bg-red-500/20 text-red-300'
+                          }`}
+                        >
+                          {Math.round(historyInsight.qualityScore * 100)}%
+                        </span>
+                      )}
+                      <span className="text-white/50">
+                        {expandedHistoryId === historyInsight.id ? '▲' : '▼'}
+                      </span>
+                    </div>
+                  </button>
+
+                  {expandedHistoryId === historyInsight.id && (
+                    <div className="p-4 border-t border-white/10 space-y-3">
+                      <p className="enhanced-glass-subtle text-sm" style={{ color: '#7e4151' }}>
+                        {historyInsight.overview}
+                      </p>
+
+                      {historyInsight.keyInsights && historyInsight.keyInsights.length > 0 && (
+                        <div>
+                          <h5 className="text-white/60 text-xs mb-2">Key Insights</h5>
+                          <ul className="space-y-1">
+                            {historyInsight.keyInsights.map((insight, i) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <span className="text-pink-400 text-xs mt-1">•</span>
+                                <span className="text-white/70 text-xs">{insight}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {historyInsight.recommendations && historyInsight.recommendations.length > 0 && (
+                        <div>
+                          <h5 className="text-white/60 text-xs mb-2">Recommendations</h5>
+                          <ul className="space-y-1">
+                            {historyInsight.recommendations.map((rec, i) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <span className="text-green-400 text-xs mt-1">→</span>
+                                <span className="text-white/70 text-xs">{rec}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Refresh Button */}
       <div className="text-center">

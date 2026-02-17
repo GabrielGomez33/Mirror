@@ -214,6 +214,11 @@ export default function GroupChat({ groupId }: GroupChatProps) {
     return colors[userId % colors.length];
   };
 
+  // Check if message is from Dina (AI assistant)
+  const isDinaMessage = (message: ChatMessage) => {
+    return message.username.toLowerCase() === 'dina';
+  };
+
   return (
     <div className="flex flex-col h-full max-h-[70vh] min-h-[400px]">
       {/* Header */}
@@ -255,56 +260,74 @@ export default function GroupChat({ groupId }: GroupChatProps) {
             </div>
           </div>
         ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.isOwn ? 'justify-end' : 'justify-start'}`}
-            >
+          messages.map((message) => {
+            const isDina = isDinaMessage(message);
+
+            return (
               <div
-                className={`max-w-[80%] sm:max-w-[70%] ${
-                  message.isOwn ? 'order-2' : 'order-1'
-                }`}
+                key={message.id}
+                className={`flex ${message.isOwn ? 'justify-end' : 'justify-start'}`}
               >
-                {!message.isOwn && (
-                  <div className="flex items-center gap-2 mb-1 ml-1">
-                    <div
-                      className={`w-6 h-6 rounded-full bg-gradient-to-r ${getUserColor(
-                        message.userId
-                      )} flex items-center justify-center text-xs text-white font-medium`}
-                    >
-                      {message.username[0]?.toUpperCase() || '?'}
-                    </div>
-                    <span
-                      className="enhanced-glass-subtle text-xs"
-                      style={{ color: '#6a1f33' }}
-                    >
-                      {message.username}
-                    </span>
-                  </div>
-                )}
                 <div
-                  className={`px-4 py-2 rounded-2xl ${
-                    message.isOwn
-                      ? 'bg-gradient-to-r from-pink-400/30 to-purple-400/30 rounded-br-md'
-                      : 'bg-white/10 rounded-bl-md'
+                  className={`max-w-[80%] sm:max-w-[70%] ${
+                    message.isOwn ? 'order-2' : 'order-1'
                   }`}
                 >
-                  <p
-                    className="enhanced-glass-body text-sm whitespace-pre-wrap break-words"
-                    style={{ color: '#7e4151' }}
+                  {!message.isOwn && (
+                    <div className="flex items-center gap-2 mb-1 ml-1">
+                      {isDina ? (
+                        // Dina's special avatar
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center text-xs shadow-lg shadow-purple-500/30">
+                          <span>🤖</span>
+                        </div>
+                      ) : (
+                        <div
+                          className={`w-6 h-6 rounded-full bg-gradient-to-r ${getUserColor(
+                            message.userId
+                          )} flex items-center justify-center text-xs text-white font-medium`}
+                        >
+                          {message.username[0]?.toUpperCase() || '?'}
+                        </div>
+                      )}
+                      <span
+                        className={`text-xs ${isDina ? 'font-medium text-purple-300' : 'enhanced-glass-subtle'}`}
+                        style={isDina ? {} : { color: '#6a1f33' }}
+                      >
+                        {isDina ? 'Dina AI' : message.username}
+                      </span>
+                      {isDina && (
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300">
+                          AI
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <div
+                    className={`px-4 py-2 rounded-2xl ${
+                      message.isOwn
+                        ? 'bg-gradient-to-r from-pink-400/30 to-purple-400/30 rounded-br-md'
+                        : isDina
+                          ? 'bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/30 rounded-bl-md'
+                          : 'bg-white/10 rounded-bl-md'
+                    }`}
                   >
-                    {message.content}
+                    <p
+                      className={`text-sm whitespace-pre-wrap break-words ${isDina ? 'text-purple-100' : 'enhanced-glass-body'}`}
+                      style={isDina ? {} : { color: '#7e4151' }}
+                    >
+                      {message.content}
+                    </p>
+                  </div>
+                  <p
+                    className={`text-xs mt-1 ${message.isOwn ? 'text-right mr-1' : 'ml-1'}`}
+                    style={{ color: isDina ? '#a855f7' : '#6a1f33', opacity: 0.7 }}
+                  >
+                    {formatTime(message.timestamp)}
                   </p>
                 </div>
-                <p
-                  className={`text-xs mt-1 ${message.isOwn ? 'text-right mr-1' : 'ml-1'}`}
-                  style={{ color: '#6a1f33', opacity: 0.7 }}
-                >
-                  {formatTime(message.timestamp)}
-                </p>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
         <div ref={messagesEndRef} />
       </div>
@@ -338,6 +361,8 @@ export default function GroupChat({ groupId }: GroupChatProps) {
         </div>
         <p className="enhanced-glass-subtle text-xs mt-2 text-center" style={{ color: '#6a1f33' }}>
           Press Enter to send, Shift+Enter for new line
+          <span className="mx-2">·</span>
+          <span className="text-purple-300/70">Type @Dina to ask the AI assistant</span>
         </p>
       </div>
     </div>

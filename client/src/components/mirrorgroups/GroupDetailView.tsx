@@ -389,6 +389,7 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
             insights={currentInsights}
             isLoading={isLoadingInsights}
             onRefresh={handleTriggerAnalysis}
+            currentUserRole={isOwner ? 'owner' : canInvite ? 'admin' : 'member'}
           />
         )}
 

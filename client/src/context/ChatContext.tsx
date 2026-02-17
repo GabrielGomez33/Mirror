@@ -61,7 +61,7 @@ import type {
   MessageMetadata,
   PresenceStatus,
 } from '../types/chat';
-import { CHAT_CONFIG } from '../types/chat';
+import { CHAT_CONFIG, DINA_USER_ID } from '../types/chat';
 
 // ============================================================================
 // INITIAL STATE
@@ -95,6 +95,10 @@ const initialState: ChatState = {
   error: null,
   showEmojiPicker: false,
   selectedMessageId: null,
+  dinaProcessing: false,
+  dinaProcessingQuery: null,
+  dinaStreamingMessage: null,
+  dinaProcessingMessages: new Set(),
 };
 
 // ============================================================================
@@ -375,6 +379,37 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'RESET_STATE':
       return initialState;
 
+    case 'SET_DINA_PROCESSING':
+      if (action.payload.groupId !== state.currentGroupId) return state;
+      return {
+        ...state,
+        dinaProcessing: action.payload.isProcessing,
+        dinaProcessingQuery: action.payload.query || null,
+        // Clear streaming state when processing ends
+        ...(action.payload.isProcessing ? {} : { dinaStreamingMessage: null }),
+      };
+
+    case 'SET_DINA_STREAMING':
+      return {
+        ...state,
+        dinaStreamingMessage: action.payload,
+      };
+
+    case 'ADD_DINA_PROCESSING_MESSAGE': {
+      const newSet = new Set(state.dinaProcessingMessages);
+      newSet.add(action.payload);
+      return { ...state, dinaProcessingMessages: newSet };
+    }
+
+    case 'REMOVE_DINA_PROCESSING_MESSAGE': {
+      const newSet = new Set(state.dinaProcessingMessages);
+      newSet.delete(action.payload);
+      return { ...state, dinaProcessingMessages: newSet };
+    }
+
+    case 'CLEAR_DINA_PROCESSING_MESSAGES':
+      return { ...state, dinaProcessingMessages: new Set() };
+
     default:
       return state;
   }
@@ -467,15 +502,30 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   const cleanupRef = useRef<Array<() => void>>([]);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const markReadDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Ref to track currentGroupId without causing callback recreation
+  // Refs to track mutable state without causing effect re-registration
   const currentGroupIdRef = useRef<string | null>(null);
+  const messagesRef = useRef(state.messages);
+  const pendingMessagesRef = useRef(state.pendingMessages);
 
   const currentUserId = user?.id ?? null;
+  const currentUserIdRef = useRef(currentUserId);
 
-  // Keep ref in sync with state
+  // Keep refs in sync with state
   useEffect(() => {
     currentGroupIdRef.current = state.currentGroupId;
   }, [state.currentGroupId]);
+
+  useEffect(() => {
+    messagesRef.current = state.messages;
+  }, [state.messages]);
+
+  useEffect(() => {
+    pendingMessagesRef.current = state.pendingMessages;
+  }, [state.pendingMessages]);
+
+  useEffect(() => {
+    currentUserIdRef.current = currentUserId;
+  }, [currentUserId]);
 
   // ==================== DATA FETCHING ====================
 
@@ -1127,14 +1177,51 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     const unsubMessage = onChatEvent('chat:message', async (data: unknown) => {
       const payload = data as WSNewMessagePayload;
 
-      // Only process messages for current group
-      if (payload.groupId !== state.currentGroupId) return;
+      // Only process messages for current group (use ref for latest value)
+      if (payload.groupId !== currentGroupIdRef.current) return;
 
-      // Skip if we already have this message or it's our own pending message
-      if (state.messages.some((m) => m.id === payload.id)) return;
-      if (payload.clientMessageId && state.pendingMessages.has(payload.clientMessageId)) return;
+      // Skip if we already have this message or it's our own pending message (use refs)
+      if (messagesRef.current.some((m) => m.id === payload.id)) return;
+      if (payload.clientMessageId && pendingMessagesRef.current.has(payload.clientMessageId)) return;
 
-      // Fetch full message content
+      // If this is a Dina message, clear the "Dina is thinking" state
+      if (payload.senderUserId === DINA_USER_ID) {
+        dispatch({
+          type: 'SET_DINA_PROCESSING',
+          payload: { groupId: payload.groupId, isProcessing: false },
+        });
+        dispatch({ type: 'SET_DINA_STREAMING', payload: null });
+        // Clear per-message processing tracking for the parent message Dina replied to
+        if (payload.parentMessageId) {
+          dispatch({ type: 'REMOVE_DINA_PROCESSING_MESSAGE', payload: payload.parentMessageId });
+        }
+      }
+
+      // Use broadcast content directly if available (avoids extra REST fetch)
+      if (payload.content) {
+        const message: ChatMessage = {
+          id: payload.id,
+          groupId: payload.groupId,
+          senderUserId: payload.senderUserId,
+          senderUsername: payload.senderUsername,
+          content: payload.content,
+          contentType: payload.contentType || 'text',
+          parentMessageId: payload.parentMessageId || null,
+          threadRootId: payload.threadRootId || null,
+          metadata: payload.metadata,
+          status: 'sent',
+          isEdited: false,
+          isDeleted: false,
+          clientMessageId: payload.clientMessageId || null,
+          createdAt: payload.createdAt,
+          updatedAt: payload.createdAt,
+          reactions: [],
+        };
+        dispatch({ type: 'ADD_MESSAGE', payload: message });
+        return;
+      }
+
+      // Fallback: fetch full message content via REST API
       try {
         const response = await getMessage(payload.groupId, payload.id);
         if (response.success && response.data) {
@@ -1148,7 +1235,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
     const unsubEdited = onChatEvent('chat:message_edited', async (data: unknown) => {
       const payload = data as WSMessageEditedPayload;
-      if (payload.groupId !== state.currentGroupId) return;
+      if (payload.groupId !== currentGroupIdRef.current) return;
 
       // Fetch updated message
       try {
@@ -1170,7 +1257,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
     const unsubDeleted = onChatEvent('chat:message_deleted', (data: unknown) => {
       const payload = data as WSMessageDeletedPayload;
-      if (payload.groupId !== state.currentGroupId) return;
+      if (payload.groupId !== currentGroupIdRef.current) return;
       dispatch({ type: 'MARK_MESSAGE_DELETED', payload: payload.messageId });
     });
     cleanupRef.current.push(unsubDeleted);
@@ -1178,8 +1265,8 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     // Typing events
     const unsubTyping = onChatEvent('chat:typing', (data: unknown) => {
       const payload = data as WSTypingPayload;
-      if (payload.groupId !== state.currentGroupId) return;
-      if (payload.userId === currentUserId) return; // Ignore own typing
+      if (payload.groupId !== currentGroupIdRef.current) return;
+      if (payload.userId === currentUserIdRef.current) return; // Ignore own typing
 
       if (payload.isTyping) {
         dispatch({
@@ -1201,7 +1288,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     // Presence events
     const unsubPresence = onChatEvent('chat:presence', (data: unknown) => {
       const payload = data as WSPresencePayload;
-      if (payload.groupId !== state.currentGroupId) return;
+      if (payload.groupId !== currentGroupIdRef.current) return;
 
       dispatch({
         type: 'UPDATE_PRESENCE',
@@ -1219,7 +1306,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     // Reaction events
     const unsubReactions = onChatEvent('chat:reactions_updated', (data: unknown) => {
       const payload = data as WSReactionsUpdatedPayload;
-      if (payload.groupId !== state.currentGroupId) return;
+      if (payload.groupId !== currentGroupIdRef.current) return;
 
       dispatch({
         type: 'UPDATE_REACTIONS',
@@ -1231,10 +1318,10 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     // Read receipt events
     const unsubRead = onChatEvent('chat:message_read', (data: unknown) => {
       const payload = data as WSMessageReadPayload;
-      if (payload.groupId !== state.currentGroupId) return;
+      if (payload.groupId !== currentGroupIdRef.current) return;
 
       payload.messageIds.forEach((messageId) => {
-        const message = state.messages.find((m) => m.id === messageId);
+        const message = messagesRef.current.find((m) => m.id === messageId);
         if (message) {
           const readBy = [...(message.readBy || [])];
           if (!readBy.includes(payload.userId)) {
@@ -1257,12 +1344,70 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     });
     cleanupRef.current.push(unsubMention);
 
+    // --- Dina AI Events ---
+
+    // Dina is processing a query (show "thinking" indicator)
+    const unsubDinaProcessing = onChatEvent('dina:processing_start', (data: unknown) => {
+      const payload = data as { groupId: string; query?: string; username?: string; messageId?: string };
+      console.log('[ChatContext] Dina processing started:', payload);
+      dispatch({
+        type: 'SET_DINA_PROCESSING',
+        payload: { groupId: payload.groupId, isProcessing: true, query: payload.query },
+      });
+      // Track the triggering message ID for per-message processing indicators
+      if (payload.messageId) {
+        dispatch({ type: 'ADD_DINA_PROCESSING_MESSAGE', payload: payload.messageId });
+      }
+    });
+    cleanupRef.current.push(unsubDinaProcessing);
+
+    // Dina stream started (placeholder message appearing)
+    const unsubDinaStreamStart = onChatEvent('dina:stream_start', (data: unknown) => {
+      const payload = data as { messageId: string; senderUserId: number; senderUsername: string };
+      console.log('[ChatContext] Dina stream started:', payload);
+      dispatch({
+        type: 'SET_DINA_STREAMING',
+        payload: { messageId: payload.messageId, content: '' },
+      });
+    });
+    cleanupRef.current.push(unsubDinaStreamStart);
+
+    // Dina stream chunk (progressive text update)
+    const unsubDinaStreamChunk = onChatEvent('dina:stream_chunk', (data: unknown) => {
+      const payload = data as { messageId: string; chunk: string; accumulatedLength: number };
+      dispatch({
+        type: 'SET_DINA_STREAMING',
+        payload: {
+          messageId: payload.messageId,
+          content: payload.chunk, // accumulated via reducer if needed
+        },
+      });
+    });
+    cleanupRef.current.push(unsubDinaStreamChunk);
+
+    // Dina stream complete (message finalized)
+    const unsubDinaStreamComplete = onChatEvent('dina:stream_complete', (data: unknown) => {
+      const payload = data as { messageId: string; groupId: string; finalContent: string };
+      console.log('[ChatContext] Dina stream complete:', payload);
+      // Clear processing state - the chat:message event will handle the final message
+      dispatch({
+        type: 'SET_DINA_PROCESSING',
+        payload: { groupId: payload.groupId || currentGroupIdRef.current || '', isProcessing: false },
+      });
+      dispatch({ type: 'SET_DINA_STREAMING', payload: null });
+      // Remove the message from processing set when stream completes
+      if (payload.messageId) {
+        dispatch({ type: 'REMOVE_DINA_PROCESSING_MESSAGE', payload: payload.messageId });
+      }
+    });
+    cleanupRef.current.push(unsubDinaStreamComplete);
+
     // Cleanup
     return () => {
       cleanupRef.current.forEach((cleanup) => cleanup());
       cleanupRef.current = [];
     };
-  }, [isAuthenticated, state.currentGroupId, state.messages, state.pendingMessages, currentUserId]);
+  }, [isAuthenticated]); // Use refs for mutable state — no re-registration on every message
 
   // Auto-connect WebSocket
   useEffect(() => {

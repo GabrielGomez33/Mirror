@@ -80,6 +80,12 @@ interface ChatEventHandlers {
 
   // Error events
   'chat:error': EventHandler<WSErrorPayload>[];
+
+  // Dina AI events
+  'dina:processing_start': EventHandler[];
+  'dina:stream_start': EventHandler[];
+  'dina:stream_chunk': EventHandler[];
+  'dina:stream_complete': EventHandler[];
 }
 
 type ChatEventType = keyof Omit<ChatEventHandlers, 'onConnect' | 'onDisconnect' | 'onError'>;
@@ -126,6 +132,10 @@ class ChatWebSocketClient {
     'chat:group_joined': [],
     'chat:group_left': [],
     'chat:error': [],
+    'dina:processing_start': [],
+    'dina:stream_start': [],
+    'dina:stream_chunk': [],
+    'dina:stream_complete': [],
   };
 
   // ==================== CONNECTION MANAGEMENT ====================
