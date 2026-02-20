@@ -1,5 +1,7 @@
 // src/services/chatWebSocket.ts
 // MirrorGroups Chat WebSocket Service - Real-time chat communication
+// Enterprise-grade connection management with robust reconnection,
+// dead-connection detection, and mobile lifecycle handling.
 
 import { getToken } from '../utils/token';
 import type {
@@ -35,9 +37,45 @@ const WS_BASE = import.meta.env.VITE_WS_URL
 
 const WS_ENDPOINT = `${WS_BASE}/mirror/groups/chat`;
 
-const RECONNECT_DELAYS = CHAT_CONFIG.RECONNECT_DELAYS;
+// Reconnection: base delays with jitter applied at runtime
+const BASE_RECONNECT_DELAYS = CHAT_CONFIG.RECONNECT_DELAYS;
 const HEARTBEAT_INTERVAL = CHAT_CONFIG.HEARTBEAT_INTERVAL;
 const HEARTBEAT_TIMEOUT = CHAT_CONFIG.HEARTBEAT_TIMEOUT;
+const MAX_RECONNECT_ATTEMPTS = 50;
+const MAX_PENDING_MESSAGES = 200;
+
+// Close codes that should NOT trigger reconnection
+const NON_RECOVERABLE_CODES = new Set([
+  1000, // Normal closure
+  1008, // Policy violation (auth rejected by server)
+  4001, // Authentication failed
+  4003, // Forbidden
+]);
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+/** Add +/-25% jitter to a delay to prevent thundering herd on server restart */
+function withJitter(baseDelay: number): number {
+  const jitter = baseDelay * 0.25 * (Math.random() * 2 - 1);
+  return Math.max(500, Math.round(baseDelay + jitter));
+}
+
+/** Detect mobile device for device parameter sent to server */
+function detectDeviceType(): string {
+  if (typeof navigator === 'undefined') return 'web';
+  return /Mobile|Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent) ? 'mobile' : 'web';
+}
+
+/** Structured log helper */
+function wsLog(level: 'info' | 'warn' | 'error', msg: string, data?: Record<string, unknown>): void {
+  const prefix = '[ChatWS]';
+  const extra = data ? ` ${JSON.stringify(data)}` : '';
+  if (level === 'error') console.error(`${prefix} ${msg}${extra}`);
+  else if (level === 'warn') console.warn(`${prefix} ${msg}${extra}`);
+  else console.log(`${prefix} ${msg}${extra}`);
+}
 
 // ============================================================================
 // EVENT TYPES
@@ -115,6 +153,8 @@ class ChatWebSocketClient {
   private pendingMessages: Array<{ type: string; payload: unknown; requestId?: string }> = [];
   private pendingRequests: Map<string, PendingRequest> = new Map();
   private typingTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  private lastConnectedAt = 0;
+  private visibilityHandler: (() => void) | null = null;
 
   private handlers: ChatEventHandlers = {
     onConnect: [],
@@ -141,43 +181,67 @@ class ChatWebSocketClient {
   // ==================== CONNECTION MANAGEMENT ====================
 
   connect(): void {
+    // Guard: already open
     if (this.socket?.readyState === WebSocket.OPEN) {
-      console.log('[ChatWS] Already connected');
+      wsLog('info', 'Already connected, skipping');
+      return;
+    }
+
+    // Guard: connection in progress - don't create duplicate sockets
+    if (this.socket?.readyState === WebSocket.CONNECTING) {
+      wsLog('info', 'Connection already in progress, skipping');
       return;
     }
 
     const token = getToken();
     if (!token) {
-      console.warn('[ChatWS] No auth token, cannot connect');
+      wsLog('warn', 'No auth token available, cannot connect');
       return;
     }
 
     this.isManualDisconnect = false;
 
+    // Clean up any stale socket before creating a new one
+    this.destroySocket();
+
     try {
-      const url = `${WS_ENDPOINT}?token=${encodeURIComponent(token)}`;
-      console.log('[ChatWS] Connecting to:', WS_ENDPOINT);
+      const device = detectDeviceType();
+      const url = `${WS_ENDPOINT}?token=${encodeURIComponent(token)}&device=${device}`;
+      wsLog('info', 'Connecting', { endpoint: WS_ENDPOINT, device, attempt: this.reconnectAttempts });
 
       this.socket = new WebSocket(url);
       this.setupSocketHandlers();
+      this.setupVisibilityHandler();
     } catch (error) {
-      console.error('[ChatWS] Connection error:', error);
-      this.handleError(error as Error);
+      wsLog('error', 'Failed to create WebSocket', { error: String(error) });
+      this.handleError(new Error(`Connection creation failed: ${String(error)}`));
+      this.scheduleReconnect();
     }
   }
 
   disconnect(): void {
+    wsLog('info', 'Manual disconnect requested');
     this.isManualDisconnect = true;
     this.cleanup();
+    this.teardownVisibilityHandler();
 
     if (this.socket) {
-      this.socket.close(1000, 'Client disconnect');
+      try {
+        if (this.socket.readyState === WebSocket.OPEN ||
+            this.socket.readyState === WebSocket.CONNECTING) {
+          this.socket.close(1000, 'Client disconnect');
+        }
+      } catch {
+        // Socket may already be in a broken state
+      }
       this.socket = null;
     }
 
     this.subscribedGroups.clear();
     this.clearAllTypingTimers();
-    this.rejectAllPendingRequests('Connection closed');
+    this.rejectAllPendingRequests('Connection closed by client');
+    this.pendingMessages = [];
+    this.reconnectAttempts = 0;
     this.notifyDisconnect();
   }
 
@@ -189,12 +253,32 @@ class ChatWebSocketClient {
     return this.socket?.readyState ?? WebSocket.CLOSED;
   }
 
+  /** Tear down socket event handlers and null the reference */
+  private destroySocket(): void {
+    if (!this.socket) return;
+    try {
+      this.socket.onopen = null;
+      this.socket.onclose = null;
+      this.socket.onerror = null;
+      this.socket.onmessage = null;
+      if (this.socket.readyState === WebSocket.OPEN ||
+          this.socket.readyState === WebSocket.CONNECTING) {
+        this.socket.close(1000, 'Replacing connection');
+      }
+    } catch {
+      // Ignore errors during teardown
+    }
+    this.socket = null;
+  }
+
   private setupSocketHandlers(): void {
     if (!this.socket) return;
 
     this.socket.onopen = () => {
-      console.log('[ChatWS] Connected');
+      this.lastConnectedAt = Date.now();
       this.reconnectAttempts = 0;
+      wsLog('info', 'Connected successfully');
+
       this.startHeartbeat();
       this.notifyConnect();
 
@@ -203,41 +287,47 @@ class ChatWebSocketClient {
         this.sendMessage('chat:join_group', { groupId });
       });
 
-      // Send pending messages
-      while (this.pendingMessages.length > 0) {
-        const msg = this.pendingMessages.shift();
-        if (msg) {
-          this.sendMessage(msg.type as ChatWSMessageType, msg.payload, msg.requestId);
-        }
-      }
+      // Drain pending message queue
+      this.drainPendingMessages();
     };
 
     this.socket.onclose = (event) => {
-      console.log('[ChatWS] Disconnected:', event.code, event.reason);
+      const sessionDuration = this.lastConnectedAt
+        ? Math.round((Date.now() - this.lastConnectedAt) / 1000)
+        : 0;
+
+      wsLog('info', 'Connection closed', {
+        code: event.code,
+        reason: event.reason || '(none)',
+        wasClean: event.wasClean,
+        sessionSeconds: sessionDuration,
+      });
+
       this.cleanup();
       this.notifyDisconnect();
 
-      // Handle specific close codes
-      if (event.code === 4001) {
-        // Authentication failed - don't reconnect
-        this.handleError(new Error('Authentication failed'));
+      // Decide whether to reconnect based on close code
+      if (this.isManualDisconnect) {
+        wsLog('info', 'Manual disconnect - will not reconnect');
         return;
       }
 
-      if (event.code === 4003) {
-        // Forbidden - not a member
-        this.handleError(new Error('Access forbidden'));
+      if (NON_RECOVERABLE_CODES.has(event.code)) {
+        wsLog('warn', 'Non-recoverable close code, will not auto-reconnect', { code: event.code });
+        if (event.code === 4001 || event.code === 1008) {
+          this.handleError(new Error(`Authentication rejected (code ${event.code})`));
+        }
         return;
       }
 
-      if (!this.isManualDisconnect && event.code !== 1000) {
-        this.scheduleReconnect();
-      }
+      this.scheduleReconnect();
     };
 
-    this.socket.onerror = (event) => {
-      console.error('[ChatWS] Error:', event);
-      this.handleError(new Error('WebSocket error'));
+    this.socket.onerror = (_event) => {
+      // The error event fires BEFORE close, so we log but don't reconnect here.
+      // Reconnection is handled in onclose to prevent duplicate attempts.
+      wsLog('error', 'Socket error occurred (close event will follow)');
+      this.handleError(new Error('WebSocket transport error'));
     };
 
     this.socket.onmessage = (event) => {
@@ -245,13 +335,48 @@ class ChatWebSocketClient {
     };
   }
 
+  // ==================== VISIBILITY LIFECYCLE ====================
+
+  private setupVisibilityHandler(): void {
+    if (this.visibilityHandler) return;
+
+    this.visibilityHandler = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (this.isManualDisconnect) return;
+
+      if (!this.isConnected()) {
+        wsLog('info', 'Page visible, connection lost while backgrounded - reconnecting');
+        this.reconnectAttempts = 0;
+        this.cleanup();
+        this.connect();
+      }
+    };
+
+    document.addEventListener('visibilitychange', this.visibilityHandler);
+  }
+
+  private teardownVisibilityHandler(): void {
+    if (this.visibilityHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+      this.visibilityHandler = null;
+    }
+  }
+
+  // ==================== MESSAGE HANDLING ====================
+
   private handleMessage(data: string): void {
     try {
       const message: ChatWSMessage = JSON.parse(data);
 
-      // Handle pong (heartbeat response)
+      // Handle pong (application-level heartbeat response)
       if (message.type === 'pong') {
         this.clearHeartbeatTimeout();
+        return;
+      }
+
+      // Handle connection confirmation
+      if ((message.type as string) === 'chat:connection_established') {
+        wsLog('info', 'Server confirmed connection', { payload: message.payload });
         return;
       }
 
@@ -284,12 +409,12 @@ class ChatWebSocketClient {
           try {
             (handler as EventHandler)(message.payload);
           } catch (err) {
-            console.error(`[ChatWS] Handler error for ${eventType}:`, err);
+            wsLog('error', `Handler threw for event "${eventType}"`, { error: String(err) });
           }
         });
       }
     } catch (error) {
-      console.error('[ChatWS] Message parse error:', error);
+      wsLog('error', 'Failed to parse incoming message', { error: String(error) });
     }
   }
 
@@ -298,7 +423,7 @@ class ChatWebSocketClient {
       try {
         handler(error);
       } catch (err) {
-        console.error('[ChatWS] Error handler threw:', err);
+        wsLog('error', 'Error handler threw', { error: String(err) });
       }
     });
   }
@@ -308,7 +433,7 @@ class ChatWebSocketClient {
       try {
         handler(true);
       } catch (err) {
-        console.error('[ChatWS] Connect handler threw:', err);
+        wsLog('error', 'Connect handler threw', { error: String(err) });
       }
     });
   }
@@ -318,18 +443,37 @@ class ChatWebSocketClient {
       try {
         handler(false);
       } catch (err) {
-        console.error('[ChatWS] Disconnect handler threw:', err);
+        wsLog('error', 'Disconnect handler threw', { error: String(err) });
       }
     });
   }
 
-  // ==================== RECONNECTION ====================
+  // ==================== RECONNECTION WITH JITTER ====================
 
   private scheduleReconnect(): void {
+    // Guard: already have a reconnect scheduled
     if (this.reconnectTimer) return;
 
-    const delay = RECONNECT_DELAYS[Math.min(this.reconnectAttempts, RECONNECT_DELAYS.length - 1)];
-    console.log(`[ChatWS] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts + 1})`);
+    // Guard: exceeded max attempts
+    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      wsLog('error', 'Max reconnection attempts reached, giving up', {
+        attempts: this.reconnectAttempts,
+        max: MAX_RECONNECT_ATTEMPTS,
+      });
+      this.handleError(new Error(`Connection lost after ${this.reconnectAttempts} reconnection attempts`));
+      return;
+    }
+
+    const baseDelay = BASE_RECONNECT_DELAYS[
+      Math.min(this.reconnectAttempts, BASE_RECONNECT_DELAYS.length - 1)
+    ];
+    const delay = withJitter(baseDelay);
+
+    wsLog('info', 'Scheduling reconnect', {
+      attempt: this.reconnectAttempts + 1,
+      maxAttempts: MAX_RECONNECT_ATTEMPTS,
+      delayMs: delay,
+    });
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
@@ -362,8 +506,17 @@ class ChatWebSocketClient {
   private setHeartbeatTimeout(): void {
     this.clearHeartbeatTimeout();
     this.heartbeatTimeout = setTimeout(() => {
-      console.warn('[ChatWS] Heartbeat timeout, reconnecting...');
-      this.socket?.close(4000, 'Heartbeat timeout');
+      wsLog('warn', 'Heartbeat pong not received within timeout, closing connection', {
+        timeoutMs: HEARTBEAT_TIMEOUT,
+      });
+      try {
+        this.socket?.close(4000, 'Heartbeat timeout');
+      } catch {
+        this.destroySocket();
+        this.cleanup();
+        this.notifyDisconnect();
+        this.scheduleReconnect();
+      }
     }, HEARTBEAT_TIMEOUT);
   }
 
@@ -387,8 +540,15 @@ class ChatWebSocketClient {
 
   private sendMessage(type: ChatWSMessageType | 'ping', payload: unknown, requestId?: string): boolean {
     if (this.socket?.readyState !== WebSocket.OPEN) {
-      // Queue message for later if not connected (except ping)
+      // Queue message for later if not connected (never queue pings)
       if (type !== 'ping') {
+        if (this.pendingMessages.length >= MAX_PENDING_MESSAGES) {
+          const dropped = this.pendingMessages.shift();
+          wsLog('warn', 'Pending message queue full, dropped oldest message', {
+            droppedType: dropped?.type,
+            queueSize: MAX_PENDING_MESSAGES,
+          });
+        }
         this.pendingMessages.push({ type, payload, requestId });
       }
       return false;
@@ -404,8 +564,21 @@ class ChatWebSocketClient {
       this.socket.send(JSON.stringify(message));
       return true;
     } catch (error) {
-      console.error('[ChatWS] Send error:', error);
+      wsLog('error', 'Send failed', { type, error: String(error) });
       return false;
+    }
+  }
+
+  private drainPendingMessages(): void {
+    const batch = this.pendingMessages.splice(0);
+    let sent = 0;
+    for (const msg of batch) {
+      if (this.sendMessage(msg.type as ChatWSMessageType, msg.payload, msg.requestId)) {
+        sent++;
+      }
+    }
+    if (sent > 0) {
+      wsLog('info', 'Drained pending message queue', { sent, total: batch.length });
     }
   }
 
@@ -419,7 +592,7 @@ class ChatWebSocketClient {
 
       const timeoutHandle = setTimeout(() => {
         this.pendingRequests.delete(requestId);
-        reject(new Error('Request timeout'));
+        reject(new Error(`Request timeout after ${timeout}ms for ${type}`));
       }, timeout);
 
       this.pendingRequests.set(requestId, {
@@ -431,7 +604,7 @@ class ChatWebSocketClient {
       if (!this.sendMessage(type, payload, requestId)) {
         clearTimeout(timeoutHandle);
         this.pendingRequests.delete(requestId);
-        reject(new Error('Failed to send message'));
+        reject(new Error(`Failed to send ${type}: socket not open`));
       }
     });
   }

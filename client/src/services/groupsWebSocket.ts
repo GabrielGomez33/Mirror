@@ -1,5 +1,7 @@
 // src/services/groupsWebSocket.ts
 // MirrorGroups WebSocket Service - Real-time communication
+// Enterprise-grade connection management with robust reconnection,
+// dead-connection detection, and mobile lifecycle handling.
 
 import { getToken } from '../utils/token';
 import type {
@@ -26,9 +28,39 @@ const WS_BASE = import.meta.env.VITE_WS_URL
 
 const WS_ENDPOINT = `${WS_BASE}/mirror/groups/ws`;
 
-const RECONNECT_DELAYS = [1000, 2000, 5000, 10000, 30000]; // Exponential backoff
-const HEARTBEAT_INTERVAL = 30000; // 30 seconds
-const HEARTBEAT_TIMEOUT = 10000; // 10 seconds for pong response
+// Reconnection: base delays with jitter applied at runtime
+const BASE_RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 15000, 30000];
+const MAX_RECONNECT_ATTEMPTS = 50;
+const HEARTBEAT_INTERVAL = 30_000;  // 30s - matches server ping interval
+const HEARTBEAT_TIMEOUT = 10_000;   // 10s - must respond before next cycle
+const MAX_PENDING_MESSAGES = 100;
+
+// Close codes that should NOT trigger reconnection
+const NON_RECOVERABLE_CODES = new Set([
+  1000, // Normal closure
+  1008, // Policy violation (auth rejected by server)
+  4001, // Authentication failed
+  4003, // Forbidden
+]);
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+/** Add +/-25% jitter to a delay to prevent thundering herd on server restart */
+function withJitter(baseDelay: number): number {
+  const jitter = baseDelay * 0.25 * (Math.random() * 2 - 1);
+  return Math.max(500, Math.round(baseDelay + jitter));
+}
+
+/** Structured log helper - all WS logs go through here for consistency */
+function wsLog(level: 'info' | 'warn' | 'error', msg: string, data?: Record<string, unknown>): void {
+  const prefix = '[GroupsWS]';
+  const extra = data ? ` ${JSON.stringify(data)}` : '';
+  if (level === 'error') console.error(`${prefix} ${msg}${extra}`);
+  else if (level === 'warn') console.warn(`${prefix} ${msg}${extra}`);
+  else console.log(`${prefix} ${msg}${extra}`);
+}
 
 // ============================================================================
 // EVENT TYPES
@@ -98,6 +130,8 @@ class GroupsWebSocketClient {
   private isManualDisconnect = false;
   private subscribedGroups: Set<string> = new Set();
   private pendingMessages: Array<{ type: string; payload: unknown }> = [];
+  private lastConnectedAt = 0;
+  private visibilityHandler: (() => void) | null = null;
 
   private handlers: EventHandlers = {
     onConnect: [],
@@ -132,41 +166,64 @@ class GroupsWebSocketClient {
   // ==================== CONNECTION MANAGEMENT ====================
 
   connect(): void {
+    // Guard: already open
     if (this.socket?.readyState === WebSocket.OPEN) {
-      console.log('[GroupsWS] Already connected');
+      wsLog('info', 'Already connected, skipping');
+      return;
+    }
+
+    // Guard: connection in progress - don't create duplicate sockets
+    if (this.socket?.readyState === WebSocket.CONNECTING) {
+      wsLog('info', 'Connection already in progress, skipping');
       return;
     }
 
     const token = getToken();
     if (!token) {
-      console.warn('[GroupsWS] No auth token, cannot connect');
+      wsLog('warn', 'No auth token available, cannot connect');
       return;
     }
 
     this.isManualDisconnect = false;
 
+    // Clean up any stale socket before creating a new one
+    this.destroySocket();
+
     try {
       const url = `${WS_ENDPOINT}?token=${encodeURIComponent(token)}`;
-      console.log('[GroupsWS] Connecting to:', WS_ENDPOINT);
+      wsLog('info', 'Connecting', { endpoint: WS_ENDPOINT, attempt: this.reconnectAttempts });
 
       this.socket = new WebSocket(url);
       this.setupSocketHandlers();
+      this.setupVisibilityHandler();
     } catch (error) {
-      console.error('[GroupsWS] Connection error:', error);
-      this.handleError(error as Error);
+      wsLog('error', 'Failed to create WebSocket', { error: String(error) });
+      this.handleError(new Error(`Connection creation failed: ${String(error)}`));
+      this.scheduleReconnect();
     }
   }
 
   disconnect(): void {
+    wsLog('info', 'Manual disconnect requested');
     this.isManualDisconnect = true;
     this.cleanup();
+    this.teardownVisibilityHandler();
 
     if (this.socket) {
-      this.socket.close(1000, 'Client disconnect');
+      try {
+        if (this.socket.readyState === WebSocket.OPEN ||
+            this.socket.readyState === WebSocket.CONNECTING) {
+          this.socket.close(1000, 'Client disconnect');
+        }
+      } catch {
+        // Socket may already be in a broken state
+      }
       this.socket = null;
     }
 
     this.subscribedGroups.clear();
+    this.pendingMessages = [];
+    this.reconnectAttempts = 0;
     this.notifyDisconnect();
   }
 
@@ -174,12 +231,34 @@ class GroupsWebSocketClient {
     return this.socket?.readyState === WebSocket.OPEN;
   }
 
+  /** Tear down socket event handlers and null the reference */
+  private destroySocket(): void {
+    if (!this.socket) return;
+    try {
+      // Remove handlers to prevent stale callbacks
+      this.socket.onopen = null;
+      this.socket.onclose = null;
+      this.socket.onerror = null;
+      this.socket.onmessage = null;
+      // Force-close if still lingering
+      if (this.socket.readyState === WebSocket.OPEN ||
+          this.socket.readyState === WebSocket.CONNECTING) {
+        this.socket.close(1000, 'Replacing connection');
+      }
+    } catch {
+      // Ignore errors during teardown
+    }
+    this.socket = null;
+  }
+
   private setupSocketHandlers(): void {
     if (!this.socket) return;
 
     this.socket.onopen = () => {
-      console.log('[GroupsWS] Connected');
+      this.lastConnectedAt = Date.now();
       this.reconnectAttempts = 0;
+      wsLog('info', 'Connected successfully');
+
       this.startHeartbeat();
       this.notifyConnect();
 
@@ -188,28 +267,47 @@ class GroupsWebSocketClient {
         this.sendMessage('subscribe', { groupId });
       });
 
-      // Send pending messages
-      while (this.pendingMessages.length > 0) {
-        const msg = this.pendingMessages.shift();
-        if (msg) {
-          this.sendMessage(msg.type, msg.payload);
-        }
-      }
+      // Drain pending message queue
+      this.drainPendingMessages();
     };
 
     this.socket.onclose = (event) => {
-      console.log('[GroupsWS] Disconnected:', event.code, event.reason);
+      const sessionDuration = this.lastConnectedAt
+        ? Math.round((Date.now() - this.lastConnectedAt) / 1000)
+        : 0;
+
+      wsLog('info', 'Connection closed', {
+        code: event.code,
+        reason: event.reason || '(none)',
+        wasClean: event.wasClean,
+        sessionSeconds: sessionDuration,
+      });
+
       this.cleanup();
       this.notifyDisconnect();
 
-      if (!this.isManualDisconnect && event.code !== 1000) {
-        this.scheduleReconnect();
+      // Decide whether to reconnect based on close code
+      if (this.isManualDisconnect) {
+        wsLog('info', 'Manual disconnect - will not reconnect');
+        return;
       }
+
+      if (NON_RECOVERABLE_CODES.has(event.code)) {
+        wsLog('warn', 'Non-recoverable close code, will not auto-reconnect', { code: event.code });
+        if (event.code === 4001 || event.code === 1008) {
+          this.handleError(new Error(`Authentication rejected (code ${event.code})`));
+        }
+        return;
+      }
+
+      this.scheduleReconnect();
     };
 
-    this.socket.onerror = (event) => {
-      console.error('[GroupsWS] Error:', event);
-      this.handleError(new Error('WebSocket error'));
+    this.socket.onerror = (_event) => {
+      // The error event fires BEFORE close, so we log but don't reconnect here.
+      // Reconnection is handled in onclose to prevent duplicate attempts.
+      wsLog('error', 'Socket error occurred (close event will follow)');
+      this.handleError(new Error('WebSocket transport error'));
     };
 
     this.socket.onmessage = (event) => {
@@ -217,19 +315,57 @@ class GroupsWebSocketClient {
     };
   }
 
+  // ==================== VISIBILITY LIFECYCLE ====================
+
+  /**
+   * Handle Page Visibility API for mobile lifecycle.
+   * Mobile browsers aggressively suspend WebSocket connections when backgrounded.
+   * When the page becomes visible again, we check the connection and reconnect
+   * if it was dropped while in the background.
+   */
+  private setupVisibilityHandler(): void {
+    if (this.visibilityHandler) return; // Already set up
+
+    this.visibilityHandler = () => {
+      if (document.visibilityState !== 'visible') return;
+
+      // Page is back in foreground - check connection health
+      if (this.isManualDisconnect) return;
+
+      if (!this.isConnected()) {
+        wsLog('info', 'Page visible, connection lost while backgrounded - reconnecting');
+        // Reset attempts for visibility-triggered reconnect (fresh chance)
+        this.reconnectAttempts = 0;
+        this.cleanup(); // Clear any existing reconnect timer
+        this.connect();
+      }
+    };
+
+    document.addEventListener('visibilitychange', this.visibilityHandler);
+  }
+
+  private teardownVisibilityHandler(): void {
+    if (this.visibilityHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+      this.visibilityHandler = null;
+    }
+  }
+
+  // ==================== MESSAGE HANDLING ====================
+
   private handleMessage(data: string): void {
     try {
       const message = JSON.parse(data) as WSMessage & { data?: unknown };
 
-      // Handle pong (heartbeat response)
+      // Handle pong (application-level heartbeat response)
       if ((message.type as string) === 'pong') {
         this.clearHeartbeatTimeout();
         return;
       }
 
       // Handle connection established
-      if (message.type === 'connection:established') {
-        console.log('[GroupsWS] Connection established:', message.payload);
+      if ((message.type as string) === 'connection_established' || message.type === 'connection:established') {
+        wsLog('info', 'Server confirmed connection', { data: message.payload ?? message.data });
         return;
       }
 
@@ -239,19 +375,17 @@ class GroupsWebSocketClient {
       const messageData = message.payload ?? message.data;
       const handlers = this.handlers[eventType as keyof EventHandlers];
 
-      console.log(`[GroupsWS] Received ${eventType}:`, messageData);
-
       if (Array.isArray(handlers) && handlers.length > 0) {
         handlers.forEach((handler) => {
           try {
             (handler as EventHandler)(messageData);
           } catch (err) {
-            console.error(`[GroupsWS] Handler error for ${eventType}:`, err);
+            wsLog('error', `Handler threw for event "${eventType}"`, { error: String(err) });
           }
         });
       }
     } catch (error) {
-      console.error('[GroupsWS] Message parse error:', error);
+      wsLog('error', 'Failed to parse incoming message', { error: String(error) });
     }
   }
 
@@ -260,7 +394,7 @@ class GroupsWebSocketClient {
       try {
         handler(error);
       } catch (err) {
-        console.error('[GroupsWS] Error handler threw:', err);
+        wsLog('error', 'Error handler threw', { error: String(err) });
       }
     });
   }
@@ -270,7 +404,7 @@ class GroupsWebSocketClient {
       try {
         handler(true);
       } catch (err) {
-        console.error('[GroupsWS] Connect handler threw:', err);
+        wsLog('error', 'Connect handler threw', { error: String(err) });
       }
     });
   }
@@ -280,24 +414,49 @@ class GroupsWebSocketClient {
       try {
         handler(false);
       } catch (err) {
-        console.error('[GroupsWS] Disconnect handler threw:', err);
+        wsLog('error', 'Disconnect handler threw', { error: String(err) });
       }
     });
   }
 
-  // ==================== RECONNECTION ====================
+  // ==================== RECONNECTION WITH JITTER ====================
 
   private scheduleReconnect(): void {
+    // Guard: already have a reconnect scheduled
     if (this.reconnectTimer) return;
 
-    const delay = RECONNECT_DELAYS[Math.min(this.reconnectAttempts, RECONNECT_DELAYS.length - 1)];
-    console.log(`[GroupsWS] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts + 1})`);
+    // Guard: exceeded max attempts
+    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      wsLog('error', 'Max reconnection attempts reached, giving up', {
+        attempts: this.reconnectAttempts,
+        max: MAX_RECONNECT_ATTEMPTS,
+      });
+      this.handleError(new Error(`Connection lost after ${this.reconnectAttempts} reconnection attempts`));
+      return;
+    }
+
+    const baseDelay = BASE_RECONNECT_DELAYS[
+      Math.min(this.reconnectAttempts, BASE_RECONNECT_DELAYS.length - 1)
+    ];
+    const delay = withJitter(baseDelay);
+
+    wsLog('info', 'Scheduling reconnect', {
+      attempt: this.reconnectAttempts + 1,
+      maxAttempts: MAX_RECONNECT_ATTEMPTS,
+      delayMs: delay,
+    });
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.reconnectAttempts++;
       this.connect();
     }, delay);
+  }
+
+  /** Reset reconnect counter. Called externally when user takes an action indicating
+   *  the network is available (e.g. successful API call). */
+  resetReconnectAttempts(): void {
+    this.reconnectAttempts = 0;
   }
 
   // ==================== HEARTBEAT ====================
@@ -324,8 +483,19 @@ class GroupsWebSocketClient {
   private setHeartbeatTimeout(): void {
     this.clearHeartbeatTimeout();
     this.heartbeatTimeout = setTimeout(() => {
-      console.warn('[GroupsWS] Heartbeat timeout, reconnecting...');
-      this.socket?.close(4000, 'Heartbeat timeout');
+      wsLog('warn', 'Heartbeat pong not received within timeout, closing connection', {
+        timeoutMs: HEARTBEAT_TIMEOUT,
+      });
+      // Use close (not terminate) so the onclose handler fires normally
+      try {
+        this.socket?.close(4000, 'Heartbeat timeout');
+      } catch {
+        // If close fails, force-destroy
+        this.destroySocket();
+        this.cleanup();
+        this.notifyDisconnect();
+        this.scheduleReconnect();
+      }
     }, HEARTBEAT_TIMEOUT);
   }
 
@@ -349,8 +519,16 @@ class GroupsWebSocketClient {
 
   private sendMessage(type: string, payload: unknown): boolean {
     if (this.socket?.readyState !== WebSocket.OPEN) {
-      // Queue message for later if not connected
+      // Queue message for later if not connected (never queue pings)
       if (type !== 'ping') {
+        if (this.pendingMessages.length >= MAX_PENDING_MESSAGES) {
+          // Drop oldest message to make room (FIFO eviction)
+          const dropped = this.pendingMessages.shift();
+          wsLog('warn', 'Pending message queue full, dropped oldest message', {
+            droppedType: dropped?.type,
+            queueSize: MAX_PENDING_MESSAGES,
+          });
+        }
         this.pendingMessages.push({ type, payload });
       }
       return false;
@@ -366,8 +544,21 @@ class GroupsWebSocketClient {
       );
       return true;
     } catch (error) {
-      console.error('[GroupsWS] Send error:', error);
+      wsLog('error', 'Send failed', { type, error: String(error) });
       return false;
+    }
+  }
+
+  private drainPendingMessages(): void {
+    const batch = this.pendingMessages.splice(0);
+    let sent = 0;
+    for (const msg of batch) {
+      if (this.sendMessage(msg.type, msg.payload)) {
+        sent++;
+      }
+    }
+    if (sent > 0) {
+      wsLog('info', 'Drained pending message queue', { sent, total: batch.length });
     }
   }
 
