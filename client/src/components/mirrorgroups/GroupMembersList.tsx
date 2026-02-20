@@ -87,7 +87,7 @@ export default function GroupMembersList({ groupId, members, canInvite = false, 
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-400"></div>
           <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
-            {members.filter((m) => m.status === 'active').length} Active
+            {members.filter((m) => m.isOnline).length} Online
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -149,7 +149,11 @@ function MemberCard({ member, groupId, isExpanded, onToggleExpand }: MemberCardP
           const details = await getMemberDetails(groupId, member.userId);
           if (details) {
             setExtendedDetails(details);
-            setHasSharedProfile(member.sharedDataTypes?.includes('profile') || false);
+            setHasSharedProfile(
+              member.sharedDataTypes?.includes('profile') ||
+              member.sharedDataTypes?.includes('full_profile') ||
+              false
+            );
           }
         } catch (error) {
           console.error('Failed to fetch member details:', error);
@@ -230,14 +234,16 @@ function MemberCard({ member, groupId, isExpanded, onToggleExpand }: MemberCardP
             <div className="flex flex-col items-end">
               <div
                 className={`w-2 h-2 rounded-full ${
-                  member.status === 'active' ? 'bg-green-400' : 'bg-gray-400'
+                  member.isOnline ? 'bg-green-400' : 'bg-gray-400'
                 }`}
               />
-              {member.lastActive && (
-                <span className="enhanced-glass-subtle text-xs mt-1" style={{ color: '#6a1f33' }}>
-                  {formatRelativeTime(member.lastActive)}
-                </span>
-              )}
+              <span className="enhanced-glass-subtle text-xs mt-1" style={{ color: '#6a1f33' }}>
+                {member.isOnline
+                  ? 'Online'
+                  : member.lastActive
+                    ? formatRelativeTime(member.lastActive)
+                    : 'Offline'}
+              </span>
             </div>
             <span
               className="text-white/40 text-sm transition-transform duration-200"
@@ -251,13 +257,13 @@ function MemberCard({ member, groupId, isExpanded, onToggleExpand }: MemberCardP
         {/* Shared Data Types Preview (collapsed) */}
         {!isExpanded && member.hasSharedData && member.sharedDataTypes.length > 0 && (
           <div className="mt-3 pt-3 border-t border-white/10">
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-2">
               {member.sharedDataTypes.map((type) => (
                 <span
                   key={type}
-                  className="px-2 py-0.5 rounded-full bg-white/10 text-xs text-white/70 capitalize"
+                  className="px-2.5 py-0.5 rounded-full bg-white/10 text-xs text-white/70"
                 >
-                  {type}
+                  {formatDataType(type)}
                 </span>
               ))}
             </div>
@@ -316,7 +322,11 @@ function MemberCard({ member, groupId, isExpanded, onToggleExpand }: MemberCardP
                     Last Active
                   </p>
                   <p className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
-                    {member.lastActive ? formatRelativeTime(member.lastActive) : 'Unknown'}
+                    {member.isOnline
+                      ? 'Online now'
+                      : member.lastActive
+                        ? formatRelativeTime(member.lastActive)
+                        : 'No activity yet'}
                   </p>
                 </div>
               </div>
@@ -373,13 +383,13 @@ function MemberCard({ member, groupId, isExpanded, onToggleExpand }: MemberCardP
                   Shared Data with Group
                 </p>
                 {member.hasSharedData && member.sharedDataTypes.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-2">
                     {member.sharedDataTypes.map((type) => (
                       <span
                         key={type}
-                        className="px-2 py-1 rounded-full bg-green-500/20 text-green-300 text-xs capitalize"
+                        className="px-2.5 py-1 rounded-full bg-green-500/20 text-green-300 text-xs"
                       >
-                        {type}
+                        {formatDataType(type)}
                       </span>
                     ))}
                   </div>
@@ -423,4 +433,19 @@ function formatRelativeTime(dateString: string): string {
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
   return date.toLocaleDateString();
+}
+
+const DATA_TYPE_LABELS: Record<string, string> = {
+  personality: 'Personality',
+  cognitive: 'Cognitive',
+  facial: 'Visual Analysis',
+  voice: 'Voice',
+  astrological: 'Astrological',
+  profile: 'Profile',
+  full_profile: 'Full Profile',
+};
+
+function formatDataType(type: string): string {
+  const label = DATA_TYPE_LABELS[type] || type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  return label + ' ';
 }

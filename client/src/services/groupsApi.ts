@@ -384,7 +384,8 @@ class GroupsApiClient {
       true,
       30000
     );
-    return response.data?.members || [];
+    // Transform snake_case keys to camelCase (has_shared_data -> hasSharedData, etc.)
+    return transformKeys<GroupMember[]>(response.data?.members || []);
   }
 
   async inviteMember(
@@ -694,9 +695,24 @@ class GroupsApiClient {
     memberId: string | number
   ): Promise<ExtendedGroupMember | null> {
     const response = await this.makeRequest<
-      ApiResponse<{ member: ExtendedGroupMember; sharedData: SharedDataDetail[]; hasSharedData: boolean }>
+      ApiResponse<{ member: ExtendedGroupMember; sharedData: SharedDataDetail[]; hasSharedData: boolean; hasSharedProfile: boolean }>
     >(`/${groupId}/members/${memberId}`, { method: 'GET' });
-    return response.data?.member || null;
+
+    if (!response.data?.member) return null;
+
+    // Transform snake_case keys to camelCase on the member object
+    const member = transformKeys<ExtendedGroupMember>(response.data.member);
+
+    // Merge shared data info into the member object so the UI can access it
+    member.sharedData = response.data.sharedData || [];
+    if (member.hasSharedData === undefined) {
+      member.hasSharedData = response.data.hasSharedData ?? false;
+    }
+    if (!member.sharedDataTypes || member.sharedDataTypes.length === 0) {
+      member.sharedDataTypes = (response.data.sharedData || []).map(sd => sd.dataType);
+    }
+
+    return member;
   }
 
   // ==================== VOTING ====================

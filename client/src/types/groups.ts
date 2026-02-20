@@ -46,6 +46,7 @@ export interface GroupMember {
   status: MemberStatus;
   joinedAt: string;
   lastActive?: string;
+  isOnline?: boolean;
   hasSharedData: boolean;
   sharedDataTypes: string[];
 }
