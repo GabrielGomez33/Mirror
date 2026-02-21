@@ -9,7 +9,7 @@ interface GroupInsightsPanelProps {
   groupId: string;
   insights: GroupInsights | null;
   isLoading: boolean;
-  onRefresh: () => void;
+  onRefresh: (userContext?: string) => void;
   currentUserRole?: string; // Optional: 'owner', 'admin', or 'member'
 }
 
@@ -18,11 +18,19 @@ export default function GroupInsightsPanel({
   insights,
   isLoading,
   onRefresh,
+  currentUserRole,
 }: GroupInsightsPanelProps) {
   const [insightsHistory, setInsightsHistory] = useState<LLMSynthesis[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+  const [userContext, setUserContext] = useState('');
+  const [showContextInput, setShowContextInput] = useState(false);
+  const isOwner = currentUserRole === 'owner';
+
+  const handleRefreshWithContext = () => {
+    onRefresh(userContext.trim() || undefined);
+  };
 
   // Fetch insights history
   useEffect(() => {
@@ -66,7 +74,37 @@ export default function GroupInsightsPanel({
         <p className="enhanced-glass-subtle text-sm mb-6" style={{ color: '#6a1f33' }}>
           Run an analysis to discover group dynamics, compatibility, and collective patterns
         </p>
-        <button onClick={onRefresh} className="enhanced-action-button px-6 py-2">
+
+        {/* Extra Context Input */}
+        {isOwner && (
+          <div className="mb-4 max-w-md mx-auto text-left">
+            <button
+              onClick={() => setShowContextInput(!showContextInput)}
+              className="text-sm text-white/60 hover:text-white/80 transition-colors mb-2 flex items-center gap-1 mx-auto"
+            >
+              <span>{showContextInput ? '▾' : '▸'}</span>
+              <span>Add context to guide analysis</span>
+            </button>
+            {showContextInput && (
+              <div className="space-y-2">
+                <textarea
+                  value={userContext}
+                  onChange={(e) => setUserContext(e.target.value.slice(0, 2000))}
+                  placeholder="E.g., We've been working on improving communication this month... Focus on how our personality types complement each other..."
+                  className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white/90 placeholder-white/30 text-sm resize-none focus:outline-none focus:border-purple-400/50 transition-colors"
+                  rows={3}
+                  maxLength={2000}
+                />
+                <div className="flex justify-between text-xs text-white/40">
+                  <span>Optional: Help Dina focus the analysis</span>
+                  <span>{userContext.length}/2000</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <button onClick={handleRefreshWithContext} className="enhanced-action-button px-6 py-2">
           <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
             Generate Insights
           </span>
@@ -365,16 +403,46 @@ export default function GroupInsightsPanel({
         )}
       </div>
 
-      {/* Refresh Button */}
-      <div className="text-center">
-        <button onClick={onRefresh} className="enhanced-action-button px-6 py-2">
-          <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
-            Refresh Analysis
-          </span>
-        </button>
-        <p className="enhanced-glass-subtle text-xs mt-2" style={{ color: '#6a1f33' }}>
-          Last analyzed: {insights.lastAnalyzed ? new Date(insights.lastAnalyzed).toLocaleString() : 'Never'}
-        </p>
+      {/* Extra Context + Refresh Button */}
+      <div className="space-y-4">
+        {isOwner && (
+          <div className="max-w-md mx-auto">
+            <button
+              onClick={() => setShowContextInput(!showContextInput)}
+              className="text-sm text-white/60 hover:text-white/80 transition-colors mb-2 flex items-center gap-1 mx-auto"
+            >
+              <span>{showContextInput ? '▾' : '▸'}</span>
+              <span>Add context for next analysis</span>
+            </button>
+            {showContextInput && (
+              <div className="space-y-2">
+                <textarea
+                  value={userContext}
+                  onChange={(e) => setUserContext(e.target.value.slice(0, 2000))}
+                  placeholder="E.g., We recently had a conflict about project priorities... Focus on team dynamics and communication patterns..."
+                  className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white/90 placeholder-white/30 text-sm resize-none focus:outline-none focus:border-purple-400/50 transition-colors"
+                  rows={3}
+                  maxLength={2000}
+                />
+                <div className="flex justify-between text-xs text-white/40">
+                  <span>Optional: Help Dina focus the analysis</span>
+                  <span>{userContext.length}/2000</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="text-center">
+          <button onClick={handleRefreshWithContext} className="enhanced-action-button px-6 py-2">
+            <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
+              Refresh Analysis
+            </span>
+          </button>
+          <p className="enhanced-glass-subtle text-xs mt-2" style={{ color: '#6a1f33' }}>
+            Last analyzed: {insights.lastAnalyzed ? new Date(insights.lastAnalyzed).toLocaleString() : 'Never'}
+          </p>
+        </div>
       </div>
     </div>
   );

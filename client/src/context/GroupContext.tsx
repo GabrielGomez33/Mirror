@@ -283,7 +283,7 @@ interface GroupContextType extends GroupsState {
   shareData: (groupId: string, request: ShareDataRequest) => Promise<boolean>;
 
   // Analysis
-  triggerAnalysis: (groupId: string) => Promise<boolean>;
+  triggerAnalysis: (groupId: string, userContext?: string) => Promise<boolean>;
 
   // Voting
   proposeVote: (groupId: string, request: ProposeVoteRequest) => Promise<boolean>;
@@ -576,18 +576,23 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
   // ==================== ANALYSIS ====================
 
   const triggerAnalysis = useCallback(
-    async (groupId: string): Promise<boolean> => {
+    async (groupId: string, userContext?: string): Promise<boolean> => {
       if (!isAuthenticated) return false;
 
       dispatch({ type: 'SET_LOADING_INSIGHTS', payload: true });
       try {
-        await triggerAnalysisApi(groupId);
+        await triggerAnalysisApi(groupId, userContext);
+        // Keep isLoadingInsights=true — it will be set to false when
+        // the WebSocket 'analysis:completed' event fires and fetchInsights
+        // completes, or after a safety timeout.
+        setTimeout(() => {
+          dispatch({ type: 'SET_LOADING_INSIGHTS', payload: false });
+        }, 120000); // 2-minute safety timeout
         return true;
       } catch (error) {
+        dispatch({ type: 'SET_LOADING_INSIGHTS', payload: false });
         dispatch({ type: 'SET_ERROR', payload: getGroupsErrorMessage(error) });
         return false;
-      } finally {
-        dispatch({ type: 'SET_LOADING_INSIGHTS', payload: false });
       }
     },
     [isAuthenticated]

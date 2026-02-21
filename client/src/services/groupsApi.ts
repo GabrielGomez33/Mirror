@@ -565,10 +565,18 @@ class GroupsApiClient {
     );
   }
 
-  async triggerAnalysis(groupId: string): Promise<ApiResponse<{ jobId: string }>> {
+  async triggerAnalysis(groupId: string, userContext?: string): Promise<ApiResponse<{ jobId: string }>> {
+    const body: Record<string, unknown> = {};
+    if (userContext) {
+      body.userContext = sanitizeString(userContext, 2000);
+    }
+
     const result = await this.makeRequest<ApiResponse<{ jobId: string }>>(
       `/${groupId}/analyze`,
-      { method: 'POST' }
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }
     );
 
     cache.invalidate(`groups:/${groupId}/insights`);
@@ -581,7 +589,8 @@ class GroupsApiClient {
    */
   async generateInsights(
     groupId: string,
-    forceRefresh: boolean = true
+    forceRefresh: boolean = true,
+    userContext?: string
   ): Promise<ApiResponse<{
     jobId: string;
     logId: string;
@@ -589,6 +598,11 @@ class GroupsApiClient {
     estimatedTime: string;
     membersWithData: number;
   }>> {
+    const body: Record<string, unknown> = { forceRefresh };
+    if (userContext) {
+      body.userContext = sanitizeString(userContext, 2000);
+    }
+
     const result = await this.makeRequest<
       ApiResponse<{
         jobId: string;
@@ -602,7 +616,7 @@ class GroupsApiClient {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ forceRefresh }),
+        body: JSON.stringify(body),
       }
     );
 
@@ -818,11 +832,20 @@ class GroupsApiClient {
 
   async requestInsight(
     groupId: string,
-    sessionId: string
+    sessionId: string,
+    userContext?: string
   ): Promise<ApiResponse<ConversationInsight>> {
+    const body: Record<string, unknown> = {};
+    if (userContext) {
+      body.userContext = sanitizeString(userContext, 2000);
+    }
+
     return this.makeRequest<ApiResponse<ConversationInsight>>(
       `/${groupId}/sessions/${sessionId}/request-insight`,
-      { method: 'POST' }
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }
     );
   }
 
@@ -899,9 +922,10 @@ export const revokeSharedData = (groupId: string, dataType: string) =>
 
 // Insights
 export const getInsights = (groupId: string) => groupsApi.getInsights(groupId);
-export const triggerAnalysis = (groupId: string) => groupsApi.triggerAnalysis(groupId);
-export const generateInsights = (groupId: string, forceRefresh?: boolean) =>
-  groupsApi.generateInsights(groupId, forceRefresh);
+export const triggerAnalysis = (groupId: string, userContext?: string) =>
+  groupsApi.triggerAnalysis(groupId, userContext);
+export const generateInsights = (groupId: string, forceRefresh?: boolean, userContext?: string) =>
+  groupsApi.generateInsights(groupId, forceRefresh, userContext);
 export const getInsightsGenerationStatus = (groupId: string, logId: string) =>
   groupsApi.getInsightsGenerationStatus(groupId, logId);
 export const getCompatibilityMatrix = (groupId: string) =>
@@ -933,8 +957,8 @@ export const cancelVote = (groupId: string, voteId: string) =>
 // Conversation Insights
 export const appendTranscript = (groupId: string, sessionId: string, text: string) =>
   groupsApi.appendTranscript(groupId, sessionId, text);
-export const requestInsight = (groupId: string, sessionId: string) =>
-  groupsApi.requestInsight(groupId, sessionId);
+export const requestInsight = (groupId: string, sessionId: string, userContext?: string) =>
+  groupsApi.requestInsight(groupId, sessionId, userContext);
 export const getSessionInsights = (groupId: string, sessionId: string) =>
   groupsApi.getSessionInsights(groupId, sessionId);
 

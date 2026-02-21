@@ -87,13 +87,7 @@ export default function GroupMembersList({ groupId, members, canInvite = false, 
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-400"></div>
           <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
-            {members.filter((m) => m.isOnline).length} Online
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-blue-400"></div>
-          <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
-            {members.filter((m) => m.hasSharedData).length} Sharing Data
+            {members.filter((m) => m.isOnline).length}{' Online & '} {members.filter((m) => m.hasSharedData).length} Sharing Data
           </span>
         </div>
       </div>
@@ -192,6 +186,9 @@ function MemberCard({ member, groupId, isExpanded, onToggleExpand }: MemberCardP
     e.stopPropagation();
     onToggleExpand();
   };
+  const types = member.sharedDataTypes.includes("full_profile")
+    ? ["Full Profile"]
+    : member.sharedDataTypes;
 
   return (
     <div className="enhanced-glass-card">
@@ -257,13 +254,14 @@ function MemberCard({ member, groupId, isExpanded, onToggleExpand }: MemberCardP
         {/* Shared Data Types Preview (collapsed) */}
         {!isExpanded && member.hasSharedData && member.sharedDataTypes.length > 0 && (
           <div className="mt-3 pt-3 border-t border-white/10">
-            <div className="flex flex-wrap gap-2">
-              {member.sharedDataTypes.map((type) => (
+            <div style={{ display: "flex", gap: 6 }}>
+              {types.map((type, i) => (
                 <span
                   key={type}
                   className="px-2.5 py-0.5 rounded-full bg-white/10 text-xs text-white/70"
                 >
                   {formatDataType(type)}
+                  {i < types.length - 1 && ", "}
                 </span>
               ))}
             </div>
@@ -384,12 +382,13 @@ function MemberCard({ member, groupId, isExpanded, onToggleExpand }: MemberCardP
                 </p>
                 {member.hasSharedData && member.sharedDataTypes.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
-                    {member.sharedDataTypes.map((type) => (
+                    {types.map((type, i) => (
                       <span
                         key={type}
-                        className="px-2.5 py-1 rounded-full bg-green-500/20 text-green-300 text-xs"
+                        className="px-2.5 py-0.5 rounded-full bg-white/10 text-xs text-white/70"
                       >
                         {formatDataType(type)}
+                        {i < types.length - 1 && ", "}
                       </span>
                     ))}
                   </div>

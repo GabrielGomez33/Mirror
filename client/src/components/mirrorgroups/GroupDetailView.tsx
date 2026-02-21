@@ -116,8 +116,8 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
     }
   }, [deleteGroup, groupId, onBack]);
 
-  const handleTriggerAnalysis = useCallback(async () => {
-    await triggerAnalysis(groupId);
+  const handleTriggerAnalysis = useCallback(async (userContext?: string) => {
+    await triggerAnalysis(groupId, userContext);
   }, [triggerAnalysis, groupId]);
 
   const getGroupTypeIcon = (type: Group['type']) => {
