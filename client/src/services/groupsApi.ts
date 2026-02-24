@@ -272,8 +272,8 @@ class GroupsApiClient {
 
   // ==================== GROUP CRUD ====================
 
-  async createGroup(formData: CreateGroupFormData): Promise<ApiResponse<{ groupId: string }>> {
-    const sanitizedData = {
+  async createGroup(formData: CreateGroupFormData): Promise<ApiResponse<{ id: string; groupId?: string }>> {
+    const sanitizedData: Record<string, unknown> = {
       name: sanitizeString(formData.name, 100),
       description: sanitizeString(formData.description, 500),
       type: formData.type,
@@ -282,7 +282,18 @@ class GroupsApiClient {
       settings: formData.settings,
     };
 
-    const result = await this.makeRequest<ApiResponse<{ groupId: string }>>('/create', {
+    // Include optional new fields
+    if (formData.subtype) {
+      sanitizedData.subtype = formData.subtype;
+    }
+    if (formData.goal) {
+      sanitizedData.goal = sanitizeString(formData.goal, 300);
+    }
+    if (formData.goalCustom) {
+      sanitizedData.goalCustom = sanitizeString(formData.goalCustom, 500);
+    }
+
+    const result = await this.makeRequest<ApiResponse<{ id: string; groupId?: string }>>('/create', {
       method: 'POST',
       body: JSON.stringify(sanitizedData),
     });
@@ -865,6 +876,33 @@ class GroupsApiClient {
     );
   }
 
+  // ==================== PUBLIC DIRECTORY ====================
+
+  async searchPublicGroups(params: {
+    query?: string;
+    type?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<GroupListResponse> {
+    const searchParams = new URLSearchParams();
+    if (params.query) searchParams.set('q', sanitizeString(params.query, 100));
+    if (params.type) searchParams.set('type', params.type);
+    if (params.limit) searchParams.set('limit', String(params.limit));
+    if (params.offset) searchParams.set('offset', String(params.offset));
+
+    const queryString = searchParams.toString();
+    const endpoint = `/directory${queryString ? `?${queryString}` : ''}`;
+
+    const response = await this.makeRequest<ApiResponse<GroupListResponse>>(
+      endpoint,
+      { method: 'GET' },
+      true,
+      30000 // 30 second cache
+    );
+    const data = response.data || { groups: [], total: 0 };
+    return transformKeys<GroupListResponse>(data);
+  }
+
   // ==================== UTILITY ====================
 
   clearCache(pattern?: string): void {
@@ -882,6 +920,8 @@ const groupsApi = new GroupsApiClient();
 export const createGroup = (data: CreateGroupFormData) => groupsApi.createGroup(data);
 export const getMyGroups = () => groupsApi.getMyGroups();
 export const getSuggestedGroups = () => groupsApi.getSuggestedGroups();
+export const searchPublicGroups = (params: { query?: string; type?: string; limit?: number; offset?: number }) =>
+  groupsApi.searchPublicGroups(params);
 export const getGroupDetails = (groupId: string) => groupsApi.getGroupDetails(groupId);
 export const joinGroup = (groupId: string, joinCode?: string) =>
   groupsApi.joinGroup(groupId, joinCode);

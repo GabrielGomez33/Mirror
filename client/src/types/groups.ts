@@ -5,11 +5,42 @@
 // CORE GROUP TYPES
 // ============================================================================
 
-export type GroupType = 'family' | 'friends' | 'professional' | 'therapy' | 'anonymous' | 'open' | 'private';
+export type GroupType = 'family' | 'partners' | 'teamwork' | 'friends' | 'professional' | 'therapy' | 'anonymous' | 'open' | 'private';
 export type GroupPrivacy = 'public' | 'private' | 'secret';
+export type PartnerSubtype = 'lover' | 'platonic';
 export type MemberRole = 'owner' | 'creator' | 'admin' | 'moderator' | 'member';
 export type MemberStatus = 'active' | 'inactive' | 'banned' | 'pending';
 export type JoinRequestStatus = 'pending' | 'approved' | 'rejected';
+
+// ============================================================================
+// PRESET GOALS
+// ============================================================================
+
+export const FAMILY_GOAL_PRESETS = [
+  'Improve communication across generations',
+  'Understand each other\'s emotional needs better',
+  'Resolve long-standing conflicts',
+  'Navigate a major family transition',
+  'Build stronger family bonds',
+] as const;
+
+export const PARTNERS_GOAL_PRESETS = [
+  'Strengthen our relationship and communication',
+  'Understand each other\'s love languages / working styles',
+  'Prepare for major life transition together',
+  'Deepen emotional connection and trust',
+  'Improve conflict resolution skills',
+] as const;
+
+export const TEAMWORK_GOAL_PRESETS = [
+  'Improve team collaboration and productivity',
+  'Advance to leadership positions together',
+  'Complete a major project by deadline',
+  'Improve code review / creative process',
+  'Build a high-performing team culture',
+] as const;
+
+export type GoalPreset = typeof FAMILY_GOAL_PRESETS[number] | typeof PARTNERS_GOAL_PRESETS[number] | typeof TEAMWORK_GOAL_PRESETS[number];
 
 export interface Group {
   id: string;
@@ -17,6 +48,9 @@ export interface Group {
   description: string;
   type: GroupType;
   privacy: GroupPrivacy;
+  subtype?: PartnerSubtype;
+  goal?: string;
+  goalCustom?: string;
   creatorId: number;
   memberCount: number;
   maxMembers: number;
@@ -524,6 +558,9 @@ export interface CreateGroupFormData {
   description: string;
   type: GroupType;
   privacy: GroupPrivacy;
+  subtype?: PartnerSubtype;
+  goal?: string;
+  goalCustom?: string;
   maxMembers: number;
   settings: Partial<GroupSettings>;
 }

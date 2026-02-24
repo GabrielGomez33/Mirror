@@ -433,9 +433,10 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
       dispatch({ type: 'SET_LOADING', payload: true });
       try {
         const response = await createGroupApi(data);
-        if (response.data?.groupId) {
+        const groupId = response.data?.groupId || response.data?.id;
+        if (groupId) {
           await fetchMyGroups();
-          return response.data.groupId;
+          return groupId;
         }
         return null;
       } catch (error) {

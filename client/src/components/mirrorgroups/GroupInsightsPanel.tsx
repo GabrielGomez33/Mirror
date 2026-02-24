@@ -28,8 +28,17 @@ export default function GroupInsightsPanel({
   const [showContextInput, setShowContextInput] = useState(false);
   const isOwner = currentUserRole === 'owner';
 
-  const handleRefreshWithContext = () => {
-    onRefresh(userContext.trim() || undefined);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleRefreshWithContext = async () => {
+    if (isSubmitting) return; // Prevent double-submission
+    setIsSubmitting(true);
+    try {
+      onRefresh(userContext.trim() || undefined);
+    } finally {
+      // Re-enable after a short delay to prevent rapid re-clicks
+      setTimeout(() => setIsSubmitting(false), 2000);
+    }
   };
 
   // Fetch insights history
@@ -58,7 +67,15 @@ export default function GroupInsightsPanel({
           Generating AI insights...
         </p>
         <p className="enhanced-glass-subtle text-sm mt-2" style={{ color: '#6a1f33' }}>
-          This may take a moment as we analyze group dynamics
+          Dina is analyzing group dynamics, compatibility, and patterns
+        </p>
+        <div className="mt-4 flex items-center justify-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-pink-400 animate-pulse" style={{ animationDelay: '0ms' }} />
+          <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" style={{ animationDelay: '300ms' }} />
+          <div className="w-2 h-2 rounded-full bg-pink-400 animate-pulse" style={{ animationDelay: '600ms' }} />
+        </div>
+        <p className="text-white/30 text-xs mt-3">
+          This typically completes within 30-60 seconds
         </p>
       </div>
     );
@@ -104,9 +121,13 @@ export default function GroupInsightsPanel({
           </div>
         )}
 
-        <button onClick={handleRefreshWithContext} className="enhanced-action-button px-6 py-2">
+        <button
+          onClick={handleRefreshWithContext}
+          disabled={isSubmitting}
+          className="enhanced-action-button px-6 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
-            Generate Insights
+            {isSubmitting ? 'Starting Analysis...' : 'Generate Insights'}
           </span>
         </button>
       </div>
@@ -434,9 +455,13 @@ export default function GroupInsightsPanel({
         )}
 
         <div className="text-center">
-          <button onClick={handleRefreshWithContext} className="enhanced-action-button px-6 py-2">
+          <button
+            onClick={handleRefreshWithContext}
+            disabled={isSubmitting}
+            className="enhanced-action-button px-6 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
-              Refresh Analysis
+              {isSubmitting ? 'Starting Analysis...' : 'Refresh Analysis'}
             </span>
           </button>
           <p className="enhanced-glass-subtle text-xs mt-2" style={{ color: '#6a1f33' }}>

@@ -446,7 +446,6 @@
 
 /* Ensure all buttons inside enhanced panels are clickable */
 .enhanced-glass-panel button {
-  position: relative;
   z-index: 10;
   pointer-events: auto;
 }

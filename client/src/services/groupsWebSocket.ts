@@ -371,8 +371,33 @@ class GroupsWebSocketClient {
 
       // Route message to appropriate handlers
       // Support both 'payload' and 'data' fields (server may use either)
-      const eventType = message.type as WSEventType;
-      const messageData = message.payload ?? message.data;
+      let eventType = message.type as WSEventType;
+      let messageData = message.payload ?? message.data;
+
+      // Handle 'group_notification' wrapper: the server's notification system
+      // wraps all notifications with type='group_notification' and includes
+      // the actual notification type in data.notificationType.
+      // Map these to the correct event handlers the client has registered.
+      if (eventType === ('group_notification' as WSEventType) && messageData && typeof messageData === 'object') {
+        const wrapped = messageData as Record<string, unknown>;
+        const notificationType = wrapped.notificationType as string;
+
+        // Map server notification types to client event types
+        const notificationTypeMap: Record<string, string> = {
+          'analysis_completed': 'analysis:completed',
+          'compatibility_updated': 'insights:updated',
+          'conversation_insight': 'conversation:insight',
+          'conversation_summary': 'conversation:insight',
+        };
+
+        const mappedType = notificationTypeMap[notificationType];
+        if (mappedType) {
+          eventType = mappedType as WSEventType;
+          // Pass the full notification data as the event payload
+          messageData = wrapped;
+        }
+      }
+
       const handlers = this.handlers[eventType as keyof EventHandlers];
 
       if (Array.isArray(handlers) && handlers.length > 0) {
