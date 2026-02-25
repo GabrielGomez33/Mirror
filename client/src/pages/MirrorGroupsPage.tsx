@@ -1,9 +1,10 @@
 // src/pages/MirrorGroupsPage.tsx
-// Main MirrorGroups page with full functionality - Enhanced with public directory & search
+// Main MirrorGroups page — mobile-first, inline-styled, no scrollbars
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useGroups } from '../context/GroupContext';
+import { isWebSocketConnected } from '../services/groupsWebSocket';
 import CreateGroupModal from '../components/mirrorgroups/CreateGroupModal';
 import GroupDetailView from '../components/mirrorgroups/GroupDetailView';
 import ZenPondScene from '../components/three/ZenPondScene';
@@ -11,7 +12,391 @@ import '../styles/enhanced-glass.css';
 import type { Group, GroupType } from '../types/groups';
 import { searchPublicGroups } from '../services/groupsApi';
 
+// ============================================================================
+// INLINE STYLE CONSTANTS
+// ============================================================================
+
+const COLORS = {
+  heading: 'rgb(120, 69, 82)',
+  body: '#7e4151',
+  label: '#6a1f33',
+  cardBg: 'rgba(255, 255, 255, 0.04)',
+  cardBgHover: 'rgba(255, 255, 255, 0.07)',
+  cardBorder: 'rgba(255, 255, 255, 0.08)',
+  cardBorderHover: 'rgba(255, 255, 255, 0.16)',
+  panelBg: 'rgba(255, 255, 255, 0.06)',
+  panelBorder: 'rgba(255, 255, 255, 0.12)',
+  inputBg: 'rgba(255, 255, 255, 0.08)',
+  inputBorder: 'rgba(255, 255, 255, 0.18)',
+  inputFocus: 'rgba(236, 72, 153, 0.5)',
+  badgeGreen: 'rgba(74, 222, 128, 0.15)',
+  badgeAmber: 'rgba(251, 191, 36, 0.15)',
+  badgeRed: 'rgba(248, 113, 113, 0.15)',
+  textShadow: '0 3px 12px rgba(0, 0, 0, .4), 0 1px 3px rgba(255, 255, 255, .15)',
+};
+
+const GLASS_PANEL: React.CSSProperties = {
+  background: COLORS.panelBg,
+  border: `1px solid ${COLORS.panelBorder}`,
+  borderRadius: 24,
+  padding: '1.25rem',
+  backdropFilter: 'blur(30px)',
+  WebkitBackdropFilter: 'blur(30px)',
+  boxShadow: '0 8px 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.18)',
+};
+
+const INPUT_STYLE: React.CSSProperties = {
+  width: '100%',
+  padding: '0.75rem 1rem 0.75rem 2.5rem',
+  borderRadius: 12,
+  background: COLORS.inputBg,
+  border: `1px solid ${COLORS.inputBorder}`,
+  color: '#fff',
+  fontSize: '0.875rem',
+  outline: 'none',
+  WebkitAppearance: 'none',
+  boxSizing: 'border-box',
+};
+
+const SELECT_STYLE: React.CSSProperties = {
+  padding: '0.75rem 1rem',
+  borderRadius: 12,
+  background: COLORS.inputBg,
+  border: `1px solid ${COLORS.inputBorder}`,
+  color: '#fff',
+  fontSize: '0.875rem',
+  outline: 'none',
+  WebkitAppearance: 'none',
+  minWidth: 0,
+  boxSizing: 'border-box',
+};
+
+// ============================================================================
+// HOOKS: useMediaQuery
+// ============================================================================
+
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia(query).matches : false
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
+    mq.addEventListener('change', handler);
+    setMatches(mq.matches);
+    return () => mq.removeEventListener('change', handler);
+  }, [query]);
+  return matches;
+}
+
+// ============================================================================
+// SUB-COMPONENTS
+// ============================================================================
+
 type ViewMode = 'my-groups' | 'directory';
+
+interface GroupCardProps {
+  group: Group;
+  onClick: () => void;
+  getGroupIcon: (t: Group['type']) => string;
+}
+
+function GroupCard({ group, onClick, getGroupIcon }: GroupCardProps) {
+  const [hovered, setHovered] = useState(false);
+
+  const privacyColor = {
+    public: { bg: 'rgba(74, 222, 128, 0.12)', border: 'rgba(74, 222, 128, 0.3)', text: '#86efac' },
+    private: { bg: 'rgba(251, 191, 36, 0.12)', border: 'rgba(251, 191, 36, 0.3)', text: '#fde68a' },
+    secret: { bg: 'rgba(248, 113, 113, 0.12)', border: 'rgba(248, 113, 113, 0.3)', text: '#fca5a5' },
+  }[group.privacy] || { bg: 'rgba(251, 191, 36, 0.12)', border: 'rgba(251, 191, 36, 0.3)', text: '#fde68a' };
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
+      type="button"
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '0.875rem',
+        width: '100%',
+        textAlign: 'left',
+        padding: '1rem',
+        borderRadius: 16,
+        background: hovered ? COLORS.cardBgHover : COLORS.cardBg,
+        border: `1px solid ${hovered ? COLORS.cardBorderHover : COLORS.cardBorder}`,
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+        transform: hovered ? 'translateY(-2px)' : 'none',
+        boxShadow: hovered ? '0 8px 24px rgba(0,0,0,0.12)' : 'none',
+        outline: 'none',
+        WebkitTapHighlightColor: 'transparent',
+      }}
+    >
+      {/* Icon */}
+      <div
+        style={{
+          width: 48,
+          height: 48,
+          minWidth: 48,
+          borderRadius: 12,
+          background: `linear-gradient(135deg, ${privacyColor.bg}, rgba(168, 85, 247, 0.1))`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '1.5rem',
+        }}
+      >
+        {getGroupIcon(group.type)}
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p
+          style={{
+            fontWeight: 600,
+            fontSize: '0.95rem',
+            color: COLORS.heading,
+            margin: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {group.name}
+        </p>
+        <p
+          style={{
+            fontSize: '0.75rem',
+            color: COLORS.body,
+            margin: '4px 0 8px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            lineHeight: 1.4,
+          }}
+        >
+          {group.description || 'No description'}
+        </p>
+
+        {/* Meta row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.7rem', color: COLORS.label }}>
+            {'\u{1F465}'} {group.memberCount}
+          </span>
+          {group.goal && (
+            <span
+              style={{
+                fontSize: '0.65rem',
+                padding: '2px 6px',
+                borderRadius: 99,
+                background: 'rgba(168, 85, 247, 0.1)',
+                color: '#c084fc',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: 120,
+              }}
+              title={group.goal}
+            >
+              {'\u{1F3AF}'} {group.goal}
+            </span>
+          )}
+          <span style={{ fontSize: '0.65rem', color: COLORS.label }}>
+            {formatRelativeTime(group.lastActivity)}
+          </span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+interface DirectoryCardProps {
+  group: Group;
+  isAlreadyMember: boolean;
+  getGroupIcon: (t: Group['type']) => string;
+  onView: () => void;
+  onJoin: () => void;
+}
+
+function DirectoryCard({ group, isAlreadyMember, getGroupIcon, onView, onJoin }: DirectoryCardProps) {
+  const [hovered, setHovered] = useState(false);
+
+  const privacyBadge = {
+    public: { text: 'Public', bg: COLORS.badgeGreen, border: 'rgba(74,222,128,0.3)', color: '#86efac' },
+    private: { text: 'Private', bg: COLORS.badgeAmber, border: 'rgba(251,191,36,0.3)', color: '#fde68a' },
+    secret: { text: 'Secret', bg: COLORS.badgeRed, border: 'rgba(248,113,113,0.3)', color: '#fca5a5' },
+  }[group.privacy] || { text: 'Private', bg: COLORS.badgeAmber, border: 'rgba(251,191,36,0.3)', color: '#fde68a' };
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        padding: '1rem',
+        borderRadius: 16,
+        background: hovered ? COLORS.cardBgHover : COLORS.cardBg,
+        border: `1px solid ${hovered ? COLORS.cardBorderHover : COLORS.cardBorder}`,
+        transition: 'all 0.2s ease',
+        transform: hovered ? 'translateY(-2px)' : 'none',
+        boxShadow: hovered ? '0 8px 24px rgba(0,0,0,0.12)' : 'none',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.75rem',
+      }}
+    >
+      {/* Top row */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.875rem' }}>
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            minWidth: 48,
+            borderRadius: 12,
+            background: `linear-gradient(135deg, ${privacyBadge.bg}, rgba(168,85,247,0.1))`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '1.5rem',
+          }}
+        >
+          {getGroupIcon(group.type)}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <p
+              style={{
+                fontWeight: 600,
+                fontSize: '0.95rem',
+                color: COLORS.heading,
+                margin: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {group.name}
+            </p>
+            <span
+              style={{
+                fontSize: '0.6rem',
+                padding: '1px 6px',
+                borderRadius: 99,
+                background: privacyBadge.bg,
+                border: `1px solid ${privacyBadge.border}`,
+                color: privacyBadge.color,
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              {privacyBadge.text}
+            </span>
+          </div>
+          <p
+            style={{
+              fontSize: '0.75rem',
+              color: COLORS.body,
+              margin: '0 0 6px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              lineHeight: 1.4,
+            }}
+          >
+            {group.description || 'No description'}
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.7rem', color: COLORS.label }}>
+              {'\u{1F465}'} {group.memberCount}/{group.maxMembers}
+            </span>
+            <span
+              style={{
+                fontSize: '0.6rem',
+                padding: '1px 6px',
+                borderRadius: 99,
+                background: 'rgba(255,255,255,0.08)',
+                color: 'rgba(255,255,255,0.5)',
+              }}
+            >
+              {getGroupIcon(group.type)} {group.type}
+            </span>
+          </div>
+          {group.goal && (
+            <p
+              style={{
+                fontSize: '0.65rem',
+                marginTop: 6,
+                padding: '2px 8px',
+                borderRadius: 99,
+                background: 'rgba(168,85,247,0.1)',
+                color: '#c084fc',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                display: 'inline-block',
+                maxWidth: '100%',
+              }}
+              title={group.goal}
+            >
+              {'\u{1F3AF}'} {group.goal}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Action */}
+      {isAlreadyMember ? (
+        <button
+          onClick={onView}
+          type="button"
+          style={{
+            width: '100%',
+            padding: '0.5rem',
+            borderRadius: 10,
+            background: 'rgba(74,222,128,0.08)',
+            border: '1px solid rgba(74,222,128,0.2)',
+            color: '#86efac',
+            fontSize: '0.8rem',
+            cursor: 'pointer',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          Already a Member — View
+        </button>
+      ) : (
+        <button
+          onClick={onJoin}
+          type="button"
+          style={{
+            width: '100%',
+            padding: '0.5rem',
+            borderRadius: 10,
+            background: 'linear-gradient(135deg, rgba(236,72,153,0.15), rgba(168,85,247,0.15))',
+            border: '1px solid rgba(236,72,153,0.3)',
+            color: COLORS.label,
+            fontSize: '0.8rem',
+            fontWeight: 500,
+            cursor: 'pointer',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          Request to Join
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 
 export default function MirrorGroupsPage() {
   const location = useLocation();
@@ -24,14 +409,16 @@ export default function MirrorGroupsPage() {
     fetchMyGroups,
     fetchSuggestedGroups,
     joinGroup,
-    isConnected,
   } = useGroups();
 
-  // Local state for modal visibility (matches MyJournal pattern - avoids
-  // context dispatch issues and CSS stacking-context race conditions)
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  // Poll actual WebSocket readyState directly every 2s for reliable live/offline dot
+  const [wsLive, setWsLive] = useState(() => isWebSocketConnected());
+  useEffect(() => {
+    const id = setInterval(() => setWsLive(isWebSocketConnected()), 2000);
+    return () => clearInterval(id);
+  }, []);
 
-  // Check for navigation state (e.g., from Dashboard clicking a group)
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const initialGroupId = (location.state as { selectedGroupId?: string } | null)?.selectedGroupId || null;
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(initialGroupId);
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,29 +433,25 @@ export default function MirrorGroupsPage() {
   const [directoryTotal, setDirectoryTotal] = useState(0);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Use refs for stable polling (prevents interval reset on function recreation)
+  // Responsive breakpoint
+  const isMobile = useMediaQuery('(max-width: 640px)');
+  const isTablet = useMediaQuery('(max-width: 1024px)');
+
+  // Stable polling refs
   const fetchMyGroupsRef = useRef(fetchMyGroups);
   const fetchSuggestedGroupsRef = useRef(fetchSuggestedGroups);
 
-  // Keep refs in sync with latest functions
   useEffect(() => {
     fetchMyGroupsRef.current = fetchMyGroups;
     fetchSuggestedGroupsRef.current = fetchSuggestedGroups;
   }, [fetchMyGroups, fetchSuggestedGroups]);
 
-  // Initial fetch and polling every 3 seconds
   useEffect(() => {
-    // Initial fetch
     fetchMyGroupsRef.current();
     fetchSuggestedGroupsRef.current();
-
-    // Poll for updates every 3 seconds using refs (stable interval)
-    const pollInterval = setInterval(() => {
-      fetchMyGroupsRef.current();
-    }, 3000);
-
+    const pollInterval = setInterval(() => { fetchMyGroupsRef.current(); }, 3000);
     return () => clearInterval(pollInterval);
-  }, []); // Empty deps - uses refs for stability
+  }, []);
 
   // ==================== DIRECTORY SEARCH ====================
 
@@ -92,35 +475,21 @@ export default function MirrorGroupsPage() {
     }
   }, []);
 
-  // Debounced directory search
   useEffect(() => {
     if (viewMode !== 'directory') return;
-
-    if (searchDebounceRef.current) {
-      clearTimeout(searchDebounceRef.current);
-    }
-
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
       fetchDirectoryGroups(directorySearchQuery, directoryFilterType);
     }, 350);
-
-    return () => {
-      if (searchDebounceRef.current) {
-        clearTimeout(searchDebounceRef.current);
-      }
-    };
+    return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); };
   }, [directorySearchQuery, directoryFilterType, viewMode, fetchDirectoryGroups]);
 
-  // Fetch directory groups when switching to directory view
   useEffect(() => {
-    if (viewMode === 'directory') {
-      fetchDirectoryGroups(directorySearchQuery, directoryFilterType);
-    }
+    if (viewMode === 'directory') fetchDirectoryGroups(directorySearchQuery, directoryFilterType);
   }, [viewMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ==================== FILTER LOGIC ====================
 
-  // Filter groups (client-side for my groups)
   const filteredMyGroups = myGroups.filter((group: Group) => {
     const matchesSearch =
       group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -131,67 +500,25 @@ export default function MirrorGroupsPage() {
 
   const handleJoinGroup = async (groupId: string) => {
     await joinGroup(groupId);
-    if (viewMode === 'directory') {
-      fetchDirectoryGroups(directorySearchQuery, directoryFilterType);
-    }
+    if (viewMode === 'directory') fetchDirectoryGroups(directorySearchQuery, directoryFilterType);
   };
 
-  const handleGroupCreated = (groupId: string) => {
-    setSelectedGroupId(groupId);
-  };
+  const handleGroupCreated = (groupId: string) => { setSelectedGroupId(groupId); };
 
   const getGroupIcon = (type: Group['type']) => {
     const icons: Record<string, string> = {
-      family: '👨‍👩‍👧‍👦',
-      partners: '💞',
-      teamwork: '🚀',
-      friends: '🤝',
-      professional: '💼',
-      therapy: '💚',
-      anonymous: '🎭',
-      open: '🌐',
-      private: '🔒',
+      family: '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}\u200D\u{1F466}',
+      partners: '\u{1F49E}',
+      teamwork: '\u{1F680}',
+      friends: '\u{1F91D}',
+      professional: '\u{1F4BC}',
+      therapy: '\u{1F49A}',
+      anonymous: '\u{1F3AD}',
+      open: '\u{1F310}',
+      private: '\u{1F512}',
     };
-    return icons[type] || '👥';
+    return icons[type] || '\u{1F465}';
   };
-
-  const getPrivacyColor = (privacy: Group['privacy']) => {
-    const colors: Record<string, string> = {
-      public: 'from-green-400/20 to-emerald-400/20',
-      private: 'from-amber-400/20 to-yellow-400/20',
-      secret: 'from-red-400/20 to-pink-400/20',
-    };
-    return colors[privacy] || colors.private;
-  };
-
-  const getPrivacyBadge = (privacy: Group['privacy']) => {
-    const badges: Record<string, { text: string; color: string }> = {
-      public: { text: 'Public', color: 'bg-green-400/20 text-green-300 border-green-400/30' },
-      private: { text: 'Private', color: 'bg-amber-400/20 text-amber-300 border-amber-400/30' },
-      secret: { text: 'Secret', color: 'bg-red-400/20 text-red-300 border-red-400/30' },
-    };
-    return badges[privacy] || badges.private;
-  };
-
-  // ==================== GROUP DETAIL VIEW ====================
-
-  if (selectedGroupId) {
-    return (
-      <div className="min-h-screen relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50" />
-        <div className="absolute inset-0 z-0">
-          <ZenPondScene />
-        </div>
-        <div className="relative z-10 min-h-screen p-6">
-          <div className="max-w-4xl mx-auto">
-            <GroupDetailView groupId={selectedGroupId} onBack={() => setSelectedGroupId(null)} />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ==================== TYPE FILTER OPTIONS ====================
 
   const typeFilterOptions = [
     { value: 'all', label: 'All Types' },
@@ -204,437 +531,506 @@ export default function MirrorGroupsPage() {
     { value: 'anonymous', label: 'Anonymous' },
   ];
 
+  // Grid column count based on screen width
+  const gridColumns = isMobile ? 1 : isTablet ? 2 : 3;
+
+  // ==================== GROUP DETAIL VIEW ====================
+
+  if (selectedGroupId) {
+    return (
+      <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #fff1f2, #fce7f3, #f3e8ff)' }} />
+        <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+          <ZenPondScene />
+        </div>
+        <div style={{ position: 'relative', zIndex: 10, minHeight: '100vh', padding: isMobile ? '1rem' : '1.5rem' }}>
+          <div style={{ maxWidth: '56rem', margin: '0 auto' }}>
+            <GroupDetailView groupId={selectedGroupId} onBack={() => setSelectedGroupId(null)} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ==================== MAIN VIEW ====================
 
   return (
     <>
-    <div className="min-h-screen relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50" />
-      <div className="absolute inset-0 z-0">
-        <ZenPondScene />
-      </div>
+      {/* Global scrollbar hide */}
+      <style>{`
+        .mirrorgroups-page { scrollbar-width: none; -ms-overflow-style: none; }
+        .mirrorgroups-page::-webkit-scrollbar { display: none; }
+        .mirrorgroups-page *, .mirrorgroups-page *::before, .mirrorgroups-page *::after {
+          scrollbar-width: none; -ms-overflow-style: none;
+        }
+        .mirrorgroups-page *::-webkit-scrollbar { display: none; }
+      `}</style>
 
-      <div className="relative z-10 min-h-screen p-6">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="enhanced-glass-panel mb-6">
-            {/* Back to Dashboard Button */}
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="mb-4 flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 transition-all duration-200 group"
-            >
-              <span className="text-lg group-hover:-translate-x-1 transition-transform">←</span>
-              <span
-                className="font-medium"
+      <div
+        className="mirrorgroups-page"
+        style={{
+          minHeight: '100vh',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Background */}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #fff1f2, #fce7f3, #f3e8ff)' }} />
+        <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}><ZenPondScene /></div>
+
+        {/* Content */}
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 10,
+            minHeight: '100vh',
+            padding: isMobile ? '0.75rem' : '1.5rem',
+          }}
+        >
+          <div style={{ maxWidth: '72rem', margin: '0 auto' }}>
+
+            {/* ==================== HEADER PANEL ==================== */}
+            <div style={{ ...GLASS_PANEL, marginBottom: isMobile ? '0.75rem' : '1.5rem' }}>
+
+              {/* Back button */}
+              <button
+                onClick={() => navigate('/dashboard')}
+                type="button"
                 style={{
-                  color: 'rgb(120, 69, 82)',
-                  textShadow: '0 3px 12px rgba(0, 0, 0, .4), 0 1px 3px rgba(255, 255, 255, .15)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '0.5rem 1rem',
+                  borderRadius: 12,
+                  background: 'rgba(255,255,255,0.08)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  cursor: 'pointer',
+                  marginBottom: '1rem',
+                  color: COLORS.heading,
+                  fontSize: '0.85rem',
+                  fontWeight: 500,
+                  WebkitTapHighlightColor: 'transparent',
                 }}
               >
-                Back to Dashboard
-              </span>
-            </button>
-
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h1
-                  className="enhanced-glass-heading text-3xl mb-2"
-                  style={{
-                    color: 'rgb(120, 69, 82)',
-                    textShadow: '0 3px 12px rgba(0, 0, 0, .4), 0 1px 3px rgba(255, 255, 255, .15)',
-                  }}
-                >
-                  MirrorGroups
-                </h1>
-                <p
-                  className="enhanced-glass-body"
-                  style={{
-                    color: 'rgb(120, 69, 82)',
-                    textShadow: '0 3px 12px rgba(0, 0, 0, .4), 0 1px 3px rgba(255, 255, 255, .15)',
-                  }}
-                >
-                  Connect with others for collective intelligence and deeper insights
-                </p>
-              </div>
-              <div className="flex items-center gap-4">
-                {/* Connection Status */}
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      isConnected ? 'bg-green-400 animate-pulse' : 'bg-gray-400'
-                    }`}
-                  />
-                  <span className="enhanced-glass-subtle text-xs" style={{ color: '#6a1f33' }}>
-                    {isConnected ? 'Live' : 'Offline'}
-                  </span>
-                </div>
-
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="enhanced-action-button px-6 py-3"
-                >
-                  <span className="enhanced-glass-text font-medium" style={{ color: '#6a1f33' }}>
-                    + Create Group
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {/* View Mode Toggle */}
-            <div className="flex gap-2 mb-4">
-              <button
-                onClick={() => setViewMode('my-groups')}
-                className={`px-4 py-2 rounded-xl border transition-all text-sm ${
-                  viewMode === 'my-groups'
-                    ? 'bg-gradient-to-r from-pink-400/20 to-purple-400/20 border-pink-400/50'
-                    : 'bg-white/5 border-white/10 hover:bg-white/10'
-                }`}
-              >
-                <span style={{ color: '#784552' }}>My Groups</span>
+                {'\u2190'} Back to Dashboard
               </button>
-              <button
-                onClick={() => setViewMode('directory')}
-                className={`px-4 py-2 rounded-xl border transition-all text-sm ${
-                  viewMode === 'directory'
-                    ? 'bg-gradient-to-r from-pink-400/20 to-purple-400/20 border-pink-400/50'
-                    : 'bg-white/5 border-white/10 hover:bg-white/10'
-                }`}
+
+              {/* Title row */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: isMobile ? 'column' : 'row',
+                  alignItems: isMobile ? 'flex-start' : 'center',
+                  justifyContent: 'space-between',
+                  gap: isMobile ? '0.75rem' : '1rem',
+                  marginBottom: '1rem',
+                }}
               >
-                <span style={{ color: '#784552' }}>🌐 Public Directory</span>
-              </button>
-            </div>
-
-            {/* Search and Filter - Context sensitive */}
-            {viewMode === 'my-groups' ? (
-              <div className="flex gap-4">
-                <div className="flex-1 relative">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full px-4 py-3 pl-10 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-pink-400/50"
-                    placeholder="Search your groups..."
-                  />
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50">🔍</span>
-                </div>
-
-                <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white focus:outline-none focus:border-pink-400/50"
-                >
-                  {typeFilterOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <div className="flex gap-4">
-                <div className="flex-1 relative">
-                  <input
-                    type="text"
-                    value={directorySearchQuery}
-                    onChange={(e) => setDirectorySearchQuery(e.target.value)}
-                    className="w-full px-4 py-3 pl-10 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-pink-400/50"
-                    placeholder="Search public groups by name or description..."
-                  />
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50">🔍</span>
-                </div>
-
-                <select
-                  value={directoryFilterType}
-                  onChange={(e) => setDirectoryFilterType(e.target.value)}
-                  className="px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white focus:outline-none focus:border-pink-400/50"
-                >
-                  {typeFilterOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-
-          {/* Error Display */}
-          {error && (
-            <div className="mb-6 p-4 rounded-xl bg-red-500/20 border border-red-500/30">
-              <p className="text-red-300">{error}</p>
-            </div>
-          )}
-
-          {/* ============================================ */}
-          {/* MY GROUPS VIEW */}
-          {/* ============================================ */}
-          {viewMode === 'my-groups' && (
-            <>
-              {/* Loading State */}
-              {isLoading && myGroups.length === 0 && (
-                <div className="enhanced-glass-panel text-center py-12">
-                  <div className="animate-spin text-4xl mb-4">⏳</div>
-                  <p className="enhanced-glass-body" style={{ color: '#7e4151' }}>
-                    Loading your groups...
+                <div>
+                  <h1
+                    style={{
+                      fontSize: isMobile ? '1.5rem' : '1.75rem',
+                      fontWeight: 700,
+                      color: COLORS.heading,
+                      textShadow: COLORS.textShadow,
+                      margin: 0,
+                    }}
+                  >
+                    MirrorGroups
+                  </h1>
+                  <p
+                    style={{
+                      fontSize: '0.85rem',
+                      color: COLORS.body,
+                      textShadow: COLORS.textShadow,
+                      margin: '4px 0 0',
+                    }}
+                  >
+                    Connect with others for collective intelligence
                   </p>
                 </div>
-              )}
 
-              {/* My Groups */}
-              <div className="mb-8">
-                <h2 className="enhanced-glass-heading text-xl mb-4" style={{ color: '#784552' }}>
-                  My Groups ({filteredMyGroups.length})
-                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  {/* Connection dot — polls actual socket readyState */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        background: wsLive ? '#4ade80' : '#9ca3af',
+                        boxShadow: wsLive ? '0 0 6px rgba(74,222,128,0.6)' : 'none',
+                      }}
+                    />
+                    <span style={{ fontSize: '0.7rem', color: COLORS.label }}>
+                      {wsLive ? 'Live' : 'Offline'}
+                    </span>
+                  </div>
 
-                {filteredMyGroups.length === 0 && !isLoading ? (
-                  <div className="enhanced-glass-panel text-center py-12">
-                    <span className="text-5xl mb-4 block">🌟</span>
-                    <p className="enhanced-glass-body mb-4" style={{ color: '#7e4151' }}>
-                      {searchQuery ? 'No groups match your search' : "You haven't joined any groups yet"}
-                    </p>
-                    <div className="flex justify-center gap-3">
-                      <button
-                        onClick={() => setShowCreateModal(true)}
-                        className="enhanced-action-button px-6 py-2"
-                      >
-                        <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    type="button"
+                    style={{
+                      padding: isMobile ? '0.6rem 1rem' : '0.65rem 1.5rem',
+                      borderRadius: 12,
+                      background: 'linear-gradient(135deg, rgba(236,72,153,0.15), rgba(168,85,247,0.15))',
+                      border: '1px solid rgba(236,72,153,0.3)',
+                      color: COLORS.label,
+                      fontWeight: 600,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      WebkitTapHighlightColor: 'transparent',
+                    }}
+                  >
+                    + Create Group
+                  </button>
+                </div>
+              </div>
+
+              {/* View mode toggle */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: '1rem' }}>
+                {(['my-groups', 'directory'] as const).map((mode) => {
+                  const active = viewMode === mode;
+                  const label = mode === 'my-groups' ? 'My Groups' : '\u{1F310} Public Directory';
+                  return (
+                    <button
+                      key={mode}
+                      onClick={() => setViewMode(mode)}
+                      type="button"
+                      style={{
+                        padding: '0.45rem 1rem',
+                        borderRadius: 12,
+                        border: `1px solid ${active ? 'rgba(236,72,153,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                        background: active
+                          ? 'linear-gradient(135deg, rgba(236,72,153,0.2), rgba(168,85,247,0.2))'
+                          : 'rgba(255,255,255,0.04)',
+                        color: COLORS.heading,
+                        fontSize: '0.8rem',
+                        fontWeight: active ? 600 : 400,
+                        cursor: 'pointer',
+                        WebkitTapHighlightColor: 'transparent',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Search + Filter */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: isMobile ? 'column' : 'row',
+                  gap: isMobile ? 8 : 12,
+                }}
+              >
+                <div style={{ flex: 1, position: 'relative' }}>
+                  <input
+                    type="text"
+                    value={viewMode === 'my-groups' ? searchQuery : directorySearchQuery}
+                    onChange={(e) =>
+                      viewMode === 'my-groups'
+                        ? setSearchQuery(e.target.value)
+                        : setDirectorySearchQuery(e.target.value)
+                    }
+                    placeholder={
+                      viewMode === 'my-groups'
+                        ? 'Search your groups...'
+                        : 'Search public groups...'
+                    }
+                    style={INPUT_STYLE}
+                  />
+                  <span
+                    style={{
+                      position: 'absolute',
+                      left: 12,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      fontSize: '0.85rem',
+                      opacity: 0.5,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    {'\u{1F50D}'}
+                  </span>
+                </div>
+                <select
+                  value={viewMode === 'my-groups' ? filterType : directoryFilterType}
+                  onChange={(e) =>
+                    viewMode === 'my-groups'
+                      ? setFilterType(e.target.value)
+                      : setDirectoryFilterType(e.target.value)
+                  }
+                  style={{
+                    ...SELECT_STYLE,
+                    width: isMobile ? '100%' : 'auto',
+                  }}
+                >
+                  {typeFilterOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* ==================== ERROR ==================== */}
+            {error && (
+              <div
+                style={{
+                  marginBottom: '1rem',
+                  padding: '0.75rem 1rem',
+                  borderRadius: 12,
+                  background: 'rgba(239,68,68,0.15)',
+                  border: '1px solid rgba(239,68,68,0.3)',
+                }}
+              >
+                <p style={{ color: '#fca5a5', margin: 0, fontSize: '0.85rem' }}>{error}</p>
+              </div>
+            )}
+
+            {/* ==================== MY GROUPS VIEW ==================== */}
+            {viewMode === 'my-groups' && (
+              <>
+                {/* Loading */}
+                {isLoading && myGroups.length === 0 && (
+                  <div style={{ ...GLASS_PANEL, textAlign: 'center', padding: '3rem 1.5rem' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: 12, animation: 'spin 1s linear infinite', display: 'inline-block' }}>{'\u23F3'}</div>
+                    <p style={{ color: COLORS.body, margin: 0 }}>Loading your groups...</p>
+                  </div>
+                )}
+
+                {/* My Groups Section */}
+                <div style={{ marginBottom: '2rem', backdropFilter: 'blur(5px)' }}>
+                  <h2
+                    style={{
+                      fontSize: '1.1rem',
+                      fontWeight: 600,
+                      color: COLORS.heading,
+                      margin: '0 0 0.75rem',
+                    }}
+                  >
+                    My Groups ({filteredMyGroups.length})
+                  </h2>
+
+                  {filteredMyGroups.length === 0 && !isLoading ? (
+                    <div style={{ ...GLASS_PANEL, textAlign: 'center', padding: '3rem 1.5rem' }}>
+                      <span style={{ fontSize: '3rem', display: 'block', marginBottom: 12 }}>{'\u{1F31F}'}</span>
+                      <p style={{ color: COLORS.body, margin: '0 0 1rem' }}>
+                        {searchQuery ? 'No groups match your search' : "You haven't joined any groups yet"}
+                      </p>
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => setShowCreateModal(true)}
+                          type="button"
+                          style={{
+                            padding: '0.5rem 1.25rem',
+                            borderRadius: 10,
+                            background: 'linear-gradient(135deg, rgba(236,72,153,0.15), rgba(168,85,247,0.15))',
+                            border: '1px solid rgba(236,72,153,0.3)',
+                            color: COLORS.label,
+                            fontWeight: 500,
+                            fontSize: '0.85rem',
+                            cursor: 'pointer',
+                          }}
+                        >
                           Create Your First Group
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => setViewMode('directory')}
-                        className="px-6 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 transition-colors"
-                      >
-                        <span style={{ color: '#784552' }}>Browse Directory</span>
-                      </button>
+                        </button>
+                        <button
+                          onClick={() => setViewMode('directory')}
+                          type="button"
+                          style={{
+                            padding: '0.5rem 1.25rem',
+                            borderRadius: 10,
+                            background: 'rgba(255,255,255,0.08)',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            color: COLORS.heading,
+                            fontSize: '0.85rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Browse Directory
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(${gridColumns}, 1fr)`,
+                        gap: isMobile ? '0.5rem' : '0.75rem',
+                      }}
+                    >
+                      {filteredMyGroups.map((group: Group) => (
+                        <GroupCard
+                          key={group.id}
+                          group={group}
+                          onClick={() => setSelectedGroupId(group.id)}
+                          getGroupIcon={getGroupIcon}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Suggested Groups */}
+                {suggestedGroups.length > 0 && (
+                  <div>
+                    <h2
+                      style={{
+                        fontSize: '1.1rem',
+                        fontWeight: 600,
+                        color: COLORS.heading,
+                        margin: '0 0 0.75rem',
+                      }}
+                    >
+                      Suggested Groups
+                    </h2>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(${gridColumns}, 1fr)`,
+                        gap: isMobile ? '0.5rem' : '0.75rem',
+                      }}
+                    >
+                      {suggestedGroups.map((group: Group) => (
+                        <div
+                          key={group.id}
+                          style={{
+                            padding: '1rem',
+                            borderRadius: 16,
+                            background: COLORS.cardBg,
+                            border: `1px solid ${COLORS.cardBorder}`,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.75rem',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.875rem' }}>
+                            <div
+                              style={{
+                                width: 48,
+                                height: 48,
+                                minWidth: 48,
+                                borderRadius: 12,
+                                background: 'linear-gradient(135deg, rgba(251,191,36,0.12), rgba(168,85,247,0.1))',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '1.5rem',
+                              }}
+                            >
+                              {getGroupIcon(group.type)}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ fontWeight: 600, fontSize: '0.95rem', color: COLORS.heading, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {group.name}
+                              </p>
+                              <p style={{ fontSize: '0.75rem', color: COLORS.body, margin: '4px 0 6px', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.4 }}>
+                                {group.description || 'No description'}
+                              </p>
+                              <span style={{ fontSize: '0.7rem', color: COLORS.label }}>
+                                {'\u{1F465}'} {group.memberCount} members
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleJoinGroup(group.id)}
+                            type="button"
+                            style={{
+                              width: '100%',
+                              padding: '0.5rem',
+                              borderRadius: 10,
+                              background: 'linear-gradient(135deg, rgba(236,72,153,0.15), rgba(168,85,247,0.15))',
+                              border: '1px solid rgba(236,72,153,0.3)',
+                              color: COLORS.label,
+                              fontSize: '0.8rem',
+                              fontWeight: 500,
+                              cursor: 'pointer',
+                              WebkitTapHighlightColor: 'transparent',
+                            }}
+                          >
+                            Join Group
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   </div>
+                )}
+              </>
+            )}
+
+            {/* ==================== DIRECTORY VIEW ==================== */}
+            {viewMode === 'directory' && (
+              <div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '0.75rem',
+                  }}
+                >
+                  <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: COLORS.heading, margin: 0 }}>
+                    Public Group Directory
+                    {directoryTotal > 0 && (
+                      <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', marginLeft: 8 }}>
+                        ({directoryTotal} groups)
+                      </span>
+                    )}
+                  </h2>
+                </div>
+
+                {directoryLoading ? (
+                  <div style={{ ...GLASS_PANEL, textAlign: 'center', padding: '3rem 1.5rem' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: 12, animation: 'spin 1s linear infinite', display: 'inline-block' }}>{'\u23F3'}</div>
+                    <p style={{ color: COLORS.body, margin: 0 }}>Searching public groups...</p>
+                  </div>
+                ) : directoryGroups.length === 0 ? (
+                  <div style={{ ...GLASS_PANEL, textAlign: 'center', padding: '3rem 1.5rem' }}>
+                    <span style={{ fontSize: '3rem', display: 'block', marginBottom: 12 }}>{'\u{1F50D}'}</span>
+                    <p style={{ color: COLORS.body, margin: '0 0 8px' }}>
+                      {directorySearchQuery ? 'No public groups match your search' : 'No public groups available yet'}
+                    </p>
+                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', margin: 0 }}>
+                      Create a public group to list it in the directory!
+                    </p>
+                  </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredMyGroups.map((group: Group) => (
-                      <div
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: `repeat(${gridColumns}, 1fr)`,
+                      gap: isMobile ? '0.5rem' : '0.75rem',
+                    }}
+                  >
+                    {directoryGroups.map((group: Group) => (
+                      <DirectoryCard
                         key={group.id}
-                        onClick={() => setSelectedGroupId(group.id)}
-                        className="enhanced-glass-card cursor-pointer hover:scale-[1.02] transition-transform"
-                      >
-                        <div className="flex items-start gap-4">
-                          <div
-                            className={`w-14 h-14 rounded-xl bg-gradient-to-r ${getPrivacyColor(
-                              group.privacy
-                            )} backdrop-blur-sm flex items-center justify-center text-2xl flex-shrink-0`}
-                          >
-                            {getGroupIcon(group.type)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <h3
-                                className="enhanced-glass-heading text-base truncate mb-1"
-                                style={{ color: '#784552' }}
-                              >
-                                {group.name}
-                              </h3>
-                            </div>
-                            <p
-                              className="enhanced-glass-subtle text-xs mb-2 line-clamp-2"
-                              style={{ color: '#7e4151' }}
-                            >
-                              {group.description || 'No description'}
-                            </p>
-                            <div className="flex items-center gap-3 text-xs flex-wrap">
-                              <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
-                                👥 {group.memberCount}
-                              </span>
-                              {group.goal && (
-                                <span
-                                  className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-400/10 text-purple-300 truncate max-w-[120px]"
-                                  title={group.goal}
-                                >
-                                  🎯 {group.goal}
-                                </span>
-                              )}
-                              <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
-                                {formatRelativeTime(group.lastActivity)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                        group={group}
+                        isAlreadyMember={myGroups.some((g) => g.id === group.id)}
+                        getGroupIcon={getGroupIcon}
+                        onView={() => setSelectedGroupId(group.id)}
+                        onJoin={() => handleJoinGroup(group.id)}
+                      />
                     ))}
                   </div>
                 )}
               </div>
+            )}
 
-              {/* Suggested Groups */}
-              {suggestedGroups.length > 0 && (
-                <div>
-                  <h2 className="enhanced-glass-heading text-xl mb-4" style={{ color: '#784552' }}>
-                    Suggested Groups
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {suggestedGroups.map((group: Group) => (
-                      <div key={group.id} className="enhanced-glass-card">
-                        <div className="flex items-start gap-4 mb-4">
-                          <div
-                            className={`w-14 h-14 rounded-xl bg-gradient-to-r ${getPrivacyColor(
-                              group.privacy
-                            )} backdrop-blur-sm flex items-center justify-center text-2xl flex-shrink-0`}
-                          >
-                            {getGroupIcon(group.type)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3
-                              className="enhanced-glass-heading text-base truncate mb-1"
-                              style={{ color: '#784552' }}
-                            >
-                              {group.name}
-                            </h3>
-                            <p
-                              className="enhanced-glass-subtle text-xs mb-2 line-clamp-2"
-                              style={{ color: '#7e4151' }}
-                            >
-                              {group.description || 'No description'}
-                            </p>
-                            <span className="enhanced-glass-subtle text-xs" style={{ color: '#6a1f33' }}>
-                              👥 {group.memberCount} members
-                            </span>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleJoinGroup(group.id)}
-                          className="w-full enhanced-action-button py-2"
-                        >
-                          <span className="enhanced-glass-text text-sm" style={{ color: '#6a1f33' }}>
-                            Join Group
-                          </span>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ============================================ */}
-          {/* PUBLIC DIRECTORY VIEW */}
-          {/* ============================================ */}
-          {viewMode === 'directory' && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="enhanced-glass-heading text-xl" style={{ color: '#784552' }}>
-                  Public Group Directory
-                  {directoryTotal > 0 && (
-                    <span className="text-sm text-white/40 ml-2">({directoryTotal} groups)</span>
-                  )}
-                </h2>
-              </div>
-
-              {directoryLoading ? (
-                <div className="enhanced-glass-panel text-center py-12">
-                  <div className="animate-spin text-4xl mb-4">⏳</div>
-                  <p className="enhanced-glass-body" style={{ color: '#7e4151' }}>
-                    Searching public groups...
-                  </p>
-                </div>
-              ) : directoryGroups.length === 0 ? (
-                <div className="enhanced-glass-panel text-center py-12">
-                  <span className="text-5xl mb-4 block">🔍</span>
-                  <p className="enhanced-glass-body mb-2" style={{ color: '#7e4151' }}>
-                    {directorySearchQuery
-                      ? 'No public groups match your search'
-                      : 'No public groups available yet'}
-                  </p>
-                  <p className="text-white/40 text-sm">
-                    Create a public group to list it in the directory!
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {directoryGroups.map((group: Group) => {
-                    const privacyBadge = getPrivacyBadge(group.privacy);
-                    const isAlreadyMember = myGroups.some((g) => g.id === group.id);
-
-                    return (
-                      <div key={group.id} className="enhanced-glass-card">
-                        <div className="flex items-start gap-4 mb-3">
-                          <div
-                            className={`w-14 h-14 rounded-xl bg-gradient-to-r ${getPrivacyColor(
-                              group.privacy
-                            )} backdrop-blur-sm flex items-center justify-center text-2xl flex-shrink-0`}
-                          >
-                            {getGroupIcon(group.type)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3
-                                className="enhanced-glass-heading text-base truncate"
-                                style={{ color: '#784552' }}
-                              >
-                                {group.name}
-                              </h3>
-                              <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${privacyBadge.color}`}>
-                                {privacyBadge.text}
-                              </span>
-                            </div>
-                            <p
-                              className="enhanced-glass-subtle text-xs mb-2 line-clamp-2"
-                              style={{ color: '#7e4151' }}
-                            >
-                              {group.description || 'No description'}
-                            </p>
-                            <div className="flex items-center gap-3 text-xs flex-wrap">
-                              <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
-                                👥 {group.memberCount}/{group.maxMembers}
-                              </span>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/50">
-                                {getGroupIcon(group.type)} {group.type}
-                              </span>
-                            </div>
-                            {group.goal && (
-                              <p
-                                className="text-[10px] mt-1.5 px-2 py-0.5 rounded-full bg-purple-400/10 text-purple-300 truncate"
-                                title={group.goal}
-                              >
-                                🎯 {group.goal}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        {isAlreadyMember ? (
-                          <button
-                            onClick={() => setSelectedGroupId(group.id)}
-                            className="w-full py-2 rounded-lg bg-green-400/10 border border-green-400/20 text-green-300 text-sm"
-                          >
-                            Already a Member - View
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleJoinGroup(group.id)}
-                            className="w-full enhanced-action-button py-2"
-                          >
-                            <span className="enhanced-glass-text text-sm" style={{ color: '#6a1f33' }}>
-                              Request to Join
-                            </span>
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+          </div>
         </div>
       </div>
 
-    </div>
-
-    {/* Create Group Modal - rendered outside overflow-hidden container
-        to avoid stacking context / backdrop-filter clipping issues.
-        Uses local useState (like MyJournal) for reliable toggling. */}
-    {showCreateModal && (
-      <CreateGroupModal
-        onClose={() => setShowCreateModal(false)}
-        onGroupCreated={handleGroupCreated}
-      />
-    )}
+      {/* Create Group Modal */}
+      {showCreateModal && (
+        <CreateGroupModal
+          onClose={() => setShowCreateModal(false)}
+          onGroupCreated={handleGroupCreated}
+        />
+      )}
     </>
   );
 }

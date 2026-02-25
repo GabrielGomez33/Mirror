@@ -2,6 +2,7 @@
 // Detailed view of a single MirrorGroup with tabs for different sections
 
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useGroups } from '../../context/GroupContext';
 import GroupInsightsPanel from './GroupInsightsPanel';
 import VotingSystem from './VotingSystem';
@@ -181,9 +182,13 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
           <button
             onClick={onBack}
             className="flex items-center gap-2 text-white/70 hover:text-white transition-colors"
+            style={{
+               color: 'rgb(120, 69, 82)',
+               textShadow: '0 3px 12px rgba(0, 0, 0, .4), 0 1px 3px rgba(255, 255, 255, .15)',
+           }}
           >
             <span>←</span>
-            <span className="enhanced-glass-subtle text-sm">Back to Groups</span>
+            <span >Back to Groups</span>
           </button>
 
           <div className="flex gap-2 relative z-20">
@@ -193,7 +198,7 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
                   e.stopPropagation();
                   setShowDeleteConfirm(true);
                 }}
-                className="px-4 py-2 rounded-lg bg-red-600/30 border border-red-600/50 text-red-200 text-sm hover:bg-red-600/40 transition-colors cursor-pointer"
+				className="mb-4 flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 transition-all duration-200 group"
                 type="button"
               >
                 Delete
@@ -398,44 +403,98 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
         {activeTab === 'sharing' && <DataSharingPanel groupId={groupId} />}
       </div>
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      {/* Delete Confirmation Modal — Portal + inline styles to bypass CSS cascade */}
+      {showDeleteConfirm && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            backdropFilter: 'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
+          }}
+          onClick={() => !isDeleting && setShowDeleteConfirm(false)}
+        >
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => !isDeleting && setShowDeleteConfirm(false)}
-          />
-          <div className="relative enhanced-glass-panel p-6 max-w-md mx-4" style={{ overflow: 'visible' }}>
-            <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#dc2626' }}>
-              ⚠️ Delete Group?
+            style={{
+              position: 'relative',
+              width: '100%',
+              maxWidth: '28rem',
+              padding: '1.5rem',
+              background: 'rgb(205 194 255 / 84%)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: '24px',
+              boxShadow: '0 16px 60px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.18)',
+              backdropFilter: 'blur(30px)',
+              WebkitBackdropFilter: 'blur(30px)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#dc2626', marginBottom: '1rem' }}>
+              {'\u26A0\uFE0F'} Delete Group?
             </h3>
-            <p className="enhanced-glass-body mb-6" style={{ color: '#7e4151' }}>
+            <p style={{ color: '#7e4151', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '1.5rem' }}>
               This action <strong>cannot be undone</strong>. All group data, chat history, and member
               connections will be permanently deleted.
             </p>
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 mb-6">
-              <p className="text-red-300 text-sm">
+            <div style={{
+              padding: '0.75rem',
+              borderRadius: '0.5rem',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              marginBottom: '1.5rem',
+            }}>
+              <p style={{ color: '#7c63e3', fontSize: '0.875rem', margin: 0 }}>
                 Deleting: <strong>{currentGroup.name}</strong>
               </p>
             </div>
-            <div className="flex gap-3 justify-end">
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
                 disabled={isDeleting}
-                className="px-4 py-2 rounded-lg bg-white/10 text-white/80 hover:bg-white/20 transition-colors disabled:opacity-50 cursor-pointer"
                 type="button"
+                style={{
+                  padding: '0.5rem 1rem',
+                  borderRadius: '0.5rem',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: 'none',
+                  color: 'rgb(108 79 225)',
+                  cursor: isDeleting ? 'not-allowed' : 'pointer',
+                  opacity: isDeleting ? 0.5 : 1,
+                  transition: 'background 0.2s ease',
+                }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteGroup}
                 disabled={isDeleting}
-                className="px-4 py-2 rounded-lg bg-red-600/50 text-white hover:bg-red-600/70 transition-colors disabled:opacity-50 flex items-center gap-2 cursor-pointer"
                 type="button"
+                style={{
+                  padding: '0.5rem 1rem',
+                  borderRadius: '0.5rem',
+                  background: 'rgb(205 194 255 / 84%);',
+                  border: 'none',
+                  color: '#7c63e3',
+                  cursor: isDeleting ? 'not-allowed' : 'pointer',
+                  opacity: isDeleting ? 0.5 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  transition: 'background 0.2s ease',
+                }}
               >
                 {isDeleting ? (
                   <>
-                    <span className="animate-spin">⏳</span>
+                    <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>{'\u23F3'}</span>
                     Deleting...
                   </>
                 ) : (
@@ -444,7 +503,8 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>
