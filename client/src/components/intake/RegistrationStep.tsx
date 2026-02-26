@@ -273,9 +273,9 @@ const RegistrationStep = () => {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="w-full max-w-md"
+          className=" max-w-md"
         >
-          <GlassCard enhanced gradient className="space-y-6">
+          <GlassCard enhanced gradient className="space-y-6 rounded-[20px]">
             {/* Header */}
             <motion.div
               initial={{ scale: 0.9 }}
@@ -337,7 +337,7 @@ const RegistrationStep = () => {
                                 value={field.value}
                                 onChange={(e) => field.setter(e.target.value)}
                                 className={`
-                                  w-full p-3 bg-white/10 border-2 rounded-lg text-white placeholder-white/50 
+                                   p-3 bg-white/10 border-2 rounded-lg text-white placeholder-white/50 
                                   focus:outline-none focus:border-white/40 transition-all duration-300
                                   ${validationErrors[field.id] ? 'border-red-400' : 
                                     field.value && !validationErrors[field.id] ? 'border-green-400' : 'border-white/20'}
@@ -466,7 +466,7 @@ const RegistrationStep = () => {
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           className={`
-                            w-full p-3 bg-white/10 border-2 rounded-lg text-white placeholder-white/50 
+                             p-3 bg-white/10 border-2 rounded-lg text-white placeholder-white/50 
                             focus:outline-none focus:border-white/40 transition-all duration-300
                             ${confirmPassword && password !== confirmPassword ? 'border-red-400' : 
                               confirmPassword && password === confirmPassword ? 'border-green-400' : 'border-white/20'}
@@ -532,7 +532,7 @@ const RegistrationStep = () => {
                     ) : (
                       <span className="flex items-center justify-center space-x-2">
                         <span>🚀</span>
-                        <span>Create Account</span>
+                        <span style={{color:"black", fontSize:"0.6rem", textShadow:"(0 4px 20px rgba(0,0,0,.3))"}}>Create Account</span>
                       </span>
                     )}
                   </button>

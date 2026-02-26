@@ -371,7 +371,9 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
-  const redirectAfterLogin = React.useRef<string>('/dashboard');
+  // Default to "/" so IntakeGate runs its server-side intake check.
+  // This prevents users with cleared cookies from bypassing intake.
+  const redirectAfterLogin = React.useRef<string>('/');
 
   // ========== CORE AUTH FUNCTIONS ==========
 

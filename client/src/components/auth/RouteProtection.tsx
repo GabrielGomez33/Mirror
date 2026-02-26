@@ -185,11 +185,24 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <AuthErrorScreen error={errorMessage || 'Custom permission check failed'} redirectTo={redirectTo} />;
   }
 
-  // Intake-aware routing (centralized)
+  // ========== INTAKE-COMPLETION GATE (centralized) ==========
+  // Routes exempt from intake-completion requirement (user must be able to reach these
+  // even when intake is incomplete, otherwise they'd be stuck in a redirect loop).
+  const INTAKE_EXEMPT_ROUTES = new Set([
+    '/intake', '/login', '/register', '/home', '/landing', '/test',
+  ]);
   const isIntakeRoute = pathname === '/intake' || pathname.startsWith('/intake/');
+  const isExemptRoute = INTAKE_EXEMPT_ROUTES.has(pathname) || isIntakeRoute;
+
+  // If authenticated, intake NOT completed, and this is NOT an intake/exempt route → redirect to intake
+  if (isAuthenticated && !user?.intakeCompleted && !isExemptRoute) {
+    return <Navigate to="/intake" replace />;
+  }
+
+  // ========== INTAKE FLOW ROUTING ==========
   if (isAuthenticated && isIntakeRoute) {
     // completed? -> dashboard
-    if (progress?.completed) {
+    if (progress?.completed || user?.intakeCompleted) {
       return <Navigate to="/dashboard" replace />;
     }
 
@@ -207,7 +220,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         return <Navigate to={returnTo} replace />;
       }
       // 2) While in fix mode, do not snap back/forward; let the user complete this segment.
-      //    (i.e., skip the "snap back" and "auto-advance" logic below)
       return <>{children}</>;
     }
 

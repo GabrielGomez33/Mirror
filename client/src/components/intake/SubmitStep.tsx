@@ -5,6 +5,7 @@ import { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIntake } from '../../context/IntakeContext';
+import { useAuth } from '../../context/AuthContext';
 import GlassCard, { GlassButton } from '../ui/GlassCard';
 import BasicScene from '../three/BasicScene'; // 3js bg (same as VisualStep)
 import { getUserInfo } from '../../utils/token';
@@ -70,6 +71,7 @@ async function safeFetch(
 const SubmitStep = () => {
   const navigate = useNavigate();
   const { getIntake, markStepComplete, updateIntake } = useIntake();
+  const { markIntakeCompleted } = useAuth();
 
   // Normalize the context value once (function or object)
   const intake = useMemo(
@@ -257,7 +259,20 @@ const SubmitStep = () => {
       form.append('filename', safeName);
       form.append('tier', 'tier1');
     } else {
-      const safeName = 'voice_recording.webm';
+      // Derive correct extension from blob MIME type (critical for iOS Safari which uses audio/mp4)
+      const mimeToExt: Record<string, string> = {
+        'audio/webm': '.webm',
+        'audio/webm;codecs=opus': '.webm',
+        'audio/mp4': '.m4a',
+        'audio/ogg': '.ogg',
+        'audio/ogg;codecs=opus': '.ogg',
+        'audio/mpeg': '.mp3',
+        'audio/wav': '.wav',
+        'audio/x-wav': '.wav',
+      };
+      const blobType = fileOrBlob.type || intake.voiceMetadata?.mimeType || '';
+      const ext = mimeToExt[blobType] || '.webm';
+      const safeName = `voice_recording${ext}`;
       form.append('data', fileOrBlob, safeName);
       form.append('filename', safeName);
       form.append('tier', 'tier2');
@@ -506,6 +521,10 @@ const SubmitStep = () => {
         submissionId,
         timestamp: new Date().toISOString(),
       });
+
+      // Mark intake completed on AuthContext so server-side checks work
+      // (prevents re-routing to intake after cookie clear + re-login)
+      markIntakeCompleted();
 
       updateIntake({
         progress: {
