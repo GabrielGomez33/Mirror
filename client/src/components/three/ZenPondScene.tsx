@@ -485,3 +485,4 @@ export default function ZenPondScene() {
 
   return <canvas id="forest-canvas" className="fixed inset-0 w-full h-full z-0 pointer-events-none" />;
 }
+

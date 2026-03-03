@@ -237,7 +237,7 @@ const LogUserIn: React.FC = () => {
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: "spring", duration: 0.8 }}
-            className="w-full max-w-md"
+            className=""
           >
             <GlassCard enhanced gradient className="text-center">
               <motion.div
@@ -245,6 +245,7 @@ const LogUserIn: React.FC = () => {
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.3, type: "spring", duration: 0.6 }}
                 className="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 mx-auto flex items-center justify-center"
+                
               />
 
               <motion.div
@@ -307,6 +308,7 @@ const LogUserIn: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
           className="max-w-md"
+          style={{minWidth:"65vw", maxWidth:"75vw"}}
         >
           <GlassCard enhanced gradient className="space-y-4 rounded-[20px]">
             {/* Header */}

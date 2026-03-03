@@ -7,7 +7,7 @@ import { useGroups } from '../context/GroupContext';
 import { isWebSocketConnected } from '../services/groupsWebSocket';
 import CreateGroupModal from '../components/mirrorgroups/CreateGroupModal';
 import GroupDetailView from '../components/mirrorgroups/GroupDetailView';
-import ZenPondScene from '../components/three/ZenPondScene';
+import ZenPondScene2 from '../components/three/ZenPondScene2';
 import '../styles/enhanced-glass.css';
 import type { Group, GroupType } from '../types/groups';
 import { searchPublicGroups } from '../services/groupsApi';
@@ -541,7 +541,7 @@ export default function MirrorGroupsPage() {
       <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #fff1f2, #fce7f3, #f3e8ff)' }} />
         <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-          <ZenPondScene />
+          <ZenPondScene2 />
         </div>
         <div style={{ position: 'relative', zIndex: 10, minHeight: '100vh', padding: isMobile ? '1rem' : '1.5rem' }}>
           <div style={{ maxWidth: '56rem', margin: '0 auto' }}>
@@ -576,7 +576,7 @@ export default function MirrorGroupsPage() {
       >
         {/* Background */}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #fff1f2, #fce7f3, #f3e8ff)' }} />
-        <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}><ZenPondScene /></div>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}><ZenPondScene2 /></div>
 
         {/* Content */}
         <div

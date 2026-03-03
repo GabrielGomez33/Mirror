@@ -71,6 +71,13 @@ function NotificationItem({
       analysis_complete: { icon: '📊', color: '#8b5cf6' },
       system_alert: { icon: '⚡', color: '#f97316' },
       connection_status: { icon: '🔌', color: '#06b6d4' },
+      // TruthStream
+      ts_review_received: { icon: '🎭', color: '#f472b6' },
+      ts_review_classified: { icon: '🏷️', color: '#a78bfa' },
+      ts_analysis_complete: { icon: '🔮', color: '#8b5cf6' },
+      ts_dialogue_message: { icon: '💬', color: '#f472b6' },
+      ts_queue_assigned: { icon: '📋', color: '#60a5fa' },
+      ts_milestone_earned: { icon: '🏆', color: '#fbbf24' },
     };
     return iconMap[type] || { icon: '📢', color: '#94a3b8' };
   };

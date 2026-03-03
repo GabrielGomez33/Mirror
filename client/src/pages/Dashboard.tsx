@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/enhanced-glass.css';
-import ZenPondScene from '../components/three/ZenPondScene';
+import ZenGardenScene from '../components/three/ZenGardenScene';
 import MagicalSphereNavigation from '../components/home/MagicalSphereNavigation';
 import { TruthStreamPanel } from '../components/home/EnhancedDashboardPanels';
 import { MyMirrorPanel } from '../components/home/MyMirrorPanel';
@@ -178,7 +178,7 @@ export default function Dashboard() {
           }}
         />
         <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-          <ZenPondScene />
+          <ZenGardenScene />
         </div>
 
         {/* Main content area */}
@@ -208,6 +208,8 @@ export default function Dashboard() {
           onPanelChange={(panelId) => {
             if (panelId === 'mirrorgroups') {
               navigate('/groups');
+            } else if (panelId === 'truthstream') {
+              navigate('/truthstream');
             } else {
               setActivePanel(panelId);
             }

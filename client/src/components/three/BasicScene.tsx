@@ -203,3 +203,4 @@ export default function BasicScene() {
 
   return <canvas id="three-canvas" />;
 }
+

@@ -22,6 +22,7 @@ import Landing from './pages/Landing';
 import TestPage from './pages/TestPage';
 import GlobalDashboard from './components/dashboard/GlobalDashboard';
 import MirrorGroupsPage from './pages/MirrorGroupsPage';
+import TruthStreamPage from './pages/TruthStreamPage';
 
 // -----------------------------------------------------------------------------
 // Config: prefer same-origin; honor VITE_API_URL if explicitly set
@@ -218,6 +219,21 @@ const App: React.FC = () => {
                   redirectTo="/login"
                 >
                   <MirrorGroupsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* TruthStream - Requires Completed Intake */}
+            <Route
+              path="/truthstream"
+              element={
+                <ProtectedRoute
+                  accessLevel={AccessLevel.INTAKE_REQUIRED}
+                  securityLevel={SecurityLevel.BASIC}
+                  customCheck={(user) => user?.intakeCompleted === true}
+                  redirectTo="/intake"
+                >
+                  <TruthStreamPage />
                 </ProtectedRoute>
               }
             />

@@ -22,7 +22,14 @@ export type NotificationType =
   | 'conversation_summary'
   | 'analysis_complete'
   | 'system_alert'
-  | 'connection_status';
+  | 'connection_status'
+  // TruthStream
+  | 'ts_review_received'
+  | 'ts_review_classified'
+  | 'ts_analysis_complete'
+  | 'ts_dialogue_message'
+  | 'ts_queue_assigned'
+  | 'ts_milestone_earned';
 
 export type NotificationPriority = 'immediate' | 'normal' | 'low';
 
@@ -107,6 +114,15 @@ export interface WSNotificationMessage {
       initiatorName?: string;
       senderUsername?: string;
       status?: 'online' | 'offline' | 'away';
+      // TruthStream
+      reviewId?: string;
+      classification?: string;
+      analysisId?: string;
+      analysisType?: string;
+      authorRole?: string;
+      batchNumber?: number;
+      itemCount?: number;
+      milestoneName?: string;
       [key: string]: unknown;
     };
   };

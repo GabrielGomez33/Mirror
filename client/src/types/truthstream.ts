@@ -9,7 +9,6 @@ export type ReviewClassification = 'constructive' | 'affirming' | 'raw_truth' | 
 export type ReviewTone = 'encouraging' | 'constructive' | 'neutral' | 'brutally_honest' | 'critical';
 export type QueueStatus = 'pending' | 'in_progress' | 'completed' | 'expired' | 'skipped';
 export type GroupWant = 'yes' | 'maybe' | 'no';
-export type CircleFrequency = 'weekly' | 'biweekly' | 'monthly';
 export type AnalysisType = 'truth_mirror_report' | 'temporal_trend' | 'blind_spot' | 'growth_recommendation';
 export type DialogueRole = 'reviewee' | 'reviewer';
 
@@ -153,6 +152,7 @@ export interface QueueItem {
   reviewerId: number;
   revieweeId: number;
   batchNumber: number;
+  goalCategory: string;
   status: QueueStatus;
   assignedAt: string;
   startedAt: string | null;
@@ -358,38 +358,6 @@ export interface TemporalTrend {
 }
 
 // ============================================================================
-// TRUTH CIRCLES
-// ============================================================================
-
-export interface TruthCircle {
-  id: string;
-  name: string;
-  description: string;
-  creatorId: number;
-  reviewFrequency: CircleFrequency;
-  maxMembers: number;
-  memberCount: number;
-  isActive: boolean;
-  createdAt: string;
-}
-
-export interface TruthCircleMember {
-  id: string;
-  circleId: string;
-  userId: number;
-  username: string;
-  joinedAt: string;
-  status: 'active' | 'inactive' | 'removed';
-}
-
-export interface CreateCircleRequest {
-  name: string;
-  description: string;
-  reviewFrequency: CircleFrequency;
-  maxMembers: number;
-}
-
-// ============================================================================
 // FEEDBACK REQUESTS
 // ============================================================================
 
@@ -409,6 +377,31 @@ export interface CreateFeedbackRequestPayload {
   question: string;
   context?: string;
   expiresInHours?: number;
+}
+
+// ============================================================================
+// QUESTIONNAIRE (dynamic form rendering)
+// ============================================================================
+
+export interface QuestionnaireQuestion {
+  id: string;
+  type: 'scale' | 'select_words' | 'free_text' | 'category_explain' | 'multi_choice';
+  text: string;
+  config: Record<string, any>;
+}
+
+export interface QuestionnaireSection {
+  id: string;
+  title: string;
+  required: boolean;
+  questions: QuestionnaireQuestion[];
+}
+
+export interface QuestionnaireData {
+  id: string;
+  goalCategory: string;
+  version: number;
+  sections: QuestionnaireSection[];
 }
 
 // ============================================================================
@@ -454,11 +447,6 @@ export const MILESTONE_DEFINITIONS: Record<string, { name: string; description: 
     name: 'Truth Seeker',
     description: 'Completed 50 reviews with high quality',
     icon: 'search'
-  },
-  circle_builder: {
-    name: 'Circle Builder',
-    description: 'Created and maintained a Truth Circle for 30 days',
-    icon: 'users'
   }
 };
 
@@ -476,7 +464,6 @@ export interface TruthStreamStats {
   currentQueueSize: number;
   completedBatches: number;
   milestonesEarned: number;
-  circlesJoined: number;
   activeFeedbackRequests: number;
   classificationBreakdown: {
     constructive: number;

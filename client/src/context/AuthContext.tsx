@@ -186,12 +186,20 @@ const ROUTE_PERMISSIONS = new Map<string, Permission>([
       redirectTo: '/intake',
       errorMessage: 'Please complete the intake process to view results.'
     }],
-    ['/review', { 
-      route: '/review', 
-      accessLevel: AccessLevel.INTAKE_REQUIRED, 
+    ['/review', {
+      route: '/review',
+      accessLevel: AccessLevel.INTAKE_REQUIRED,
       securityLevel: SecurityLevel.TIER2_ACCESS,  // Keep higher security for review
       customCheck: (user: User | null) => user?.intakeCompleted === true,
       redirectTo: '/intake'
+    }],
+    ['/truthstream', {
+      route: '/truthstream',
+      accessLevel: AccessLevel.INTAKE_REQUIRED,
+      securityLevel: SecurityLevel.BASIC,
+      customCheck: (user: User | null) => user?.intakeCompleted === true,
+      redirectTo: '/intake',
+      errorMessage: 'Please complete the intake process to access TruthStream.'
     }],
     
     // Premium features (unchanged)
@@ -371,9 +379,7 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
-  // Default to "/" so IntakeGate runs its server-side intake check.
-  // This prevents users with cleared cookies from bypassing intake.
-  const redirectAfterLogin = React.useRef<string>('/');
+  const redirectAfterLogin = React.useRef<string>('/dashboard');
 
   // ========== CORE AUTH FUNCTIONS ==========
 
