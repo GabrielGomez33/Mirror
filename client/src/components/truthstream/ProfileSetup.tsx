@@ -18,22 +18,20 @@ const SHAREABLE_OPTIONS: { value: TruthStreamShareableType; label: string; icon:
   { value: 'astrological', label: 'Astrological', icon: '✨' },
 ];
 
+const AGE_RANGES = ['18-24', '25-34', '35-44', '45-54', '55+'] as const;
+
 const COLORS = {
   heading: '#784552',
-  body: '#3a2127',
-  label: '#3a2127',
+  body: '#7e4151',
+  label: '#6a1f33',
 };
-
-const TEXTSHADOWS = {
-	heading: 'rgb(255 255 255) 0px 3px 12px, rgba(6, 45, 67, 15%) 0px 1px 25px',
-	body: 'rgb(255 255 255) 0px 3px 12px, rgb(6 45 67 / 15%) 0px 1px 3px',
-	label: ''
-}
 
 export default function ProfileSetup() {
   const { profile, isSubmitting, error, createProfile, updateProfile, setView } = useTruthStream();
   const isEditing = !!profile;
 
+  const [displayAlias, setDisplayAlias] = useState(profile?.displayAlias || '');
+  const [ageRange, setAgeRange] = useState(profile?.ageRange || '');
   const [selfStatement, setSelfStatement] = useState(profile?.selfStatement || '');
   const [selectedAreas, setSelectedAreas] = useState<FeedbackArea[]>(profile?.feedbackAreas || []);
   const [sharedTypes, setSharedTypes] = useState<TruthStreamShareableType[]>(profile?.sharedDataTypes || []);
@@ -41,6 +39,8 @@ export default function ProfileSetup() {
 
   useEffect(() => {
     if (profile) {
+      setDisplayAlias(profile.displayAlias || '');
+      setAgeRange(profile.ageRange || '');
       setSelfStatement(profile.selfStatement || '');
       setSelectedAreas(profile.feedbackAreas || []);
       setSharedTypes(profile.sharedDataTypes || []);
@@ -62,6 +62,18 @@ export default function ProfileSetup() {
   const handleSubmit = async () => {
     setLocalError(null);
 
+    // Validate display alias if provided (optional — server auto-generates if blank)
+    const trimmedAlias = displayAlias.trim();
+    if (trimmedAlias && (trimmedAlias.length < 3 || trimmedAlias.length > 50)) {
+      setLocalError('Display name must be 3-50 characters, or leave blank for an auto-generated name.');
+      return;
+    }
+
+    if (!ageRange) {
+      setLocalError('Please select your age range.');
+      return;
+    }
+
     if (!selfStatement.trim()) {
       setLocalError('Please write a self-statement.');
       return;
@@ -79,11 +91,22 @@ export default function ProfileSetup() {
       return;
     }
 
-    const data = {
+    const data: {
+      displayAlias?: string;
+      ageRange: string;
+      selfStatement: string;
+      feedbackAreas: typeof selectedAreas;
+      sharedDataTypes: typeof sharedTypes;
+    } = {
+      ageRange,
       selfStatement: selfStatement.trim(),
       feedbackAreas: selectedAreas,
       sharedDataTypes: sharedTypes,
     };
+
+    if (trimmedAlias) {
+      data.displayAlias = trimmedAlias;
+    }
 
     const success = isEditing ? await updateProfile(data) : await createProfile(data);
     if (!success && !error) {
@@ -96,9 +119,9 @@ export default function ProfileSetup() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="enhanced-glass-card" style={{backdropFilter:"blur(30px)"}}>
+      <div className="enhanced-glass-card">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xl font-semibold" style={{ color: COLORS.heading, textShadow: TEXTSHADOWS.heading }}>
+          <h2 className="text-xl font-semibold" style={{ color: COLORS.heading }}>
             {isEditing ? 'Edit Your Truth Card' : 'Create Your Truth Card'}
           </h2>
           {isEditing && (
@@ -111,19 +134,79 @@ export default function ProfileSetup() {
             </button>
           )}
         </div>
-        <p className="text-sm" style={{ color: COLORS.body, textShadow: TEXTSHADOWS.body  }}>
+        <p className="text-sm" style={{ color: COLORS.body }}>
           {isEditing
             ? 'Update how others see and review you.'
             : 'Set up your profile so others can give you honest, anonymous feedback.'}
         </p>
       </div>
 
+      {/* Display Alias (anonymous name) */}
+      <div className="enhanced-glass-card">
+        <label className="block text-sm font-medium mb-2" style={{ color: COLORS.heading }}>
+          Anonymous Display Name
+        </label>
+        <p className="text-xs mb-3" style={{ color: COLORS.body }}>
+          Choose a name reviewers will see instead of your real identity. Leave blank for an auto-generated name.
+        </p>
+        <input
+          type="text"
+          value={displayAlias}
+          onChange={(e) => setDisplayAlias(e.target.value)}
+          maxLength={50}
+          placeholder="e.g. ThoughtfulOwl, Mirror_42..."
+          className="w-full rounded-lg p-3 text-sm"
+          style={{
+            background: 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            color: COLORS.body,
+            outline: 'none',
+          }}
+        />
+        <div className="text-right text-xs mt-1" style={{ color: COLORS.label }}>
+          {displayAlias.length}/50
+        </div>
+      </div>
+
+      {/* Age Range */}
+      <div className="enhanced-glass-card">
+        <label className="block text-sm font-medium mb-2" style={{ color: COLORS.heading }}>
+          Age Range
+        </label>
+        <p className="text-xs mb-3" style={{ color: COLORS.body }}>
+          Helps reviewers provide age-appropriate feedback.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {AGE_RANGES.map((range) => {
+            const selected = ageRange === range;
+            return (
+              <button
+                key={range}
+                onClick={() => setAgeRange(range)}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                style={{
+                  background: selected
+                    ? 'linear-gradient(135deg, rgba(244,114,182,0.3), rgba(167,139,250,0.3))'
+                    : 'rgba(255,255,255,0.06)',
+                  border: selected
+                    ? '1px solid rgba(244,114,182,0.5)'
+                    : '1px solid rgba(255,255,255,0.12)',
+                  color: selected ? COLORS.heading : COLORS.body,
+                }}
+              >
+                {range}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Self Statement */}
-      <div className="enhanced-glass-card" style={{backdropFilter: "blur(30px)"}}>
-        <label className="block text-sm font-medium mb-2" style={{ color: COLORS.heading, textShadow: TEXTSHADOWS.heading }}>
+      <div className="enhanced-glass-card">
+        <label className="block text-sm font-medium mb-2" style={{ color: COLORS.heading }}>
           Self-Statement
         </label>
-        <p className="text-xs mb-3" style={{ color: COLORS.body, textShadow: TEXTSHADOWS.body }}>
+        <p className="text-xs mb-3" style={{ color: COLORS.body }}>
           How do you see yourself? Reviewers will compare their perception against this.
         </p>
         <textarea
@@ -146,11 +229,11 @@ export default function ProfileSetup() {
       </div>
 
       {/* Feedback Areas */}
-      <div className="enhanced-glass-card" style={{backdropFilter:"blur(30px)"}}>
-        <label className="block text-sm font-medium mb-2" style={{ color: COLORS.heading, textShadow: TEXTSHADOWS.heading }}>
+      <div className="enhanced-glass-card">
+        <label className="block text-sm font-medium mb-2" style={{ color: COLORS.heading }}>
           Feedback Areas (select 1-5)
         </label>
-        <p className="text-xs mb-3" style={{ color: COLORS.body, textShadow: TEXTSHADOWS.body }}>
+        <p className="text-xs mb-3" style={{ color: COLORS.body }}>
           What areas do you want feedback on?
         </p>
         <div className="flex flex-wrap gap-2">
@@ -169,7 +252,6 @@ export default function ProfileSetup() {
                     ? '1px solid rgba(244,114,182,0.5)'
                     : '1px solid rgba(255,255,255,0.12)',
                   color: selected ? COLORS.heading : COLORS.body,
-                  textShadow: TEXTSHADOWS.body
                 }}
               >
                 {area}
@@ -184,10 +266,10 @@ export default function ProfileSetup() {
 
       {/* Shared Data Types */}
       <div className="enhanced-glass-card">
-        <label className="block text-sm font-medium mb-2" style={{ color: COLORS.body, textShadow: TEXTSHADOWS.body }}>
+        <label className="block text-sm font-medium mb-2" style={{ color: COLORS.heading }}>
           Share Your Assessment Data (minimum {MINIMUM_SHARE_COUNT})
         </label>
-        <p className="text-xs mb-3" style={{ color: COLORS.body,  textShadow: TEXTSHADOWS.body }}>
+        <p className="text-xs mb-3" style={{ color: COLORS.body }}>
           Reviewers see anonymized snapshots of your data to give more informed feedback.
         </p>
         <div className="space-y-2">
@@ -205,7 +287,6 @@ export default function ProfileSetup() {
                   border: selected
                     ? '1px solid rgba(244,114,182,0.4)'
                     : '1px solid rgba(255,255,255,0.08)',
-                    textShadow: TEXTSHADOWS.body
                 }}
               >
                 <span className="text-lg">{opt.icon}</span>

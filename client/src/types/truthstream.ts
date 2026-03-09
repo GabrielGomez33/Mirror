@@ -77,6 +77,8 @@ export const MINIMUM_SHARE_COUNT = 3;
 export interface TruthStreamProfile {
   id: string;
   userId: number;
+  displayAlias: string;
+  ageRange: string | null;
   selfStatement: string;
   feedbackAreas: FeedbackArea[];
   sharedDataTypes: TruthStreamShareableType[];
@@ -131,6 +133,7 @@ export interface TruthCardData {
 }
 
 export interface CreateTruthProfileRequest {
+  displayAlias?: string; // Optional anonymous name — server auto-generates if omitted
   selfStatement: string;
   feedbackAreas: FeedbackArea[];
   sharedDataTypes: TruthStreamShareableType[];

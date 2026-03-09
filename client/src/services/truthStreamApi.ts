@@ -226,11 +226,14 @@ class TruthStreamApiClient {
   // ==================== PROFILE MANAGEMENT ====================
 
   async createProfile(request: CreateTruthProfileRequest): Promise<TruthStreamApiResponse<TruthStreamProfile>> {
-    const sanitized = {
+    const sanitized: Record<string, unknown> = {
       selfStatement: sanitizeString(request.selfStatement, 500),
       feedbackAreas: request.feedbackAreas,
       sharedDataTypes: request.sharedDataTypes,
     };
+    if (request.displayAlias) {
+      sanitized.displayAlias = sanitizeString(request.displayAlias, 50);
+    }
 
     const result = await this.makeRequest<TruthStreamApiResponse<TruthStreamProfile>>('/profile', {
       method: 'POST',
