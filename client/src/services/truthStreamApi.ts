@@ -227,13 +227,14 @@ class TruthStreamApiClient {
 
   async createProfile(request: CreateTruthProfileRequest): Promise<TruthStreamApiResponse<TruthStreamProfile>> {
     const sanitized: Record<string, unknown> = {
+      displayAlias: sanitizeString(request.displayAlias, 50),
+      ageRange: request.ageRange,
       selfStatement: sanitizeString(request.selfStatement, 500),
       feedbackAreas: request.feedbackAreas,
       sharedDataTypes: request.sharedDataTypes,
     };
-    if (request.displayAlias) {
-      sanitized.displayAlias = sanitizeString(request.displayAlias, 50);
-    }
+    if (request.photoPath) sanitized.photoPath = sanitizeString(request.photoPath, 500);
+    if (request.vocalSalutationPath) sanitized.vocalSalutationPath = sanitizeString(request.vocalSalutationPath, 500);
 
     const result = await this.makeRequest<TruthStreamApiResponse<TruthStreamProfile>>('/profile', {
       method: 'POST',
@@ -255,11 +256,16 @@ class TruthStreamApiClient {
   }
 
   async updateProfile(request: UpdateTruthProfileRequest): Promise<TruthStreamApiResponse<TruthStreamProfile>> {
-    const sanitized: Record<string, unknown> = {};
+    const sanitized: Record<string, unknown> = {
+      displayAlias: sanitizeString(request.displayAlias, 50),
+    };
+    if (request.ageRange !== undefined) sanitized.ageRange = request.ageRange;
     if (request.selfStatement !== undefined) sanitized.selfStatement = sanitizeString(request.selfStatement, 500);
     if (request.feedbackAreas !== undefined) sanitized.feedbackAreas = request.feedbackAreas;
     if (request.sharedDataTypes !== undefined) sanitized.sharedDataTypes = request.sharedDataTypes;
     if (request.isActive !== undefined) sanitized.isActive = request.isActive;
+    if (request.photoPath !== undefined) sanitized.photoPath = sanitizeString(request.photoPath, 500);
+    if (request.vocalSalutationPath !== undefined) sanitized.vocalSalutationPath = sanitizeString(request.vocalSalutationPath, 500);
 
     const result = await this.makeRequest<TruthStreamApiResponse<TruthStreamProfile>>('/profile', {
       method: 'PUT',
@@ -267,6 +273,7 @@ class TruthStreamApiClient {
     });
 
     cache.invalidate('truthstream:/profile');
+    cache.invalidate('truthstream:/profile/'); // Also invalidate card cache for all users
     return transformKeys(result);
   }
 

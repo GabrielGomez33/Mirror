@@ -383,6 +383,11 @@ export function TruthStreamProvider({ children }: { children: React.ReactNode })
         safeDispatch({ type: 'SET_PROFILE', payload: res.data });
         safeDispatch({ type: 'SET_SUCCESS', payload: 'Truth Card created! You can now receive reviews.' });
         safeDispatch({ type: 'SET_VIEW', payload: 'overview' });
+        // Re-fetch full profile to ensure all fields (photoPath, vocalSalutationPath, etc.) are populated
+        try {
+          const fresh = await getMyTruthProfile();
+          if (fresh.data) safeDispatch({ type: 'SET_PROFILE', payload: fresh.data });
+        } catch { /* profile will refresh on next load */ }
         return true;
       }
       return false;
@@ -399,8 +404,22 @@ export function TruthStreamProvider({ children }: { children: React.ReactNode })
     safeDispatch({ type: 'SET_ERROR', payload: null });
     try {
       const res = await updateTruthProfile(data);
-      if (res.data) {
-        safeDispatch({ type: 'SET_PROFILE', payload: res.data });
+      if (res.success || res.data) {
+        // Clear all caches so overview re-fetches with fresh shared data
+        clearTruthStreamCache();
+
+        // Re-fetch profile to get updated sharedDataTypes, photoPath, etc.
+        try {
+          const fresh = await getMyTruthProfile();
+          if (fresh.data) safeDispatch({ type: 'SET_PROFILE', payload: fresh.data });
+        } catch { /* profile will refresh on next load */ }
+
+        // Re-fetch stats (profile completeness may have changed)
+        try {
+          const freshStats = await getTruthStats();
+          if (freshStats.data) safeDispatch({ type: 'SET_STATS', payload: freshStats.data });
+        } catch { /* stats will refresh on next load */ }
+
         safeDispatch({ type: 'SET_SUCCESS', payload: 'Truth Card updated.' });
         return true;
       }

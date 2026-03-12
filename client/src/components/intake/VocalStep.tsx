@@ -322,8 +322,7 @@ const VocalStep = () => {
   const [retryCount, setRetryCount] = useState(0);
   const [showInstructions, setShowInstructions] = useState(false);
 
-  const prompt =
-    'Hello, my name is [your name]. Today is a beautiful day, and I\'m excited to explore new possibilities. The sun rose behind the hills, painting the sky with golden hues. I believe that every moment brings a chance for growth and discovery. One, two, three, four, five - taking a deep breath - six, seven, eight, nine, ten.';
+  const prompt = `Introduce yourself to the mirror. What's up with you? Who are you?`
 
   // ============================================================================
   // PROCESSING SAFEGUARD: auto-clear stuck processing state

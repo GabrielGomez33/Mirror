@@ -19,8 +19,8 @@ import '../styles/enhanced-glass.css';
 // ============================================================================
 
 const COLORS = {
-  heading: '#784552',
-  body: '#3a2127',
+  heading: '#3d1428',
+  body: '#2e1018',
 };
 
 const GLASS_PANEL: React.CSSProperties = {

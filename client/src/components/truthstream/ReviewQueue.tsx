@@ -5,9 +5,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { useTruthStream } from '../../context/TruthStreamContext';
 
 const COLORS = {
-  heading: '#784552',
-  body: '#7e4151',
-  label: '#6a1f33',
+  heading: '#3d1428',
+  body: '#4a1c30',
+  label: '#2d0a16',
 };
 
 // Refresh interval for expiry timers (60 seconds)
@@ -154,9 +154,9 @@ export default function ReviewQueue() {
                       </p>
                     </div>
                   </div>
-                  {!expired && item.truthCard?.profile?.feedbackAreas && (
+                  {!expired && item.truthCard?.feedbackAreas && (
                     <div className="hidden sm:flex gap-1 flex-wrap justify-end max-w-[160px]">
-                      {item.truthCard.profile.feedbackAreas.slice(0, 2).map((area) => (
+                      {item.truthCard.feedbackAreas.slice(0, 2).map((area) => (
                         <span
                           key={area}
                           className="text-[10px] px-2 py-0.5 rounded-full"
@@ -170,9 +170,9 @@ export default function ReviewQueue() {
                 </div>
 
                 {/* Truth Card preview snippet */}
-                {!expired && item.truthCard?.profile?.selfStatement && (
+                {!expired && item.truthCard?.selfStatement && (
                   <p className="text-xs mb-3 line-clamp-2 leading-relaxed" style={{ color: COLORS.body }}>
-                    "{item.truthCard.profile.selfStatement}"
+                    "{item.truthCard.selfStatement}"
                   </p>
                 )}
 

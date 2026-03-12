@@ -89,61 +89,80 @@ export interface TruthStreamProfile {
   totalReviewsGiven: number;
   reviewerQualityScore: number;
   perceptionGapScore: number | null;
+  photoPath?: string;
+  vocalSalutationPath?: string;
+  goal?: string;
+  goalCategory?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface TruthCardData {
-  profile: TruthStreamProfile;
-  // Populated from shared assessment data
-  personalitySnapshot?: {
+export interface TruthCardSharedData {
+  personality?: {
     mbtiType: string;
-    mbtiDescription: string;
-    big5: {
-      openness: number;
-      conscientiousness: number;
-      extraversion: number;
-      agreeableness: number;
-      neuroticism: number;
-    };
     dominantTraits: string[];
+    description: string;
+    big5?: Record<string, number>;
   };
-  voiceSignature?: {
-    characteristics: string[];
-    communicationStyle: string;
+  cognitive?: {
+    category: string;
+    strengths: string[];
   };
-  astrologicalHighlights?: {
-    sunSign: string;
-    moonSign: string;
-    risingSign: string;
-    interpretation: string;
-  };
-  cognitiveStyle?: {
-    problemSolvingApproach: string;
-    learningStyle: string;
-  };
-  facialPresentation?: {
-    photoUrl?: string;
+  facial?: {
     dominantExpression: string;
+    expressionProfile?: Record<string, number>;
   };
-  groupParticipation?: {
-    groupCount: number;
-    activityLevel: 'low' | 'moderate' | 'high' | 'very_high';
+  voice?: {
+    duration: number;
+  };
+  astrological?: {
+    westernSign: string;
+    chineseSign: string;
+    synthesis: string;
+  };
+  profile?: {
+    memberSince: string;
   };
 }
 
+export interface TruthCardData {
+  displayAlias: string;
+  ageRange: string | null;
+  genderDisplay?: string;
+  pronouns?: string;
+  culturalContext?: string;
+  photoPath?: string;
+  vocalSalutationPath?: string;
+  goal?: string;
+  goalCategory?: string;
+  selfStatement: string;
+  feedbackAreas: FeedbackArea[];
+  sharedData: TruthCardSharedData;
+}
+
+export type AgeRange = '18-24' | '25-34' | '35-44' | '45-54' | '55+';
+
+export const AGE_RANGES: readonly AgeRange[] = ['18-24', '25-34', '35-44', '45-54', '55+'] as const;
+
 export interface CreateTruthProfileRequest {
-  displayAlias?: string; // Optional anonymous name — server auto-generates if omitted
+  displayAlias: string;
+  ageRange: AgeRange;
   selfStatement: string;
   feedbackAreas: FeedbackArea[];
   sharedDataTypes: TruthStreamShareableType[];
+  photoPath?: string;
+  vocalSalutationPath?: string;
 }
 
 export interface UpdateTruthProfileRequest {
+  displayAlias: string;
+  ageRange?: AgeRange;
   selfStatement?: string;
   feedbackAreas?: FeedbackArea[];
   sharedDataTypes?: TruthStreamShareableType[];
   isActive?: boolean;
+  photoPath?: string;
+  vocalSalutationPath?: string;
 }
 
 // ============================================================================

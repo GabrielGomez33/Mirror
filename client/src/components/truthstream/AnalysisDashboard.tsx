@@ -5,9 +5,9 @@ import { useEffect, useState } from 'react';
 import { useTruthStream } from '../../context/TruthStreamContext';
 
 const COLORS = {
-  heading: '#784552',
-  body: '#7e4151',
-  label: '#6a1f33',
+  heading: '#3d1428',
+  body: '#4a1c30',
+  label: '#2d0a16',
 };
 
 function gapLevelColor(level: string): string {
