@@ -124,7 +124,7 @@ const AlertIcon = () => (
 );
 
 const ArrowRightIcon = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+  <svg className="w-4 h-4" style={{maxHeight:'50px'}} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
   </svg>
 );

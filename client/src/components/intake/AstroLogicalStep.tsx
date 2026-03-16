@@ -538,7 +538,7 @@ const AstroLogicalStep = () => {
       const astro: AstrologicalResult = { western, chinese, african, numerology, synthesis };
 
       setResult(astro);
-      updateIntake?.({ astrologicalResult: astro });
+      updateIntake?.({ astrologicalResult: astro, birthDate: birthData.date });
       setIsCalculating(false);
       setShowResult(true);
 

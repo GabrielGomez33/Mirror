@@ -153,8 +153,9 @@ const RegistrationStep = () => {
     
     try {
       await registerUser({ username, email, password });
-      updateIntake({ 
+      updateIntake({
         userRegistered: true,
+        userLoggedIn: true,
         name: username // Store username as name
       });
       
@@ -273,9 +274,9 @@ const RegistrationStep = () => {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className=" max-w-md"
+          className="w-full max-w-md"
         >
-          <GlassCard enhanced gradient className="space-y-6 rounded-[20px]">
+          <GlassCard enhanced gradient className="space-y-6">
             {/* Header */}
             <motion.div
               initial={{ scale: 0.9 }}
@@ -337,7 +338,7 @@ const RegistrationStep = () => {
                                 value={field.value}
                                 onChange={(e) => field.setter(e.target.value)}
                                 className={`
-                                   p-3 bg-white/10 border-2 rounded-lg text-white placeholder-white/50 
+                                  w-full p-3 bg-white/10 border-2 rounded-lg text-white placeholder-white/50 
                                   focus:outline-none focus:border-white/40 transition-all duration-300
                                   ${validationErrors[field.id] ? 'border-red-400' : 
                                     field.value && !validationErrors[field.id] ? 'border-green-400' : 'border-white/20'}
@@ -466,7 +467,7 @@ const RegistrationStep = () => {
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           className={`
-                             p-3 bg-white/10 border-2 rounded-lg text-white placeholder-white/50 
+                            w-full p-3 bg-white/10 border-2 rounded-lg text-white placeholder-white/50 
                             focus:outline-none focus:border-white/40 transition-all duration-300
                             ${confirmPassword && password !== confirmPassword ? 'border-red-400' : 
                               confirmPassword && password === confirmPassword ? 'border-green-400' : 'border-white/20'}
@@ -513,10 +514,10 @@ const RegistrationStep = () => {
                     disabled={loading || Object.keys(validationErrors).length > 0 || password !== confirmPassword}
                     className={`
                       w-full py-4 text-lg font-semibold transition-all duration-300 rounded-xl
-                      glass-card-enhanced border border-white/20 backdrop-blur-sm
+                      border border-gray-300 backdrop-blur-sm shadow-sm
                       ${loading || Object.keys(validationErrors).length > 0 || password !== confirmPassword
-                        ? 'bg-white/5 opacity-50 cursor-not-allowed text-white/50' 
-                        : 'bg-gradient-to-r from-indigo-400/20 to-purple-400/20 hover:from-indigo-400/30 hover:to-purple-400/30 hover:scale-105 text-white hover:border-white/40'
+                        ? 'bg-gray-100 opacity-50 cursor-not-allowed text-gray-400'
+                        : 'bg-gradient-to-r from-indigo-100 to-purple-100 hover:from-indigo-200 hover:to-purple-200 text-black hover:border-indigo-300 hover:shadow-md'
                       }
                     `}
                   >
@@ -532,7 +533,7 @@ const RegistrationStep = () => {
                     ) : (
                       <span className="flex items-center justify-center space-x-2">
                         <span>🚀</span>
-                        <span style={{color:"black", fontSize:"0.6rem", textShadow:"(0 4px 20px rgba(0,0,0,.3))"}}>Create Account</span>
+                        <span>Create Account</span>
                       </span>
                     )}
                   </button>

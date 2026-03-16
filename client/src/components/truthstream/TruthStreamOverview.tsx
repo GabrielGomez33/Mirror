@@ -5,18 +5,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTruthStream } from '../../context/TruthStreamContext';
-import { getTruthCard } from '../../services/truthStreamApi';
 import { getPersonalIntelligenceApi } from '../../services/mirrorDashboard';
-import { MILESTONE_DEFINITIONS, type TruthCardData, type TruthStreamShareableType } from '../../types/truthstream';
-import { buildStorageRetrieveUrl } from '../../utils/storageUrl';
-
-const SHAREABLE_ICONS: Record<string, { label: string; icon: string }> = {
-  personality: { label: 'Personality Profile', icon: '🧠' },
-  cognitive: { label: 'Cognitive Style', icon: '💡' },
-  facial: { label: 'Photo / Facial', icon: '📸' },
-  voice: { label: 'Voice Signature', icon: '🎙' },
-  astrological: { label: 'Astrological', icon: '✨' },
-};
+import { MILESTONE_DEFINITIONS, type TruthCardData, type TruthCardSharedData } from '../../types/truthstream';
+import RevieweeTruthCard from './RevieweeTruthCard';
 
 const COLORS = {
   heading: '#3d1428',
@@ -38,87 +29,95 @@ const MILESTONE_ICON_MAP: Record<string, string> = {
   target: '🎯',
 };
 
-/**
- * Safely build a storage URL from a filename returned by the storage API.
- * Delegates to shared utility that uses the correct /retrieve/:userId/:tier/:filename endpoint.
- */
-function buildStorageUrl(path: string, userId: number, tier?: 'tier1' | 'tier2' | 'tier3'): string | null {
-  return buildStorageRetrieveUrl(path, userId, tier);
-}
-
 export default function TruthStreamOverview() {
   const { user } = useAuth();
   const { profile, stats, queue, milestones, analysis, isLoading, setView, refreshAll, successMessage } = useTruthStream();
 
   const pendingCount = queue?.items.filter((i) => i.status === 'pending' || i.status === 'in_progress').length || 0;
 
-  // Fetch enriched card data for the "Your Truth Card" preview
-  const [cardData, setCardData] = useState<TruthCardData | null>(null);
+  // Dashboard data for building a self-view Truth Card (getTruthCard fails for self)
+  const [dashData, setDashData] = useState<any>(null);
   const [cardLoading, setCardLoading] = useState(false);
-
-  // Astro data from dashboard — only displayed if 'astrological' is in sharedDataTypes
-  const [astroData, setAstroData] = useState<any>(null);
-
-  // AbortController ref for cancelling in-flight fetches on unmount/profile change
+  const [truthCardCollapsed, setTruthCardCollapsed] = useState(false);
   const fetchAbortRef = useRef<AbortController | null>(null);
 
-  const fetchCardData = useCallback(async () => {
-    if (!user?.id) return;
-
-    // Cancel any in-flight card fetch
+  const fetchDashData = useCallback(async () => {
     fetchAbortRef.current?.abort();
     const controller = new AbortController();
     fetchAbortRef.current = controller;
-
     setCardLoading(true);
     try {
-      const res = await getTruthCard(user.id);
-      if (!controller.signal.aborted && res.data) {
-        setCardData(res.data);
-      }
+      const data = await getPersonalIntelligenceApi();
+      if (!controller.signal.aborted) setDashData(data);
     } catch (err: any) {
       if (!controller.signal.aborted) {
-        console.error('[TruthStreamOverview] Card fetch failed:', err?.message || err);
+        console.error('[TruthStreamOverview] Dashboard fetch failed:', err?.message || err);
       }
     }
     if (!controller.signal.aborted) setCardLoading(false);
-  }, [user?.id]);
-
-  const fetchAstroData = useCallback(async () => {
-    try {
-      const dashData = await getPersonalIntelligenceApi();
-      if (dashData?.completeAstrologicalData?.available) {
-        setAstroData(dashData.completeAstrologicalData);
-      }
-    } catch (err: any) {
-      console.error('[TruthStreamOverview] Astro fetch failed:', err?.message || err);
-    }
   }, []);
 
-  // Fetch card data whenever profile changes (creation, update, return to overview)
   useEffect(() => {
-    if (profile) {
-      fetchCardData();
-      if (!astroData) fetchAstroData();
-    }
+    if (profile && !dashData) fetchDashData();
     return () => { fetchAbortRef.current?.abort(); };
-  }, [profile, fetchCardData, fetchAstroData, astroData]);
+  }, [profile, fetchDashData, dashData]);
 
-  // === DATA GATING ===
-  // Photo is only shown to reviewers if 'facial' is in sharedDataTypes.
-  // This is self-view, so we show it if the user has a photo (for their own reference),
-  // but the "as reviewers see it" section should reflect what reviewers actually get.
-  const sharedTypes = profile?.sharedDataTypes || [];
-  const facialShared = sharedTypes.includes('facial');
-  const voiceShared = sharedTypes.includes('voice');
+  // Build TruthCardData from profile + dashboard data for self-view preview
+  const selfTruthCard: TruthCardData | null = (() => {
+    if (!profile) return null;
+    const sharedTypes = profile.sharedDataTypes || [];
+    const sharedData: TruthCardSharedData = {};
 
-  // Resolve photo URL — only show in reviewer preview if facial is shared
-  const photoPath = cardData?.photoPath || profile?.photoPath;
-  const photoUrl = (photoPath && facialShared && user?.id) ? buildStorageUrl(photoPath, user.id, 'tier1') : null;
+    // Only include data types the user opted to share (mirrors reviewer view)
+    if (sharedTypes.includes('personality') && dashData?.personalityResult) {
+      sharedData.personality = {
+        mbtiType: dashData.personalityResult.mbtiType || '',
+        dominantTraits: dashData.personalityResult.dominantTraits || [],
+        description: dashData.personalityResult.description || '',
+        big5: dashData.personalityResult.big5Profile,
+      };
+    }
+    if (sharedTypes.includes('cognitive') && dashData?.iqResults) {
+      sharedData.cognitive = {
+        category: dashData.iqResults.category || '',
+        strengths: dashData.iqResults.strengths || [],
+      };
+    }
+    if (sharedTypes.includes('facial') && dashData?.facialExpression) {
+      sharedData.facial = {
+        dominantExpression: dashData.facialExpression.dominantExpression || '',
+        expressionProfile: dashData.facialExpression.expressionProfile,
+      };
+    }
+    if (sharedTypes.includes('voice')) {
+      sharedData.voice = { duration: 0 }; // Duration not available from dashboard
+    }
+    if (sharedTypes.includes('astrological') && dashData?.completeAstrologicalData) {
+      const astro = dashData.completeAstrologicalData;
+      sharedData.astrological = {
+        westernSign: astro.western?.sunSign || '',
+        chineseSign: astro.chinese?.animalSign || '',
+        synthesis: astro.synthesis?.lifeDirection || '',
+        western: astro.western || null,
+        chinese: astro.chinese || null,
+        african: astro.african || null,
+        numerology: astro.numerology || null,
+        synthesisData: astro.synthesis || null,
+      };
+    }
 
-  // Resolve voice URL — only show if voice is shared
-  const voicePath = cardData?.vocalSalutationPath || profile?.vocalSalutationPath;
-  const voiceUrl = (voicePath && voiceShared && user?.id) ? buildStorageUrl(voicePath, user.id, 'tier2') : null;
+    return {
+      displayAlias: profile.displayAlias,
+      ageRange: profile.ageRange,
+      photoPath: sharedTypes.includes('facial') ? profile.photoPath : undefined,
+      vocalSalutationPath: sharedTypes.includes('voice') ? profile.vocalSalutationPath : undefined,
+      selfStatement: profile.selfStatement,
+      feedbackAreas: profile.feedbackAreas,
+      goal: profile.goal,
+      goalCategory: profile.goalCategory,
+      sharedData: sharedData,
+    };
+  })();
 
   return (
     <div className="space-y-6">
@@ -219,138 +218,39 @@ export default function TruthStreamOverview() {
             />
           </div>
 
-          {/* Your Truth Card — Full Reviewer Preview */}
-          <div className="enhanced-glass-card space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-full"
-                  style={{ background: 'rgba(244,114,182,0.2)', color: COLORS.heading }}>
-                  Your Truth Card
-                </span>
-                <span className="text-[10px]" style={{ color: COLORS.label }}>as reviewers see it</span>
-              </div>
-              <button
-                onClick={() => setView('profile-setup')}
-                className="text-[10px] px-2 py-0.5 rounded-lg"
-                style={{ color: COLORS.label, background: 'rgba(255,255,255,0.08)' }}
-              >
-                Edit
-              </button>
+          {/* Your Truth Card — Reuses RevieweeTruthCard for consistent display */}
+          {cardLoading && !selfTruthCard && (
+            <div className="enhanced-glass-card text-center py-6">
+              <div className="animate-spin rounded-full h-6 w-6 border-2 border-pink-400/20 border-t-pink-400 mx-auto mb-2" />
+              <p className="text-xs" style={{ color: COLORS.label }}>Loading your Truth Card preview...</p>
             </div>
-
-            {/* Identity header — photo gated by 'facial' in sharedDataTypes */}
-            <div className="flex items-center gap-4">
-              <div
-                className="rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
-                style={{
-                  width: 64, height: 64, minWidth: 64, minHeight: 64,
-                  background: photoUrl
-                    ? 'none'
-                    : 'linear-gradient(135deg, rgba(244,114,182,0.25), rgba(167,139,250,0.25))',
-                  border: '2px solid rgba(244,114,182,0.3)',
-                }}
-              >
-                {photoUrl ? (
-                  <img
-                    src={photoUrl}
-                    alt="Profile"
-                    style={{ width: 64, height: 64, objectFit: 'cover', display: 'block' }}
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
-                ) : (
-                  <span className="text-2xl">🎭</span>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-lg font-semibold" style={{ color: COLORS.heading }}>
-                  {profile.displayAlias}
-                </p>
-                {profile.ageRange && (
-                  <p className="text-xs" style={{ color: COLORS.body }}>Age: {profile.ageRange}</p>
-                )}
-                <div className="flex items-center gap-3 mt-1 text-[10px]" style={{ color: COLORS.label }}>
-                  <span>{profile.totalReviewsReceived} reviews received</span>
-                  <span>·</span>
-                  <span>{profile.totalReviewsGiven} given</span>
-                  {profile.perceptionGapScore != null && (
-                    <>
-                      <span>·</span>
-                      <span>Gap: {Math.round(profile.perceptionGapScore)}</span>
-                    </>
-                  )}
+          )}
+          {selfTruthCard && user?.id && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-full"
+                    style={{ background: 'rgba(244,114,182,0.2)', color: COLORS.heading }}>
+                    Your Truth Card
+                  </span>
+                  <span className="text-[10px]" style={{ color: COLORS.label }}>as reviewers see it</span>
                 </div>
+                <button
+                  onClick={() => setView('profile-setup')}
+                  className="text-[10px] px-2 py-0.5 rounded-lg"
+                  style={{ color: COLORS.label, background: 'rgba(255,255,255,0.08)' }}
+                >
+                  Edit
+                </button>
               </div>
+              <RevieweeTruthCard
+                truthCard={selfTruthCard}
+                revieweeUserId={user.id}
+                isCollapsed={truthCardCollapsed}
+                onToggleCollapse={() => setTruthCardCollapsed(prev => !prev)}
+              />
             </div>
-
-            {/* Voice Greeting Player — gated by 'voice' in sharedDataTypes */}
-            {voiceUrl && (
-              <VoicePlayer url={voiceUrl} />
-            )}
-
-            {/* Self Statement */}
-            <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <p className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: COLORS.label }}>
-                How they see themselves
-              </p>
-              <p className="text-sm leading-relaxed" style={{ color: COLORS.body }}>
-                &ldquo;{profile.selfStatement}&rdquo;
-              </p>
-            </div>
-
-            {/* Feedback Areas */}
-            {profile.feedbackAreas.length > 0 && (
-              <div>
-                <p className="text-[10px] uppercase tracking-wider font-bold mb-2" style={{ color: COLORS.label }}>
-                  Wants feedback on
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {profile.feedbackAreas.map((area) => (
-                    <span
-                      key={area}
-                      className="text-xs px-2.5 py-1 rounded-full font-medium"
-                      style={{ background: 'rgba(244,114,182,0.15)', border: '1px solid rgba(244,114,182,0.3)', color: COLORS.heading }}
-                    >
-                      {area}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Shared Assessment Data — only iterates over opted-in types */}
-            {sharedTypes.length > 0 && (
-              <div>
-                <p className="text-[10px] uppercase tracking-wider font-bold mb-2" style={{ color: COLORS.label }}>
-                  Shared Assessment Data
-                </p>
-                <div className="space-y-2">
-                  {sharedTypes.map((type) => {
-                    const meta = SHAREABLE_ICONS[type];
-                    const shared = cardData?.sharedData;
-                    return (
-                      <div
-                        key={type}
-                        className="rounded-lg p-3"
-                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <span>{meta?.icon}</span>
-                          <span className="text-xs font-medium" style={{ color: COLORS.heading }}>{meta?.label}</span>
-                        </div>
-                        <OverviewSharedSnippet type={type} shared={shared} astroData={astroData} loading={cardLoading} />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Footer */}
-            <div className="flex items-center justify-between text-[10px] pt-2" style={{ color: COLORS.label, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-              <span>Profile completeness: {profile.profileCompleteness}%</span>
-              <span>{profile.isActive ? 'Active' : 'Inactive'}</span>
-            </div>
-          </div>
+          )}
 
           {/* Milestones */}
           {milestones.length > 0 && (
@@ -383,93 +283,6 @@ export default function TruthStreamOverview() {
 // ============================================================================
 // SUBCOMPONENTS
 // ============================================================================
-
-function VoicePlayer({ url }: { url: string }) {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [playing, setPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [audioError, setAudioError] = useState(false);
-
-  const toggle = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio || audioError) return;
-    if (playing) {
-      audio.pause();
-    } else {
-      audio.play().catch((err) => {
-        console.error('[VoicePlayer] Playback failed:', err?.message || err);
-        setAudioError(true);
-      });
-    }
-  }, [playing, audioError]);
-
-  const formatTime = (s: number) => {
-    if (!isFinite(s) || isNaN(s)) return '0:00';
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, '0')}`;
-  };
-
-  if (audioError) {
-    return (
-      <div className="rounded-xl p-3 text-xs" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: COLORS.label }}>
-        Voice greeting unavailable
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-xl p-3 flex items-center gap-3"
-      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
-      <audio
-        ref={audioRef}
-        src={url}
-        preload="metadata"
-        onLoadedMetadata={(e) => {
-          const d = (e.target as HTMLAudioElement).duration;
-          if (isFinite(d)) setDuration(d);
-        }}
-        onTimeUpdate={(e) => setCurrentTime((e.target as HTMLAudioElement).currentTime)}
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onEnded={() => { setPlaying(false); setCurrentTime(0); }}
-        onError={() => setAudioError(true)}
-      />
-      <button onClick={toggle}
-        className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-        style={{ background: 'linear-gradient(135deg, rgba(244,114,182,0.2), rgba(167,139,250,0.2))', border: '1px solid rgba(244,114,182,0.3)' }}>
-        {playing ? (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ color: COLORS.heading }}>
-            <rect x="6" y="4" width="4" height="16" rx="1" />
-            <rect x="14" y="4" width="4" height="16" rx="1" />
-          </svg>
-        ) : (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ color: COLORS.heading }}>
-            <path d="M8 5v14l11-7z" />
-          </svg>
-        )}
-      </button>
-      <div className="flex-1 min-w-0">
-        <p className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: COLORS.label }}>
-          Voice Greeting
-        </p>
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
-            <div className="h-full rounded-full transition-all"
-              style={{
-                width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%',
-                background: 'linear-gradient(90deg, #f472b6, #a78bfa)',
-              }} />
-          </div>
-          <span className="text-[10px] flex-shrink-0" style={{ color: COLORS.label }}>
-            {formatTime(currentTime)} / {formatTime(duration)}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function StatCard({ label, value, icon }: { label: string; value: string | number; icon: string }) {
   return (
@@ -512,78 +325,4 @@ function ActionButton({
       )}
     </button>
   );
-}
-
-/**
- * Renders a snippet of shared assessment data.
- * Only called for types that ARE in profile.sharedDataTypes (gated by caller).
- * Astrological fallback only uses dashboard data when 'astrological' is in shared types.
- */
-function OverviewSharedSnippet({ type, shared, astroData, loading }: {
-  type: TruthStreamShareableType;
-  shared: TruthCardData['sharedData'] | undefined;
-  astroData: any;
-  loading: boolean;
-}) {
-  if (loading) return <p className="text-[10px]" style={{ color: COLORS.label }}>Loading...</p>;
-  if (!shared && type !== 'astrological') return <p className="text-[10px] italic" style={{ color: COLORS.label }}>Data not yet available</p>;
-
-  switch (type) {
-    case 'personality':
-      if (!shared?.personality) return <SnippetPlaceholder />;
-      return (
-        <div className="text-xs" style={{ color: COLORS.body }}>
-          <p><strong>{shared.personality.mbtiType}</strong> — {shared.personality.description}</p>
-          {shared.personality.dominantTraits?.length > 0 && (
-            <p className="mt-0.5">Traits: {shared.personality.dominantTraits.join(', ')}</p>
-          )}
-        </div>
-      );
-    case 'cognitive':
-      if (!shared?.cognitive) return <SnippetPlaceholder />;
-      return (
-        <div className="text-xs" style={{ color: COLORS.body }}>
-          <p>Category: {shared.cognitive.category}</p>
-          {shared.cognitive.strengths?.length > 0 && (
-            <p className="mt-0.5">Strengths: {shared.cognitive.strengths.join(', ')}</p>
-          )}
-        </div>
-      );
-    case 'facial':
-      if (!shared?.facial) return <SnippetPlaceholder />;
-      return (
-        <p className="text-xs" style={{ color: COLORS.body }}>Dominant expression: {shared.facial.dominantExpression}</p>
-      );
-    case 'voice':
-      if (!shared?.voice) return <SnippetPlaceholder />;
-      return (
-        <p className="text-xs" style={{ color: COLORS.body }}>Voice sample: {shared.voice.duration}s recorded</p>
-      );
-    case 'astrological': {
-      // This case is ONLY reached when 'astrological' is in sharedDataTypes (gated by caller).
-      // Try card shared data first, fall back to dashboard data.
-      const cardAstro = shared?.astrological;
-      const western = cardAstro?.westernSign || astroData?.western?.sunSign;
-      const chinese = cardAstro?.chineseSign || astroData?.chinese?.animalSign;
-      const synthesis = cardAstro?.synthesis || astroData?.synthesis?.lifeDirection;
-
-      if (!western && !chinese) return <SnippetPlaceholder />;
-      return (
-        <div className="text-xs space-y-0.5" style={{ color: COLORS.body }}>
-          <p>
-            {western && <>Sun Sign: {western}</>}
-            {western && chinese && ' · '}
-            {chinese && <>Chinese Zodiac: {chinese}</>}
-          </p>
-          {synthesis && <p className="mt-0.5">{synthesis}</p>}
-        </div>
-      );
-    }
-    default:
-      return <SnippetPlaceholder />;
-  }
-}
-
-function SnippetPlaceholder() {
-  return <p className="text-[10px] italic" style={{ color: COLORS.label }}>Assessment not yet completed</p>;
 }

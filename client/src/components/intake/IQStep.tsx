@@ -650,14 +650,14 @@ const IQStep = () => {
                       </h3>
 
                       {currentQuestion.image && (
-                        <div className="mx-auto mb-4 max-w-xs w-full">
+                        <div className="mx-auto mb-4 max-w-[16rem] sm:max-w-xs w-full">
                           <motion.img
                             key={currentQuestion.image}
                             src={currentQuestion.image}
                             alt={currentQuestion.ariaLabel ?? currentQuestion.text}
                             decoding="async"
                             loading="eager"
-                            className="block mx-auto h-56 w-auto rounded-lg shadow-lg bg-white/5 p-3 border border-white/10"
+                            className="block mx-auto max-h-48 sm:max-h-56 w-auto object-contain rounded-lg shadow-lg bg-white/5 p-3 border border-white/10"
                             initial={{ scale: 0.95, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ duration: 0.35 }}

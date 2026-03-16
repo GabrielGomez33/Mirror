@@ -4,7 +4,9 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTruthStream } from '../../context/TruthStreamContext';
-import type { QuestionnaireSection, QuestionnaireQuestion } from '../../types/truthstream';
+import { getTruthCard } from '../../services/truthStreamApi';
+import RevieweeTruthCard from './RevieweeTruthCard';
+import type { QuestionnaireSection, QuestionnaireQuestion, TruthCardData } from '../../types/truthstream';
 
 const COLORS = {
   heading: '#3d1428',
@@ -317,9 +319,72 @@ export default function ReviewForm() {
   const submitGuardRef = useRef(false);
   const startTimeRef = useRef(Date.now());
 
+  // Reviewee Truth Card state
+  const [truthCard, setTruthCard] = useState<TruthCardData | null>(null);
+  const [truthCardCollapsed, setTruthCardCollapsed] = useState(false);
+  const [truthCardLoading, setTruthCardLoading] = useState(false);
+  const [truthCardError, setTruthCardError] = useState<string | null>(null);
+  const truthCardAbortRef = useRef<AbortController | null>(null);
+
   // Find the active queue item
   const activeItem = queue?.items.find((i) => i.id === activeQueueItemId);
   const isExpired = activeItem ? new Date(activeItem.expiresAt).getTime() < Date.now() : false;
+
+  // Fetch the reviewee's Truth Card when review starts — with abort and retry
+  useEffect(() => {
+    if (!activeItem) return;
+    const revieweeId = activeItem.revieweeId;
+    if (!revieweeId) return;
+
+    // Cancel any in-flight fetch
+    truthCardAbortRef.current?.abort();
+    const controller = new AbortController();
+    truthCardAbortRef.current = controller;
+
+    let retries = 0;
+    const maxRetries = 2;
+
+    const fetchCard = () => {
+      if (controller.signal.aborted) return;
+      setTruthCardLoading(true);
+      setTruthCardError(null);
+
+      getTruthCard(revieweeId)
+        .then((res) => {
+          if (controller.signal.aborted) return;
+          if (res.data) {
+            setTruthCard(res.data);
+          } else {
+            setTruthCardError('Truth Card data unavailable');
+          }
+        })
+        .catch((err: any) => {
+          if (controller.signal.aborted) return;
+          // Retry on network errors (not 403/404)
+          const status = err?.status || err?.response?.status;
+          if (!status && retries < maxRetries) {
+            retries++;
+            const delay = retries * 2000;
+            setTimeout(fetchCard, delay);
+            return;
+          }
+          if (status === 403) {
+            setTruthCardError('Not authorized to view this Truth Card');
+          } else if (status === 404) {
+            setTruthCardError('Reviewee profile not found');
+          } else {
+            setTruthCardError('Could not load Truth Card');
+          }
+          console.error('[ReviewForm] Truth Card fetch failed:', err?.message || err);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setTruthCardLoading(false);
+        });
+    };
+
+    fetchCard();
+    return () => { controller.abort(); };
+  }, [activeItem]);
 
   // Load questionnaire when review starts
   useEffect(() => {
@@ -573,6 +638,47 @@ export default function ReviewForm() {
           <p className="text-[10px] mt-1 italic" style={{ color: COLORS.label }}>This section is optional</p>
         )}
       </div>
+
+      {/* Reviewee Truth Card — collapsible, shown on all sections */}
+      {truthCardLoading && (
+        <div className="enhanced-glass-card text-center py-4">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto mb-2" style={{ borderColor: COLORS.heading }} />
+          <p className="text-xs" style={{ color: COLORS.body }}>Loading reviewee profile...</p>
+        </div>
+      )}
+      {truthCardError && !truthCardLoading && !truthCard && (
+        <div
+          className="enhanced-glass-card text-center py-4"
+          style={{ border: '1px solid rgba(251,191,36,0.3)' }}
+          role="alert"
+        >
+          <p className="text-xs mb-2" style={{ color: COLORS.body }}>{truthCardError}</p>
+          <button
+            onClick={() => {
+              if (activeItem?.revieweeId) {
+                setTruthCardLoading(true);
+                setTruthCardError(null);
+                getTruthCard(activeItem.revieweeId)
+                  .then((res) => { if (res.data) setTruthCard(res.data); })
+                  .catch(() => setTruthCardError('Could not load Truth Card'))
+                  .finally(() => setTruthCardLoading(false));
+              }
+            }}
+            className="text-xs px-3 py-1 rounded-lg"
+            style={{ background: 'rgba(255,255,255,0.08)', color: COLORS.label }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      {truthCard && activeItem && (
+        <RevieweeTruthCard
+          truthCard={truthCard}
+          revieweeUserId={activeItem.revieweeId}
+          isCollapsed={truthCardCollapsed}
+          onToggleCollapse={() => setTruthCardCollapsed((prev) => !prev)}
+        />
+      )}
 
       {/* Section Content */}
       <div className="enhanced-glass-card">

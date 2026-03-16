@@ -119,6 +119,55 @@ export interface TruthCardSharedData {
     westernSign: string;
     chineseSign: string;
     synthesis: string;
+    western?: {
+      sunSign: string;
+      moonSign: string;
+      risingSign: string;
+      dominantElement: string;
+      modality: string;
+      chartRuler: string;
+      houses?: Record<string, string> | null;
+      planetaryPlacements?: Record<string, string> | null;
+    } | null;
+    chinese?: {
+      animalSign: string;
+      element: string;
+      yinYang: string;
+      innerAnimal: string;
+      secretAnimal: string;
+      luckyNumbers: number[];
+      luckyColors: string[];
+      personality: string[];
+      compatibility: string[];
+      lifePhase: string;
+    } | null;
+    african?: {
+      orishaGuardian: string;
+      ancestralSpirit: string;
+      elementalForce: string;
+      sacredAnimal: string;
+      lifeDestiny: string;
+      spiritualGifts: string[];
+      challenges: string[];
+      ceremonies: string[];
+      seasons: string;
+    } | null;
+    numerology?: {
+      lifePathNumber: number;
+      destinyNumber: number;
+      soulUrgeNumber: number;
+      personalityNumber: number;
+      birthDayNumber: number;
+      meanings?: Record<string, string>;
+    } | null;
+    synthesisData?: {
+      coreThemes: string[];
+      lifeDirection: string;
+      spiritualPath: string;
+      relationships: string;
+      career: string;
+      wellness: string;
+    } | null;
   };
   profile?: {
     memberSince: string;
@@ -513,3 +562,4 @@ export interface PaginatedTruthStreamResponse<T> {
   offset: number;
   hasMore: boolean;
 }
+

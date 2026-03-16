@@ -8,7 +8,7 @@ import { useIntake } from '../../context/IntakeContext';
 import { useAuth } from '../../context/AuthContext';
 import GlassCard, { GlassButton } from '../ui/GlassCard';
 import BasicScene from '../three/BasicScene'; // 3js bg (same as VisualStep)
-import { getUserInfo } from '../../utils/token';
+import { getUserInfo, getToken } from '../../utils/token';
 
 // ---------------- Types & constants (unchanged payload / endpoints) ----------------
 interface SubmissionState {
@@ -46,6 +46,7 @@ const ENDPOINTS = {
 const AUTO_REDIRECT_DELAY_MS = 6000;
 
 // ---- Fetch helper: always read text, then try JSON (handles bad/missing content-type) ----
+// Automatically attaches JWT Authorization header from localStorage when available.
 async function safeFetch(
   input: RequestInfo | URL,
   init: RequestInit = {},
@@ -53,8 +54,21 @@ async function safeFetch(
 ): Promise<{ ok: boolean; status: number; json: SafeJSON; text: string; res: Response }> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
+
+  // Attach JWT if available (server requires Authorization: Bearer <token>)
+  const token = getToken('mirror_jwt');
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  // Merge auth headers with any existing headers (don't override Content-Type for FormData)
+  const mergedHeaders = { ...authHeaders, ...(init.headers as Record<string, string> || {}) };
+
   try {
-    const res = await fetch(input, { ...init, signal: controller.signal, credentials: 'include' });
+    const res = await fetch(input, {
+      ...init,
+      headers: mergedHeaders,
+      signal: controller.signal,
+      credentials: 'include',
+    });
     const text = await res.text();
     let json: SafeJSON = null;
     try {

@@ -17,12 +17,21 @@ export async function registerUser(data: {username: string, email:string, passwo
 	if(!res.ok){
 		throw new Error((await res.json()).error || 'Registration failed');
 	}
-	const userLoginInfo = {
-		email: data.email,
-		password:data.password
+	const registerJson = await res.json();
+
+	// Auto-login after registration — await so tokens are stored before navigation.
+	// Wrapped in try/catch so a login failure doesn't block registration success.
+	try {
+		const userLoginInfo = {
+			email: data.email,
+			password: data.password
+		}
+		await loginUser(userLoginInfo);
+	} catch (loginErr) {
+		console.warn('Auto-login after registration failed (non-blocking):', loginErr);
 	}
-	loginUser(userLoginInfo)
-	return res.json();
+
+	return registerJson;
 }
 
 export async function loginUser(data:{email:string,password:string}){
@@ -34,14 +43,26 @@ export async function loginUser(data:{email:string,password:string}){
 		credentials: 'include'
 	});
 
-	
+
 
 	if(!res.ok){
 		throw new Error((await res.json()).error || 'Login FAILED');
 	}
 	const resJson = await res.json();
-	console.log(`/mirror/api/auth/login: Login Attempt -> `,resJson);	
+	console.log(`/mirror/api/auth/login: Login Attempt -> `,resJson);
 	setToken(resJson.tokens.accessToken);
 	setToken(resJson.tokens.refreshToken, 'refreshToken');
+
+	// Store userInfo for getUserInfo() consistency
+	if (resJson?.user) {
+		const userInfo = {
+			userId: resJson.user.id,
+			username: resJson.user.username,
+			email: resJson.user.email,
+			lastLogin: resJson.user.lastLogin
+		};
+		setToken(JSON.stringify(userInfo), 'userInfo');
+	}
+
 	return resJson;
 }
