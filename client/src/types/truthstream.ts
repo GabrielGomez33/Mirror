@@ -360,6 +360,7 @@ export interface TruthMirrorReport {
   confidenceLevel: number;
   perceptionGapScore: number;
   analysisData: {
+    executiveSummary: string;
     perceptionSummary: {
       overview: string;
       averageScores: {
@@ -374,13 +375,21 @@ export interface TruthMirrorReport {
       topImpressionWords: Array<{ word: string; count: number; percentage: number }>;
       strengthDistribution: Array<{ category: string; count: number; percentage: number }>;
       struggleDistribution: Array<{ category: string; count: number; percentage: number }>;
+      keyQuotes: string[];
     };
+    dimensionBreakdown: Array<{
+      name: string;
+      score: number;
+      description: string;
+      reviewerQuotes: string[];
+    }>;
     patternDetection: Array<{
       pattern: string;
       frequency: number;
       reviewerCount: number;
       significance: 'high' | 'medium' | 'low';
       description: string;
+      supportingQuotes: string[];
     }>;
     blindSpots: Array<{
       dimension: string;
@@ -388,12 +397,20 @@ export interface TruthMirrorReport {
       externalScore: number;
       gap: number;
       interpretation: string;
+      evidence: string;
     }>;
     perceptionGap: {
       score: number;
       level: 'exceptional' | 'good' | 'significant_gaps' | 'major_disconnect';
       summary: string;
+      narrative: string;
       details: string[];
+    };
+    reviewerConsensus: {
+      overallSentiment: 'positive' | 'mixed' | 'critical';
+      sentimentBreakdown: { positive: number; neutral: number; critical: number };
+      agreementAreas: string[];
+      disagreementAreas: string[];
     };
     growthRecommendations: Array<{
       area: string;
@@ -562,4 +579,3 @@ export interface PaginatedTruthStreamResponse<T> {
   offset: number;
   hasMore: boolean;
 }
-

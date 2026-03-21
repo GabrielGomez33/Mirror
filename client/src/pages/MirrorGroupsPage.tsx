@@ -40,7 +40,6 @@ const GLASS_PANEL: React.CSSProperties = {
   border: `1px solid ${COLORS.panelBorder}`,
   borderRadius: 24,
   padding: '1.25rem',
-  backdropFilter: 'blur(30px)',
   WebkitBackdropFilter: 'blur(30px)',
   boxShadow: '0 8px 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.18)',
 };
@@ -134,6 +133,7 @@ function GroupCard({ group, onClick, getGroupIcon }: GroupCardProps) {
         boxShadow: hovered ? '0 8px 24px rgba(0,0,0,0.12)' : 'none',
         outline: 'none',
         WebkitTapHighlightColor: 'transparent',
+        backdropFilter: 'blur(30px)'
       }}
     >
       {/* Icon */}
@@ -710,6 +710,7 @@ export default function MirrorGroupsPage() {
                         fontWeight: active ? 600 : 400,
                         cursor: 'pointer',
                         WebkitTapHighlightColor: 'transparent',
+                        backdropFilter: 'blur(30px)'
                       }}
                     >
                       {label}

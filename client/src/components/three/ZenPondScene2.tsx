@@ -47,7 +47,7 @@ export default function ZenPondScene() {
     // ─── Ground Plane (earth beneath water) ───
     const groundGeo = new THREE.PlaneGeometry(120, 120);
     const groundMat = new THREE.MeshLambertMaterial({
-      color: 0x8d6e63,
+      color: 0xd1a6aa,
       emissive: 0x5d4037,
       emissiveIntensity: 0.05,
     });
@@ -61,14 +61,14 @@ export default function ZenPondScene() {
     const waterSegments = 80;
     const waterGeo = new THREE.PlaneGeometry(60, 60, waterSegments, waterSegments);
     const waterMat = new THREE.MeshPhongMaterial({
-      color: 0xffb8d9,
-      transparent: true,
-      opacity: 0.28,
-      emissive: 0x90caf9,
-      emissiveIntensity: 0.08,
-      specular: 0xffffff,
-      shininess: 180,
-      side: THREE.DoubleSide,
+          color: 0xd1c9d2,
+          transparent: false,
+          opacity: 1.5,
+          emissive: 0x4fc3f7,
+          emissiveIntensity: 0.06,
+          specular: 0xffffff,
+          shininess: 200,
+          side: THREE.DoubleSide,
     });
     const water = new THREE.Mesh(waterGeo, waterMat);
     water.rotation.x = -Math.PI / 2;
@@ -709,9 +709,9 @@ export default function ZenPondScene() {
       for (let i = 0; i < wPos.count; i++) {
         const x = wPos.getX(i);
         const y = wPos.getY(i);
-        const wave1 = Math.sin(x * 0.3 + t * 0.8) * 0.04;
-        const wave2 = Math.sin(y * 0.4 + t * 1.1) * 0.03;
-        const wave3 = Math.sin((x + y) * 0.2 + t * 0.6) * 0.02;
+        //const wave1 = Math.sin(x * 0.3 + t * 0.8) * 0.04;
+        //const wave2 = Math.sin(y * 0.4 + t * 1.1) * 0.03;
+        //const wave3 = Math.sin((x + y) * 0.2 + t * 0.6) * 0.02;
 
         // Ripple influence
         let rippleEffect = 0;
@@ -726,10 +726,10 @@ export default function ZenPondScene() {
           rippleEffect += Math.sin(dist * 4 - t * 6) * envelope * fade * 0.06;
         }
 
-        wPos.setZ(i, waterOriginalY[i] + wave1 + wave2 + wave3 + rippleEffect);
+        //wPos.setZ(i, waterOriginalY[i] + wave1 + wave2 + wave3 + rippleEffect);
       }
-      wPos.needsUpdate = true;
-      waterGeo.computeVertexNormals();
+      //wPos.needsUpdate = true;
+      //waterGeo.computeVertexNormals();
 
       // ── Ripple lifecycle ──
       rippleTimer += dt;
