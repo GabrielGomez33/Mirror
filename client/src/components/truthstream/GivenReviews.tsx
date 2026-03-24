@@ -1,15 +1,15 @@
-// src/components/truthstream/ReceivedReviews.tsx
-// Display received anonymous reviews — glass morphism aesthetic matching AnalysisDashboard
-// Handles dynamic questionnaire-based responses (Record<sectionId, Record<questionId, value>>)
+// src/components/truthstream/GivenReviews.tsx
+// Display reviews the user has GIVEN — reviewer perspective with anonymous dialogue.
+// Glass morphism aesthetic matching AnalysisDashboard / ReceivedReviews.
+// Security: reviewee identity never revealed; dialogue is anonymous.
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTruthStream } from '../../context/TruthStreamContext';
-import { onWebSocketEvent } from '../../services/groupsWebSocket';
 import type { ReviewResponse } from '../../types/truthstream';
 
 // ============================================================================
-// COLOR PALETTE — matches AnalysisDashboard / VisualStep expression colors
+// COLOR PALETTE — matches AnalysisDashboard / ReceivedReviews
 // ============================================================================
 const CLASSIFICATION_COLORS: Record<string, { color: string; glow: string; label: string }> = {
   constructive:  { color: '#60a5fa', glow: 'rgba(96,165,250,0.35)',  label: 'Constructive' },
@@ -27,6 +27,9 @@ const FALLBACK_SECTION_COLORS = [
   { color: '#2dd4bf', glow: 'rgba(45,212,191,0.35)' },
   { color: '#818cf8', glow: 'rgba(129,140,248,0.35)' },
 ];
+
+const MESSAGE_MAX_LENGTH = 1000;
+const MESSAGE_MIN_LENGTH = 5;
 
 // ============================================================================
 // HELPERS
@@ -48,7 +51,6 @@ function classificationMeta(c: string | null) {
   return CLASSIFICATION_COLORS[c || ''] || { color: '#94a3b8', glow: 'rgba(148,163,184,0.35)', label: 'Pending' };
 }
 
-/** Pretty-print a camelCase or snake_case key into a readable label */
 function humanize(key: string): string {
   return key
     .replace(/_/g, ' ')
@@ -56,13 +58,12 @@ function humanize(key: string): string {
     .replace(/^./, (s) => s.toUpperCase());
 }
 
-/** Check if a value is a numeric score (1-10 range) */
 function isScore(v: unknown): v is number {
   return typeof v === 'number' && v >= 0 && v <= 10;
 }
 
 // ============================================================================
-// SVG SCORE RING (from AnalysisDashboard)
+// SVG SCORE RING
 // ============================================================================
 const ScoreRing: React.FC<{
   score: number; maxScore?: number; size?: number; strokeWidth?: number; color: string; glow: string;
@@ -96,7 +97,7 @@ const ScoreRing: React.FC<{
 };
 
 // ============================================================================
-// ANIMATED BAR (from AnalysisDashboard)
+// ANIMATED BAR
 // ============================================================================
 const AnimatedBar: React.FC<{
   label: string; value: number; maxValue: number; color: string; glow: string; index: number;
@@ -132,13 +133,10 @@ const AnimatedBar: React.FC<{
 };
 
 // ============================================================================
-// DIALOGUE THREAD — inline anonymous chat (reviewee perspective)
+// DIALOGUE THREAD — inline anonymous chat between reviewer ↔ reviewee
 // ============================================================================
-const MESSAGE_MAX_LENGTH = 1000;
-const MESSAGE_MIN_LENGTH = 5;
 const SEEN_COUNTS_KEY = 'ts_dialogue_seen_counts';
 
-/** Read per-review last-seen response counts from localStorage */
 function getSeenCounts(): Record<string, number> {
   try {
     const raw = localStorage.getItem(SEEN_COUNTS_KEY);
@@ -146,7 +144,6 @@ function getSeenCounts(): Record<string, number> {
   } catch { return {}; }
 }
 
-/** Persist last-seen response count for a review */
 function markResponseCountSeen(reviewId: string, count: number): void {
   try {
     const counts = getSeenCounts();
@@ -202,23 +199,16 @@ function DialogueThread({ reviewId, responseCount }: { reviewId: string; respons
   }, [isOpen, reviewId, responseCount]);
 
   useEffect(() => {
-    if (isOpen && messages.length === 0) fetchMessages();
+    if (isOpen && messages.length === 0) {
+      fetchMessages();
+    }
   }, [isOpen, messages.length, fetchMessages]);
 
-  // Auto-refresh when a dialogue message WebSocket event fires
+  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (!isOpen) return;
-    const unsub = onWebSocketEvent('ts:dialogue_message' as any, (data: any) => {
-      // Refresh if the event is for this review or no reviewId filter (refresh all open threads)
-      if (!data?.metadata?.reviewId || data.metadata.reviewId === reviewId) {
-        fetchMessages();
-      }
-    });
-    return unsub;
-  }, [isOpen, reviewId, fetchMessages]);
-
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
   }, [messages]);
 
   const handleSend = async () => {
@@ -231,10 +221,12 @@ function DialogueThread({ reviewId, responseCount }: { reviewId: string; respons
       const ok = await respondToReview(reviewId, trimmed);
       if (ok) {
         setNewMessage('');
+        // Refresh the thread to get the new message with server timestamp
         await fetchMessages();
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to send message';
+      // Handle rate limiting specifically
       if (typeof err === 'object' && err !== null && 'code' in err && (err as any).code === 'RATE_LIMITED') {
         setLocalError('Too many messages. Please slow down.');
       } else if (typeof err === 'object' && err !== null && 'code' in err && (err as any).code === 'THREAD_CLOSED') {
@@ -249,7 +241,10 @@ function DialogueThread({ reviewId, responseCount }: { reviewId: string; respons
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
   };
 
   const charCount = newMessage.length;
@@ -257,6 +252,7 @@ function DialogueThread({ reviewId, responseCount }: { reviewId: string; respons
 
   return (
     <div ref={threadRef} style={{ marginTop: 10 }}>
+      {/* Toggle button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2"
@@ -299,6 +295,7 @@ function DialogueThread({ reviewId, responseCount }: { reviewId: string; respons
             transition={{ duration: 0.25 }}
             style={{ overflow: 'hidden' }}
           >
+            {/* Messages */}
             <div
               ref={scrollRef}
               style={{
@@ -309,56 +306,79 @@ function DialogueThread({ reviewId, responseCount }: { reviewId: string; respons
             >
               {isLoading && messages.length === 0 && (
                 <div className="text-center" style={{ padding: 16 }}>
-                  <div className="animate-spin rounded-full h-5 w-5 mx-auto" style={{ border: '2px solid rgba(255,255,255,0.08)', borderTopColor: '#f472b6' }} />
+                  <div
+                    className="animate-spin rounded-full h-5 w-5 mx-auto"
+                    style={{ border: '2px solid rgba(255,255,255,0.08)', borderTopColor: '#a78bfa' }}
+                  />
                 </div>
               )}
+
               {!isLoading && messages.length === 0 && (
                 <div style={{ padding: 12, textAlign: 'center' }}>
                   <p className="enhanced-glass-subtle" style={{ fontSize: 11, margin: 0 }}>
-                    No messages yet. Start an anonymous conversation with this reviewer.
+                    No messages yet. The reviewee may respond to your review here.
                   </p>
                 </div>
               )}
+
               {messages.map((msg, i) => {
-                const isReviewee = msg.authorRole === 'reviewee';
-                const bubbleColor = isReviewee ? '#f472b6' : '#a78bfa';
+                const isReviewer = msg.authorRole === 'reviewer';
+                const bubbleColor = isReviewer ? '#a78bfa' : '#f472b6';
                 const isSystem = (msg as any).isSystemMessage;
+
                 if (isSystem) {
                   return (
                     <div key={msg.id || i} style={{ textAlign: 'center', padding: '4px 0' }}>
-                      <span className="enhanced-glass-subtle" style={{ fontSize: 10, fontStyle: 'italic' }}>{msg.content}</span>
+                      <span className="enhanced-glass-subtle" style={{ fontSize: 10, fontStyle: 'italic' }}>
+                        {msg.content}
+                      </span>
                     </div>
                   );
                 }
+
                 return (
                   <motion.div
                     key={msg.id || i}
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.03, duration: 0.2 }}
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: isReviewee ? 'flex-end' : 'flex-start' }}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: isReviewer ? 'flex-end' : 'flex-start',
+                    }}
                   >
                     <div style={{
                       maxWidth: '80%', padding: '8px 12px', borderRadius: 12,
-                      background: `${bubbleColor}12`, border: `1px solid ${bubbleColor}25`,
-                      borderBottomRightRadius: isReviewee ? 4 : 12,
-                      borderBottomLeftRadius: isReviewee ? 12 : 4,
+                      background: `${bubbleColor}12`,
+                      border: `1px solid ${bubbleColor}25`,
+                      borderBottomRightRadius: isReviewer ? 4 : 12,
+                      borderBottomLeftRadius: isReviewer ? 12 : 4,
                     }}>
                       <div className="flex items-center gap-2" style={{ marginBottom: 2 }}>
                         <span style={{ fontSize: 10, fontWeight: 600, color: bubbleColor }}>
-                          {isReviewee ? 'You (Reviewee)' : 'Reviewer'}
+                          {isReviewer ? 'You (Reviewer)' : 'Reviewee'}
                         </span>
-                        <span className="enhanced-glass-subtle" style={{ fontSize: 9, margin: 0 }}>{timeAgo(msg.createdAt)}</span>
+                        <span className="enhanced-glass-subtle" style={{ fontSize: 9, margin: 0 }}>
+                          {timeAgo(msg.createdAt)}
+                        </span>
                       </div>
-                      <p className="enhanced-glass-body" style={{ fontSize: 12, margin: 0, lineHeight: 1.5, wordBreak: 'break-word' }}>{msg.content}</p>
+                      <p className="enhanced-glass-body" style={{ fontSize: 12, margin: 0, lineHeight: 1.5, wordBreak: 'break-word' }}>
+                        {msg.content}
+                      </p>
                     </div>
                   </motion.div>
                 );
               })}
             </div>
+
+            {/* Compose */}
             <div style={{ marginTop: 8 }}>
               {localError && (
-                <div style={{ padding: '6px 10px', marginBottom: 6, borderRadius: 8, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)' }}>
+                <div style={{
+                  padding: '6px 10px', marginBottom: 6, borderRadius: 8,
+                  background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)',
+                }}>
                   <span style={{ fontSize: 11, color: '#fca5a5' }}>{localError}</span>
                 </div>
               )}
@@ -371,21 +391,33 @@ function DialogueThread({ reviewId, responseCount }: { reviewId: string; respons
                   rows={2}
                   placeholder="Reply anonymously... (min 5 chars)"
                   className="flex-1 rounded-lg p-2.5 text-xs resize-none"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'inherit', outline: 'none', fontSize: 12 }}
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: 'inherit', outline: 'none', fontSize: 12,
+                  }}
                   aria-label="Dialogue message"
                 />
                 <button
                   onClick={handleSend}
                   disabled={!canSend}
                   className="enhanced-action-button"
-                  style={{ padding: '0 16px', borderRadius: 10, alignSelf: 'flex-end', opacity: canSend ? 1 : 0.4 }}
+                  style={{
+                    padding: '0 16px', borderRadius: 10, alignSelf: 'flex-end',
+                    opacity: canSend ? 1 : 0.4,
+                  }}
                   aria-busy={isSending}
                 >
-                  <span className="enhanced-glass-text" style={{ fontSize: 11, fontWeight: 600 }}>{isSending ? '...' : 'Send'}</span>
+                  <span className="enhanced-glass-text" style={{ fontSize: 11, fontWeight: 600 }}>
+                    {isSending ? '...' : 'Send'}
+                  </span>
                 </button>
               </div>
               <div className="flex items-center justify-between" style={{ marginTop: 4 }}>
-                <span className="enhanced-glass-subtle" style={{ fontSize: 10, color: charCount >= MESSAGE_MAX_LENGTH * 0.9 ? '#f472b6' : undefined }}>
+                <span
+                  className="enhanced-glass-subtle"
+                  style={{ fontSize: 10, color: charCount >= MESSAGE_MAX_LENGTH * 0.9 ? '#f472b6' : undefined }}
+                >
                   {charCount}/{MESSAGE_MAX_LENGTH}
                 </span>
                 <span className="enhanced-glass-subtle" style={{ fontSize: 10, fontStyle: 'italic', margin: 0 }}>
@@ -401,17 +433,15 @@ function DialogueThread({ reviewId, responseCount }: { reviewId: string; respons
 }
 
 // ============================================================================
-// REVIEW CARD — glass morphism with animated elements
+// GIVEN REVIEW CARD — reviewer perspective
 // ============================================================================
-function ReviewCard({ review, index }: { review: any; index: number }) {
-  const { toggleHelpful, flagReview } = useTruthStream();
+function GivenReviewCard({ review, index }: { review: any; index: number }) {
   const [expanded, setExpanded] = useState(false);
-  const [showFlagConfirm, setShowFlagConfirm] = useState(false);
 
   const cls = classificationMeta(review.classification);
   const responses: Record<string, Record<string, unknown>> = review.responses || {};
 
-  // Extract scores and text responses from dynamic data
+  // Parse dynamic questionnaire responses
   const scores: Array<{ key: string; value: number }> = [];
   const textResponses: Array<{ key: string; value: string }> = [];
   const wordSelections: Array<{ key: string; words: string[] }> = [];
@@ -426,7 +456,6 @@ function ReviewCard({ review, index }: { review: any; index: number }) {
       } else if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'string') {
         wordSelections.push({ key: qId, words: val });
       } else if (typeof val === 'object' && val !== null) {
-        // category_explain: { category, explanation }
         const obj = val as Record<string, unknown>;
         if (typeof obj.category === 'string' && typeof obj.explanation === 'string') {
           textResponses.push({ key: qId, value: `${humanize(obj.category)}: ${obj.explanation}` });
@@ -435,14 +464,8 @@ function ReviewCard({ review, index }: { review: any; index: number }) {
     });
   });
 
-  // Primary score = first score or quality score
   const primaryScore = scores.length > 0 ? scores[0] : null;
   const qualityPct = Math.round((review.qualityScore ?? 0) * 100);
-
-  const handleFlag = async () => {
-    setShowFlagConfirm(false);
-    await flagReview(review.id, 'Inappropriate content');
-  };
 
   return (
     <motion.div
@@ -452,13 +475,10 @@ function ReviewCard({ review, index }: { review: any; index: number }) {
       className="enhanced-glass-card"
       style={{ borderRadius: 16, overflow: 'hidden' }}
     >
-      {/* ── Header: classification + time ──────────────────────────────── */}
+      {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
         <div className="flex items-center gap-2">
-          <span
-            className="enhanced-glass-heading"
-            style={{ fontSize: 13 }}
-          >
+          <span className="enhanced-glass-heading" style={{ fontSize: 13 }}>
             Review #{index + 1}
           </span>
           <motion.span
@@ -476,40 +496,42 @@ function ReviewCard({ review, index }: { review: any; index: number }) {
           >
             {cls.label}
           </motion.span>
+          {/* Flagged indicator */}
+          {review.isFlagged && (
+            <span
+              className="px-2 py-0.5 rounded-full"
+              style={{
+                fontSize: 9, fontWeight: 600,
+                background: 'rgba(248,113,113,0.15)',
+                border: '1px solid rgba(248,113,113,0.25)',
+                color: '#fca5a5',
+              }}
+            >
+              Flagged
+            </span>
+          )}
         </div>
         <span className="enhanced-glass-subtle" style={{ fontSize: 11 }}>{timeAgo(review.createdAt)}</span>
       </div>
 
-      {/* ── Scores row: ring + bars ────────────────────────────────────── */}
+      {/* ── Scores row ─────────────────────────────────────────────────── */}
       {scores.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
           {primaryScore && (
-            <ScoreRing
-              score={primaryScore.value}
-              color={cls.color}
-              glow={cls.glow}
-            />
+            <ScoreRing score={primaryScore.value} color={cls.color} glow={cls.glow} />
           )}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 5 }}>
             {scores.slice(0, expanded ? scores.length : 4).map((s, i) => {
               const c = FALLBACK_SECTION_COLORS[i % FALLBACK_SECTION_COLORS.length];
               return (
-                <AnimatedBar
-                  key={s.key}
-                  label={humanize(s.key)}
-                  value={s.value}
-                  maxValue={10}
-                  color={c.color}
-                  glow={c.glow}
-                  index={i}
-                />
+                <AnimatedBar key={s.key} label={humanize(s.key)} value={s.value} maxValue={10} color={c.color} glow={c.glow} index={i} />
               );
             })}
           </div>
         </div>
       )}
 
-      {/* ── Word selections — glass pills with glow ────────────────────── */}
+      {/* ── Word selections ────────────────────────────────────────────── */}
       {wordSelections.length > 0 && (
         <div className="flex flex-wrap gap-1.5" style={{ marginBottom: 12 }}>
           {wordSelections.flatMap((ws) => ws.words).map((word, i) => {
@@ -535,7 +557,7 @@ function ReviewCard({ review, index }: { review: any; index: number }) {
         </div>
       )}
 
-      {/* ── First text response always visible ─────────────────────────── */}
+      {/* ── First text response ────────────────────────────────────────── */}
       {textResponses.length > 0 && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -546,7 +568,7 @@ function ReviewCard({ review, index }: { review: any; index: number }) {
             background: 'rgba(255,255,255,0.03)',
             border: '1px solid rgba(255,255,255,0.06)',
             borderLeftWidth: 3,
-            borderLeftColor: cls.color,
+            borderLeftColor: '#a78bfa',
           }}
         >
           <span className="enhanced-glass-subtle" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -558,7 +580,7 @@ function ReviewCard({ review, index }: { review: any; index: number }) {
         </motion.div>
       )}
 
-      {/* ── Quality + metadata pills ───────────────────────────────────── */}
+      {/* ── Engagement metrics ─────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2" style={{ marginBottom: 10 }}>
         <span
           className="px-2 py-0.5 rounded-full"
@@ -571,6 +593,14 @@ function ReviewCard({ review, index }: { review: any; index: number }) {
         >
           Quality: {qualityPct}%
         </span>
+        {review.helpfulCount > 0 && (
+          <span className="px-2 py-0.5 rounded-full" style={{
+            fontSize: 10, fontWeight: 600,
+            background: 'rgba(244,114,182,0.12)', border: '1px solid rgba(244,114,182,0.25)', color: '#f472b6',
+          }}>
+            ❤️ {review.helpfulCount} helpful
+          </span>
+        )}
         {review.depthScore != null && (
           <span className="px-2 py-0.5 rounded-full" style={{ fontSize: 10, background: 'rgba(255,255,255,0.06)', color: '#94a3b8' }}>
             Depth: {Math.round((review.depthScore ?? 0) * 100)}%
@@ -593,7 +623,6 @@ function ReviewCard({ review, index }: { review: any; index: number }) {
             transition={{ duration: 0.25 }}
             style={{ overflow: 'hidden' }}
           >
-            {/* Remaining text responses */}
             {textResponses.slice(1).map((t, i) => (
               <motion.div
                 key={t.key}
@@ -617,7 +646,7 @@ function ReviewCard({ review, index }: { review: any; index: number }) {
               </motion.div>
             ))}
 
-            {/* Dina counter-analysis */}
+            {/* Dina's analysis of your review */}
             {review.dinaCounterAnalysis && (
               <motion.div
                 initial={{ opacity: 0 }}
@@ -627,12 +656,11 @@ function ReviewCard({ review, index }: { review: any; index: number }) {
                   padding: 12, borderRadius: 12, marginBottom: 8,
                   background: 'rgba(192,132,252,0.06)',
                   border: '1px solid rgba(192,132,252,0.15)',
-                  borderLeftWidth: 3,
-                  borderLeftColor: '#c084fc',
+                  borderLeftWidth: 3, borderLeftColor: '#c084fc',
                 }}
               >
                 <span className="enhanced-glass-subtle" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#c084fc' }}>
-                  Dina's Analysis
+                  Dina's Assessment of Your Review
                 </span>
                 <p className="enhanced-glass-body" style={{ fontSize: 12, margin: '4px 0 0', lineHeight: 1.6 }}>
                   {review.dinaCounterAnalysis}
@@ -650,12 +678,11 @@ function ReviewCard({ review, index }: { review: any; index: number }) {
                   padding: 12, borderRadius: 12, marginBottom: 8,
                   background: `${cls.color}08`,
                   border: `1px solid ${cls.color}15`,
-                  borderLeftWidth: 3,
-                  borderLeftColor: cls.color,
+                  borderLeftWidth: 3, borderLeftColor: cls.color,
                 }}
               >
                 <span className="enhanced-glass-subtle" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Classification Reasoning
+                  Why "{cls.label}"
                 </span>
                 <p className="enhanced-glass-body" style={{ fontSize: 12, margin: '4px 0 0', lineHeight: 1.6 }}>
                   {review.classificationReasoning}
@@ -684,69 +711,7 @@ function ReviewCard({ review, index }: { review: any; index: number }) {
         >
           {expanded ? 'Show less' : 'Show full review'}
         </button>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => toggleHelpful(review.id, review.hasUserMarkedHelpful)}
-            className="flex items-center gap-1 transition-opacity"
-            style={{
-              fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-              color: review.hasUserMarkedHelpful ? '#f472b6' : undefined,
-            }}
-            aria-pressed={review.hasUserMarkedHelpful}
-            aria-label={review.hasUserMarkedHelpful ? 'Unmark as helpful' : 'Mark as helpful'}
-          >
-            <span style={{ fontSize: 14 }}>{review.hasUserMarkedHelpful ? '❤️' : '🤍'}</span>
-            <span className="enhanced-glass-subtle" style={{ fontSize: 11, color: review.hasUserMarkedHelpful ? '#f472b6' : undefined, margin: 0 }}>
-              {review.helpfulCount > 0 ? review.helpfulCount : ''}
-            </span>
-          </button>
-          {!review.isFlagged && (
-            <button
-              onClick={() => setShowFlagConfirm(true)}
-              style={{ fontSize: 14, background: 'none', border: 'none', cursor: 'pointer', padding: 0, opacity: 0.5 }}
-              aria-label="Flag review"
-            >
-              🚩
-            </button>
-          )}
-        </div>
       </div>
-
-      {/* ── Flag Confirmation ──────────────────────────────────────────── */}
-      <AnimatePresence>
-        {showFlagConfirm && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            style={{
-              marginTop: 10, padding: 12, borderRadius: 12, overflow: 'hidden',
-              background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)',
-            }}
-            role="alert"
-          >
-            <p className="enhanced-glass-body" style={{ fontSize: 12, marginBottom: 8 }}>
-              Flag this review as inappropriate? This will notify moderators.
-            </p>
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setShowFlagConfirm(false)}
-                className="enhanced-action-button px-3 py-1.5"
-                style={{ borderRadius: 10 }}
-              >
-                <span className="enhanced-glass-subtle" style={{ fontSize: 11 }}>Cancel</span>
-              </button>
-              <button
-                onClick={handleFlag}
-                className="px-3 py-1.5 rounded-lg"
-                style={{ background: 'rgba(248,113,113,0.2)', border: '1px solid rgba(248,113,113,0.3)', color: '#fca5a5', fontSize: 11, cursor: 'pointer' }}
-              >
-                Flag Review
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* ── Dialogue thread ────────────────────────────────────────────── */}
       <DialogueThread reviewId={review.id} responseCount={review.responseCount ?? 0} />
@@ -757,19 +722,16 @@ function ReviewCard({ review, index }: { review: any; index: number }) {
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
-export default function ReceivedReviews() {
-  const { receivedReviews, receivedHasMore, isLoading, isLoadingMore, loadReceivedReviews, setView } = useTruthStream();
-
-  // Scroll-to-top ref for pagination
-  const topRef = useRef<HTMLDivElement>(null);
+export default function GivenReviews() {
+  const { givenReviews, givenHasMore, isLoading, isLoadingMore, loadGivenReviews, setView } = useTruthStream();
 
   const handleLoadMore = useCallback(() => {
-    loadReceivedReviews(true);
-  }, [loadReceivedReviews]);
+    loadGivenReviews(true);
+  }, [loadGivenReviews]);
 
   useEffect(() => {
-    if (receivedReviews.length === 0) loadReceivedReviews();
-  }, [receivedReviews.length, loadReceivedReviews]);
+    if (givenReviews.length === 0) loadGivenReviews();
+  }, [givenReviews.length, loadGivenReviews]);
 
   return (
     <motion.div
@@ -780,7 +742,6 @@ export default function ReceivedReviews() {
     >
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <motion.div
-        ref={topRef}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
@@ -795,29 +756,29 @@ export default function ReceivedReviews() {
             >
               <span className="enhanced-glass-subtle" style={{ fontSize: 12 }}>Back</span>
             </button>
-            <h2 className="enhanced-glass-heading" style={{ fontSize: 18, margin: 0 }}>Reviews Received</h2>
+            <h2 className="enhanced-glass-heading" style={{ fontSize: 18, margin: 0 }}>Reviews Given</h2>
           </div>
-          {receivedReviews.length > 0 && (
+          {givenReviews.length > 0 && (
             <span
               className="px-2.5 py-1 rounded-full"
               style={{
                 fontSize: 10, fontWeight: 600,
-                background: 'linear-gradient(135deg, rgba(244,114,182,0.15), rgba(167,139,250,0.15))',
-                border: '1px solid rgba(244,114,182,0.2)',
-                color: '#f472b6',
+                background: 'linear-gradient(135deg, rgba(167,139,250,0.15), rgba(96,165,250,0.15))',
+                border: '1px solid rgba(167,139,250,0.2)',
+                color: '#a78bfa',
               }}
             >
-              {receivedReviews.length} review{receivedReviews.length !== 1 ? 's' : ''}
+              {givenReviews.length} review{givenReviews.length !== 1 ? 's' : ''}
             </span>
           )}
         </div>
         <p className="enhanced-glass-subtle" style={{ fontSize: 11, margin: 0 }}>
-          All reviews are anonymous — identities are never revealed
+          Your reviews — see how they were received and continue anonymous conversations
         </p>
       </motion.div>
 
-      {/* ── Loading state ──────────────────────────────────────────────── */}
-      {isLoading && receivedReviews.length === 0 && (
+      {/* ── Loading ────────────────────────────────────────────────────── */}
+      {isLoading && givenReviews.length === 0 && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -825,34 +786,41 @@ export default function ReceivedReviews() {
         >
           <div
             className="animate-spin rounded-full h-8 w-8 mx-auto mb-3"
-            style={{ border: '2px solid rgba(255,255,255,0.08)', borderTopColor: '#f472b6' }}
+            style={{ border: '2px solid rgba(255,255,255,0.08)', borderTopColor: '#a78bfa' }}
           />
-          <p className="enhanced-glass-body" style={{ fontSize: 13 }}>Loading reviews...</p>
+          <p className="enhanced-glass-body" style={{ fontSize: 13 }}>Loading your reviews...</p>
         </motion.div>
       )}
 
       {/* ── Empty state ────────────────────────────────────────────────── */}
-      {receivedReviews.length === 0 && !isLoading && (
+      {givenReviews.length === 0 && !isLoading && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           className="enhanced-glass-card text-center py-12"
         >
-          <span className="text-4xl block mb-4">🔍</span>
-          <h3 className="enhanced-glass-heading" style={{ fontSize: 15, marginBottom: 6 }}>No Reviews Yet</h3>
-          <p className="enhanced-glass-body" style={{ fontSize: 13 }}>
-            Give at least 1 review to start seeing feedback!
+          <span className="text-4xl block mb-4">📝</span>
+          <h3 className="enhanced-glass-heading" style={{ fontSize: 15, marginBottom: 6 }}>No Reviews Given Yet</h3>
+          <p className="enhanced-glass-body" style={{ fontSize: 13, marginBottom: 12 }}>
+            Head to the review queue to start giving anonymous feedback.
           </p>
+          <button
+            onClick={() => setView('queue')}
+            className="enhanced-action-button px-6 py-2.5"
+            style={{ borderRadius: 12 }}
+          >
+            <span className="enhanced-glass-text" style={{ fontWeight: 600, fontSize: 13 }}>Go to Review Queue</span>
+          </button>
         </motion.div>
       )}
 
       {/* ── Review cards ───────────────────────────────────────────────── */}
-      {receivedReviews.map((review, i) => (
-        <ReviewCard key={review.id} review={review} index={i} />
+      {givenReviews.map((review, i) => (
+        <GivenReviewCard key={review.id} review={review} index={i} />
       ))}
 
       {/* ── Load more ──────────────────────────────────────────────────── */}
-      {receivedHasMore && (
+      {givenHasMore && (
         <motion.button
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

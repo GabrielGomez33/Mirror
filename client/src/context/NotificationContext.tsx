@@ -2,6 +2,12 @@
 // Global notification state management with WebSocket integration
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
+
+const IS_DEV = import.meta.env.DEV;
+function devLog(msg: string, ...args: unknown[]) {
+  if (IS_DEV) console.log(msg, ...args);
+}
+
 import type {
   Notification,
   NotificationState,
@@ -231,7 +237,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   // Handle incoming WebSocket notification - defined BEFORE useEffect that uses it
   const handleIncomingNotification = useCallback((data: WSNotificationMessage['data']) => {
-    console.log('[NotificationContext] Processing notification:', data);
+    devLog('[NotificationContext] Processing notification:', data);
 
     // Backend sends inviteCode, map it to requestId for consistency
     const requestId = data.metadata?.requestId || data.metadata?.inviteCode;
@@ -240,7 +246,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     // Skip transient notifications that shouldn't be stored in the panel
     const transientTypes = ['chat_typing', 'chat_presence'];
     if (transientTypes.includes(notificationType)) {
-      console.log(`[NotificationContext] Skipping transient notification: ${notificationType}`);
+      devLog(`[NotificationContext] Skipping transient notification: ${notificationType}`);
       // These are handled by other components (e.g., chat UI) - just emit event
       return;
     }
@@ -252,7 +258,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     // Check if we already have this notification (using ref for latest state)
     const isDuplicate = notificationsRef.current.some((n) => n.id === deterministicId);
     if (isDuplicate) {
-      console.log('[NotificationContext] Skipping duplicate notification:', deterministicId);
+      devLog('[NotificationContext] Skipping duplicate notification:', deterministicId);
       return;
     }
 
@@ -310,6 +316,35 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       ];
     }
 
+    // TruthStream action URLs — route to the appropriate TruthStream view
+    // For dialogue messages, the view depends on the recipient's role:
+    // If authorRole is 'reviewee' → recipient is the reviewer → show 'given'
+    // If authorRole is 'reviewer' → recipient is the reviewee → show 'received'
+    const dialogueView = data.metadata?.authorRole === 'reviewee' ? 'given' : 'received';
+
+    const truthStreamActionMap: Record<string, { url: string; label: string }> = {
+      ts_review_received:   { url: '/truthstream?view=received', label: 'View Reviews' },
+      ts_dialogue_message:  { url: `/truthstream?view=${dialogueView}`, label: 'View Conversation' },
+      ts_helpful_marked:    { url: '/truthstream?view=given',    label: 'View Review' },
+      ts_review_classified: { url: '/truthstream?view=received', label: 'View Review' },
+      ts_analysis_complete: { url: '/truthstream?view=analysis', label: 'View Report' },
+      ts_queue_assigned:    { url: '/truthstream?view=queue',    label: 'Start Reviewing' },
+      ts_milestone_earned:  { url: '/truthstream?view=overview', label: 'View Milestones' },
+    };
+
+    const tsAction = truthStreamActionMap[notificationType];
+    if (tsAction) {
+      let actionUrl = tsAction.url;
+      // Deep-link to specific review for dialogue notifications
+      if (notificationType === 'ts_dialogue_message' && data.metadata?.reviewId) {
+        actionUrl += `&reviewId=${data.metadata.reviewId}`;
+      }
+      notification.actionUrl = actionUrl;
+      notification.actions = [
+        { label: tsAction.label, action: 'navigate', variant: 'primary' },
+      ];
+    }
+
     dispatch({ type: 'ADD_NOTIFICATION', payload: notification });
   }, []);
 
@@ -361,7 +396,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     // Handle group_notification events from server
     const unsubGroupNotification = onWebSocketEvent('group_notification', (data: unknown) => {
-      console.log('[NotificationContext] Received group_notification:', data);
+      devLog('[NotificationContext] Received group_notification:', data);
       handleIncomingNotification(data as WSNotificationMessage['data']);
     });
 

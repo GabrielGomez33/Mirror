@@ -3,14 +3,15 @@
 // Follows same layout pattern as MirrorGroupsPage (gradient + ZenGardenScene + glass header)
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { TruthStreamProvider, useTruthStream } from '../context/TruthStreamContext';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { TruthStreamProvider, useTruthStream, type TruthStreamView } from '../context/TruthStreamContext';
 import TruthStreamOverview from '../components/truthstream/TruthStreamOverview';
 import ProfileSetup from '../components/truthstream/ProfileSetup';
 import ReviewQueue from '../components/truthstream/ReviewQueue';
 import ReviewForm from '../components/truthstream/ReviewForm';
 import AnalysisDashboard from '../components/truthstream/AnalysisDashboard';
 import ReceivedReviews from '../components/truthstream/ReceivedReviews';
+import GivenReviews from '../components/truthstream/GivenReviews';
 import ZenBridgeScene from '../components/three/ZenBridgeScene';
 import '../styles/enhanced-glass.css';
 
@@ -52,6 +53,37 @@ function useMediaQuery(query: string): boolean {
 }
 
 // ============================================================================
+// URL PARAM READER — reads ?view= and ?reviewId= for notification deep-links
+// ============================================================================
+
+const VALID_VIEWS: TruthStreamView[] = ['overview', 'profile-setup', 'queue', 'review', 'analysis', 'received', 'given'];
+
+function URLParamReader() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { setView, setFocusReview } = useTruthStream();
+
+  useEffect(() => {
+    const viewParam = searchParams.get('view');
+    const reviewIdParam = searchParams.get('reviewId');
+
+    if (viewParam && VALID_VIEWS.includes(viewParam as TruthStreamView)) {
+      setView(viewParam as TruthStreamView);
+    }
+
+    if (reviewIdParam) {
+      setFocusReview(reviewIdParam);
+    }
+
+    // Clear query params after reading so back-navigation doesn't re-trigger
+    if (viewParam || reviewIdParam) {
+      setSearchParams({}, { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return null;
+}
+
+// ============================================================================
 // ROUTER (delegates to sub-views)
 // ============================================================================
 
@@ -77,6 +109,7 @@ function TruthStreamRouter() {
       {currentView === 'review' && <ReviewForm />}
       {currentView === 'analysis' && <AnalysisDashboard />}
       {currentView === 'received' && <ReceivedReviews />}
+      {currentView === 'given' && <GivenReviews />}
     </div>
   );
 }
@@ -91,6 +124,7 @@ export default function TruthStreamPage() {
 
   return (
     <TruthStreamProvider>
+      <URLParamReader />
       {/* Global scrollbar hide */}
       <style>{`
         .truthstream-page { scrollbar-width: none; -ms-overflow-style: none; }

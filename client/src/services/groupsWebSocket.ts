@@ -115,6 +115,15 @@ interface EventHandlers {
   // Notifications
   'notification:received': EventHandler<unknown>[];
   'group_notification': EventHandler<unknown>[];
+
+  // TruthStream events
+  'ts:review_received': EventHandler<unknown>[];
+  'ts:dialogue_message': EventHandler<unknown>[];
+  'ts:helpful_marked': EventHandler<unknown>[];
+  'ts:review_classified': EventHandler<unknown>[];
+  'ts:analysis_complete': EventHandler<unknown>[];
+  'ts:milestone_earned': EventHandler<unknown>[];
+  'ts:queue_assigned': EventHandler<unknown>[];
 }
 
 // ============================================================================
@@ -161,6 +170,13 @@ class GroupsWebSocketClient {
     'drawing_session_started': [],
     'notification:received': [],
     'group_notification': [],
+    'ts:review_received': [],
+    'ts:dialogue_message': [],
+    'ts:helpful_marked': [],
+    'ts:review_classified': [],
+    'ts:analysis_complete': [],
+    'ts:milestone_earned': [],
+    'ts:queue_assigned': [],
   };
 
   // ==================== CONNECTION MANAGEMENT ====================
@@ -388,6 +404,14 @@ class GroupsWebSocketClient {
           'compatibility_updated': 'insights:updated',
           'conversation_insight': 'conversation:insight',
           'conversation_summary': 'conversation:insight',
+          // TruthStream events
+          'ts_review_received': 'ts:review_received',
+          'ts_dialogue_message': 'ts:dialogue_message',
+          'ts_helpful_marked': 'ts:helpful_marked',
+          'ts_review_classified': 'ts:review_classified',
+          'ts_analysis_complete': 'ts:analysis_complete',
+          'ts_milestone_earned': 'ts:milestone_earned',
+          'ts_queue_assigned': 'ts:queue_assigned',
         };
 
         const mappedType = notificationTypeMap[notificationType];
@@ -395,6 +419,19 @@ class GroupsWebSocketClient {
           eventType = mappedType as WSEventType;
           // Pass the full notification data as the event payload
           messageData = wrapped;
+
+          // ALSO dispatch to 'group_notification' handlers so the
+          // NotificationContext (notification panel) picks up the event.
+          const groupNotifHandlers = this.handlers['group_notification'];
+          if (Array.isArray(groupNotifHandlers) && groupNotifHandlers.length > 0) {
+            groupNotifHandlers.forEach((handler) => {
+              try {
+                (handler as EventHandler)(wrapped);
+              } catch (err) {
+                wsLog('error', 'group_notification handler threw for remapped event', { error: String(err) });
+              }
+            });
+          }
         }
       }
 

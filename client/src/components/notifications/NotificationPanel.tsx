@@ -3,6 +3,7 @@
 // Beautiful glass morphism design with smooth animations
 
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../context/NotificationContext';
 import type { Notification, NotificationType } from '../../types/notifications';
 
@@ -16,6 +17,7 @@ interface NotificationItemProps {
   onDecline: (notification: Notification) => Promise<void>;
   onDismiss: (id: string) => void;
   onMarkRead: (id: string) => void;
+  onNavigate: (url: string) => void;
 }
 
 function NotificationItem({
@@ -24,6 +26,7 @@ function NotificationItem({
   onDecline,
   onDismiss,
   onMarkRead,
+  onNavigate,
 }: NotificationItemProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [actionTaken, setActionTaken] = useState<'accepted' | 'declined' | null>(null);
@@ -78,6 +81,7 @@ function NotificationItem({
       ts_dialogue_message: { icon: '💬', color: '#f472b6' },
       ts_queue_assigned: { icon: '📋', color: '#60a5fa' },
       ts_milestone_earned: { icon: '🏆', color: '#fbbf24' },
+      ts_helpful_marked: { icon: '❤️', color: '#f472b6' },
     };
     return iconMap[type] || { icon: '📢', color: '#94a3b8' };
   };
@@ -213,6 +217,12 @@ function NotificationItem({
               {notification.actions.map((action, idx) => (
                 <button
                   key={idx}
+                  onClick={() => {
+                    if (notification.actionUrl) {
+                      onNavigate(notification.actionUrl);
+                      onMarkRead(notification.id);
+                    }
+                  }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
                     action.variant === 'primary'
                       ? 'bg-purple-500/30 text-purple-300 hover:bg-purple-500/40'
@@ -305,6 +315,12 @@ export default function NotificationPanel() {
 
   const handleDecline = async (notification: Notification) => {
     await declineInvite(notification);
+  };
+
+  const navigate = useNavigate();
+  const handleNavigate = (url: string) => {
+    closePanel();
+    navigate(url);
   };
 
   // Filter out dismissed notifications
@@ -470,6 +486,7 @@ export default function NotificationPanel() {
                     onDecline={handleDecline}
                     onDismiss={dismiss}
                     onMarkRead={markRead}
+                    onNavigate={handleNavigate}
                   />
                 ))}
               </div>
@@ -493,6 +510,7 @@ export default function NotificationPanel() {
                     onDecline={handleDecline}
                     onDismiss={dismiss}
                     onMarkRead={markRead}
+                    onNavigate={handleNavigate}
                   />
                 ))}
               </div>

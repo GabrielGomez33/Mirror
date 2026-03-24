@@ -120,7 +120,7 @@ export default function ReviewQueue() {
         </div>
         {!canReceiveReviews && (
           <p className="text-xs mt-2" style={{ color: COLORS.label }}>
-            Complete your current batch to start receiving reviews.
+            Give at least 1 review to start receiving reviews.
           </p>
         )}
       </div>

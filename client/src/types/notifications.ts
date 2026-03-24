@@ -29,7 +29,8 @@ export type NotificationType =
   | 'ts_analysis_complete'
   | 'ts_dialogue_message'
   | 'ts_queue_assigned'
-  | 'ts_milestone_earned';
+  | 'ts_milestone_earned'
+  | 'ts_helpful_marked';
 
 export type NotificationPriority = 'immediate' | 'normal' | 'low';
 

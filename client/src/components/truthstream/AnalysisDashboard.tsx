@@ -308,6 +308,7 @@ export default function AnalysisDashboard() {
   const [isPolling, setIsPolling] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [pollElapsed, setPollElapsed] = useState(0);
+  const [pollTimedOut, setPollTimedOut] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollStartRef = useRef<number>(0);
   const analysisIdBeforeRegen = useRef<string | null>(null);
@@ -363,6 +364,7 @@ export default function AnalysisDashboard() {
       if (elapsed >= MAX_POLL_DURATION) {
         setIsPolling(false);
         setIsRegenerating(false);
+        setPollTimedOut(true);
         if (pollRef.current) clearInterval(pollRef.current);
         if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current);
         pollRef.current = null;
@@ -380,6 +382,7 @@ export default function AnalysisDashboard() {
   }, [loadAnalysis, analysis]);
 
   const handleRequestAnalysis = useCallback(async (): Promise<boolean> => {
+    setPollTimedOut(false);
     const success = await requestAnalysis();
     if (success) {
       startPolling();
@@ -427,10 +430,17 @@ export default function AnalysisDashboard() {
               exit={{ opacity: 0, y: -8 }}
               className="enhanced-glass-card text-center py-12"
             >
-              <h3 className="enhanced-glass-heading text-lg mb-2">No Analysis Yet</h3>
+              <h3 className="enhanced-glass-heading text-lg mb-2">
+                {pollTimedOut ? 'Analysis Taking Longer Than Expected' : 'No Analysis Yet'}
+              </h3>
+              {pollTimedOut && (
+                <p className="text-sm mb-2" style={{ color: '#fbbf24' }}>
+                  Generation is still processing in the background. Check back in a few minutes.
+                </p>
+              )}
               <p className="enhanced-glass-body text-sm mb-4">
                 {canRequest
-                  ? 'You have enough reviews to generate your Truth Mirror Report!'
+                  ? (pollTimedOut ? 'You can try requesting again or wait for it to complete.' : 'You have enough reviews to generate your Truth Mirror Report!')
                   : `You need at least 5 reviews to generate an analysis. You have ${reviewCount}.`}
               </p>
               {canRequest && (

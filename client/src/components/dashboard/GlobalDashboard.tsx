@@ -2,6 +2,7 @@
 // System-wide dashboard with real user data, notifications, and connection status
 
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import GlassCard from '../ui/GlassCard';
 import { useNotifications } from '../../context/NotificationContext';
 import { useGroups } from '../../context/GroupContext';
@@ -106,14 +107,37 @@ function ConnectionStatus({ isConnected, label }: ConnectionStatusProps) {
 // NOTIFICATION ITEM COMPONENT
 // ============================================================================
 
+// Map notification types to icons
+function getNotificationIcon(type: string): string {
+  const iconMap: Record<string, string> = {
+    group_invite: '👋',
+    member_joined: '👤',
+    member_left: '👤',
+    ts_review_received: '📝',
+    ts_dialogue_message: '💬',
+    ts_helpful_marked: '❤️',
+    ts_review_classified: '🏷️',
+    ts_analysis_complete: '📊',
+    ts_queue_assigned: '📋',
+    ts_milestone_earned: '🏆',
+    video_call_started: '📹',
+    drawing_session_started: '🎨',
+    chat_message: '💬',
+    chat_mention: '📢',
+  };
+  return iconMap[type] || '🔔';
+}
+
 interface NotificationItemProps {
   notification: Notification;
   onAccept: (notification: Notification) => Promise<boolean>;
   onDecline: (notification: Notification) => Promise<boolean>;
   onDismiss: (id: string) => void;
+  onNavigate: (url: string) => void;
+  onMarkRead: (id: string) => void;
 }
 
-function NotificationItem({ notification, onAccept, onDecline, onDismiss }: NotificationItemProps) {
+function NotificationItem({ notification, onAccept, onDecline, onDismiss, onNavigate, onMarkRead }: NotificationItemProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [actionTaken, setActionTaken] = useState<'accepted' | 'declined' | null>(null);
 
@@ -138,6 +162,8 @@ function NotificationItem({ notification, onAccept, onDecline, onDismiss }: Noti
   };
 
   const isInvite = notification.type === 'group_invite';
+  const hasActions = notification.actions && notification.actions.length > 0 && !isInvite;
+  const icon = getNotificationIcon(notification.type);
 
   return (
     <div className="flex items-start gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors">
@@ -148,7 +174,7 @@ function NotificationItem({ notification, onAccept, onDecline, onDismiss }: Noti
           border: '1px solid #a78bfa40',
         }}
       >
-        {isInvite ? '👋' : '🔔'}
+        {icon}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-white/90 text-sm font-medium truncate">{notification.title}</p>
@@ -171,6 +197,26 @@ function NotificationItem({ notification, onAccept, onDecline, onDismiss }: Noti
             >
               Decline
             </button>
+          </div>
+        )}
+
+        {/* Action buttons for non-invite notifications (e.g. TruthStream) */}
+        {hasActions && (
+          <div className="flex gap-2 mt-2">
+            {notification.actions!.map((action) => (
+              <button
+                key={action.action}
+                onClick={() => {
+                  if (notification.actionUrl) {
+                    onNavigate(notification.actionUrl);
+                    onMarkRead(notification.id);
+                  }
+                }}
+                className="px-2 py-1 text-xs rounded bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-colors"
+              >
+                {action.label}
+              </button>
+            ))}
           </div>
         )}
 
@@ -210,11 +256,13 @@ export default function GlobalDashboard() {
     acceptInvite,
     declineInvite,
     dismiss,
+    markRead,
     markAllRead,
     clearAll,
   } = useNotifications();
 
   const { fetchMyGroups } = useGroups();
+  const navigate = useNavigate();
 
   const userInfo = getUserInfo();
   const visibleNotifications = notifications.filter((n) => !n.dismissed);
@@ -227,6 +275,12 @@ export default function GlobalDashboard() {
       await fetchMyGroups();
     }
     return success;
+  };
+
+  // Navigate and close panel
+  const handleNavigate = (url: string) => {
+    handleClose();
+    navigate(url);
   };
 
   // Handle closing with animation
@@ -427,6 +481,8 @@ export default function GlobalDashboard() {
                             onAccept={handleAcceptInvite}
                             onDecline={declineInvite}
                             onDismiss={dismiss}
+                            onNavigate={handleNavigate}
+                            onMarkRead={markRead}
                           />
                         ))}
                         {visibleNotifications.length > 5 && (

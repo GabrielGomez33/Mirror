@@ -20,10 +20,12 @@ import {
   markReviewHelpful as markReviewHelpfulApi,
   unmarkReviewHelpful as unmarkReviewHelpfulApi,
   respondToReview as respondToReviewApi,
+  getReviewResponses as getReviewResponsesApi,
   flagReview as flagReviewApi,
   clearTruthStreamCache,
   getTruthStreamErrorMessage,
 } from '../services/truthStreamApi';
+import { onWebSocketEvent } from '../services/groupsWebSocket';
 import type {
   TruthStreamProfile,
   ReviewQueueBatch,
@@ -36,6 +38,7 @@ import type {
   UpdateTruthProfileRequest,
   PaginatedTruthStreamResponse,
   QuestionnaireData,
+  ReviewResponse,
 } from '../types/truthstream';
 
 // ============================================================================
@@ -63,6 +66,7 @@ interface TruthStreamState {
   // UI state
   currentView: TruthStreamView;
   activeQueueItemId: string | null;
+  focusReviewId: string | null;  // Auto-open dialogue for this review (from notification deep-link)
   isLoading: boolean;
   isLoadingMore: boolean;
   isSubmitting: boolean;
@@ -85,6 +89,7 @@ type TruthStreamAction =
   | { type: 'SET_ANALYSIS'; payload: TruthMirrorReport | null }
   | { type: 'SET_MILESTONES'; payload: Milestone[] }
   | { type: 'SET_ACTIVE_QUEUE_ITEM'; payload: string | null }
+  | { type: 'SET_FOCUS_REVIEW'; payload: string | null }
   | { type: 'UPDATE_REVIEW_HELPFUL'; payload: { reviewId: string; helpfulCount: number; isHelpful: boolean } }
   | { type: 'RESET' };
 
@@ -106,6 +111,7 @@ const initialState: TruthStreamState = {
   givenHasMore: false,
   currentView: 'overview',
   activeQueueItemId: null,
+  focusReviewId: null,
   isLoading: false,
   isLoadingMore: false,
   isSubmitting: false,
@@ -178,6 +184,8 @@ function truthStreamReducer(state: TruthStreamState, action: TruthStreamAction):
       return { ...state, milestones: action.payload };
     case 'SET_ACTIVE_QUEUE_ITEM':
       return { ...state, activeQueueItemId: action.payload };
+    case 'SET_FOCUS_REVIEW':
+      return { ...state, focusReviewId: action.payload };
     case 'UPDATE_REVIEW_HELPFUL':
       return {
         ...state,
@@ -201,6 +209,7 @@ function truthStreamReducer(state: TruthStreamState, action: TruthStreamAction):
 interface TruthStreamContextValue extends TruthStreamState {
   // Navigation
   setView: (view: TruthStreamView) => void;
+  setFocusReview: (reviewId: string | null) => void;
 
   // Data loading
   loadProfile: () => Promise<void>;
@@ -225,6 +234,7 @@ interface TruthStreamContextValue extends TruthStreamState {
   requestAnalysis: () => Promise<boolean>;
   toggleHelpful: (reviewId: string, isCurrentlyHelpful: boolean) => Promise<void>;
   respondToReview: (reviewId: string, content: string) => Promise<boolean>;
+  loadDialogue: (reviewId: string) => Promise<ReviewResponse[]>;
   flagReview: (reviewId: string, reason: string) => Promise<boolean>;
   clearError: () => void;
   clearSuccess: () => void;
@@ -257,6 +267,10 @@ export function TruthStreamProvider({ children }: { children: React.ReactNode })
 
   const setView = useCallback((view: TruthStreamView) => {
     safeDispatch({ type: 'SET_VIEW', payload: view });
+  }, [safeDispatch]);
+
+  const setFocusReview = useCallback((reviewId: string | null) => {
+    safeDispatch({ type: 'SET_FOCUS_REVIEW', payload: reviewId });
   }, [safeDispatch]);
 
   const clearError = useCallback(() => safeDispatch({ type: 'SET_ERROR', payload: null }), [safeDispatch]);
@@ -561,6 +575,17 @@ export function TruthStreamProvider({ children }: { children: React.ReactNode })
     }
   }, [safeDispatch]);
 
+  const loadDialogue = useCallback(async (reviewId: string): Promise<ReviewResponse[]> => {
+    try {
+      const res = await getReviewResponsesApi(reviewId);
+      const data = res.data as any;
+      // Server returns { reviewId, messages[], messageCount, maxMessages }
+      return (data?.messages || data || []) as ReviewResponse[];
+    } catch {
+      return [];
+    }
+  }, []);
+
   const handleFlagReview = useCallback(async (reviewId: string, reason: string): Promise<boolean> => {
     try {
       await flagReviewApi(reviewId, reason);
@@ -597,6 +622,72 @@ export function TruthStreamProvider({ children }: { children: React.ReactNode })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  // ---------- WebSocket Event Listeners ----------
+  // Auto-refresh data when real-time events arrive via WebSocket
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+
+    // New review received → refresh received reviews + stats
+    const unsubReviewReceived = onWebSocketEvent('ts:review_received' as any, () => {
+      clearTruthStreamCache('received');
+      receivedOffsetRef.current = 0;
+      loadReceivedReviews();
+      loadStats();
+    });
+
+    // Dialogue message → refresh received/given reviews to update response count badges
+    const unsubDialogue = onWebSocketEvent('ts:dialogue_message' as any, () => {
+      clearTruthStreamCache('given');
+      clearTruthStreamCache('received');
+      receivedOffsetRef.current = 0;
+      givenOffsetRef.current = 0;
+      loadReceivedReviews();
+      loadGivenReviews();
+    });
+
+    // Helpful marked → refresh received reviews to update helpful counts
+    const unsubHelpful = onWebSocketEvent('ts:helpful_marked' as any, () => {
+      clearTruthStreamCache('given');
+      givenOffsetRef.current = 0;
+      loadGivenReviews();
+    });
+
+    // Review classified → refresh received reviews for new classification
+    const unsubClassified = onWebSocketEvent('ts:review_classified' as any, () => {
+      clearTruthStreamCache('received');
+      receivedOffsetRef.current = 0;
+      loadReceivedReviews();
+    });
+
+    // Analysis complete → refresh analysis
+    const unsubAnalysis = onWebSocketEvent('ts:analysis_complete' as any, () => {
+      clearTruthStreamCache('analysis');
+      loadAnalysis();
+    });
+
+    // Queue assigned → refresh queue
+    const unsubQueue = onWebSocketEvent('ts:queue_assigned' as any, () => {
+      loadQueue();
+    });
+
+    // Milestone earned → refresh milestones + stats
+    const unsubMilestone = onWebSocketEvent('ts:milestone_earned' as any, () => {
+      loadMilestones();
+      loadStats();
+    });
+
+    return () => {
+      unsubReviewReceived();
+      unsubDialogue();
+      unsubHelpful();
+      unsubClassified();
+      unsubAnalysis();
+      unsubQueue();
+      unsubMilestone();
+    };
+  }, [isAuthenticated, user, loadReceivedReviews, loadGivenReviews, loadStats, loadAnalysis, loadQueue, loadMilestones]);
+
   // Auto-clear success messages after 5 seconds
   useEffect(() => {
     if (state.successMessage) {
@@ -610,6 +701,7 @@ export function TruthStreamProvider({ children }: { children: React.ReactNode })
   const value: TruthStreamContextValue = {
     ...state,
     setView,
+    setFocusReview,
     loadProfile,
     loadQueue,
     loadReceivedReviews,
@@ -626,6 +718,7 @@ export function TruthStreamProvider({ children }: { children: React.ReactNode })
     requestAnalysis,
     toggleHelpful,
     respondToReview: handleRespondToReview,
+    loadDialogue,
     flagReview: handleFlagReview,
     clearError,
     clearSuccess,
