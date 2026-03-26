@@ -317,10 +317,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
 
     // TruthStream action URLs — route to the appropriate TruthStream view
-    // For dialogue messages, the view depends on the recipient's role:
-    // If authorRole is 'reviewee' → recipient is the reviewer → show 'given'
-    // If authorRole is 'reviewer' → recipient is the reviewee → show 'received'
-    const dialogueView = data.metadata?.authorRole === 'reviewee' ? 'given' : 'received';
+    // For dialogue messages, the server sends recipientView directly (the tab the recipient should open).
+    // Fallback to 'received' if not provided (legacy notifications before the field was added).
+    const dialogueView = data.metadata?.recipientView || 'received';
 
     const truthStreamActionMap: Record<string, { url: string; label: string }> = {
       ts_review_received:   { url: '/truthstream?view=received', label: 'View Reviews' },

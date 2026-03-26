@@ -120,7 +120,8 @@ export interface WSNotificationMessage {
       classification?: string;
       analysisId?: string;
       analysisType?: string;
-      authorRole?: string;
+      authorRole?: string; // legacy — replaced by recipientView
+      recipientView?: string; // 'given' | 'received' — which tab the recipient should open
       batchNumber?: number;
       itemCount?: number;
       milestoneName?: string;

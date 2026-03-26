@@ -138,21 +138,35 @@ const MESSAGE_MAX_LENGTH = 1000;
 const MESSAGE_MIN_LENGTH = 5;
 const SEEN_COUNTS_KEY = 'ts_dialogue_seen_counts';
 
-/** Read per-review last-seen response counts from localStorage */
+// [P2] Cache localStorage reads in memory to avoid repeated parse on every component mount.
+// Writes are debounced to reduce I/O when multiple reviews update rapidly.
+let _seenCountsCache: Record<string, number> | null = null;
+let _seenCountsWriteTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Read per-review last-seen response counts (cached in memory) */
 function getSeenCounts(): Record<string, number> {
+  if (_seenCountsCache) return _seenCountsCache;
   try {
     const raw = localStorage.getItem(SEEN_COUNTS_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch { return {}; }
+    _seenCountsCache = raw ? JSON.parse(raw) : {};
+  } catch {
+    _seenCountsCache = {};
+  }
+  return _seenCountsCache!;
 }
 
-/** Persist last-seen response count for a review */
+/** Persist last-seen response count for a review (debounced write) */
 function markResponseCountSeen(reviewId: string, count: number): void {
-  try {
-    const counts = getSeenCounts();
-    counts[reviewId] = count;
-    localStorage.setItem(SEEN_COUNTS_KEY, JSON.stringify(counts));
-  } catch { /* non-critical */ }
+  const counts = getSeenCounts();
+  counts[reviewId] = count;
+  // Debounce writes — batch rapid updates into a single localStorage write
+  if (_seenCountsWriteTimer) clearTimeout(_seenCountsWriteTimer);
+  _seenCountsWriteTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(SEEN_COUNTS_KEY, JSON.stringify(_seenCountsCache));
+    } catch { /* non-critical */ }
+    _seenCountsWriteTimer = null;
+  }, 500);
 }
 
 function DialogueThread({ reviewId, responseCount }: { reviewId: string; responseCount: number }) {

@@ -623,7 +623,22 @@ export function TruthStreamProvider({ children }: { children: React.ReactNode })
   }, [user?.id]);
 
   // ---------- WebSocket Event Listeners ----------
-  // Auto-refresh data when real-time events arrive via WebSocket
+  // [A10] Auto-refresh data when real-time events arrive via WebSocket.
+  // Use refs to access latest callbacks without re-registering listeners on every callback change.
+  // This prevents the dependency chain: callback changes → new listeners → old listeners leaked.
+  const loadReceivedReviewsRef = useRef(loadReceivedReviews);
+  const loadGivenReviewsRef = useRef(loadGivenReviews);
+  const loadStatsRef = useRef(loadStats);
+  const loadAnalysisRef = useRef(loadAnalysis);
+  const loadQueueRef = useRef(loadQueue);
+  const loadMilestonesRef = useRef(loadMilestones);
+
+  useEffect(() => { loadReceivedReviewsRef.current = loadReceivedReviews; }, [loadReceivedReviews]);
+  useEffect(() => { loadGivenReviewsRef.current = loadGivenReviews; }, [loadGivenReviews]);
+  useEffect(() => { loadStatsRef.current = loadStats; }, [loadStats]);
+  useEffect(() => { loadAnalysisRef.current = loadAnalysis; }, [loadAnalysis]);
+  useEffect(() => { loadQueueRef.current = loadQueue; }, [loadQueue]);
+  useEffect(() => { loadMilestonesRef.current = loadMilestones; }, [loadMilestones]);
 
   useEffect(() => {
     if (!isAuthenticated || !user) return;
@@ -632,8 +647,8 @@ export function TruthStreamProvider({ children }: { children: React.ReactNode })
     const unsubReviewReceived = onWebSocketEvent('ts:review_received' as any, () => {
       clearTruthStreamCache('received');
       receivedOffsetRef.current = 0;
-      loadReceivedReviews();
-      loadStats();
+      loadReceivedReviewsRef.current();
+      loadStatsRef.current();
     });
 
     // Dialogue message → refresh received/given reviews to update response count badges
@@ -642,39 +657,39 @@ export function TruthStreamProvider({ children }: { children: React.ReactNode })
       clearTruthStreamCache('received');
       receivedOffsetRef.current = 0;
       givenOffsetRef.current = 0;
-      loadReceivedReviews();
-      loadGivenReviews();
+      loadReceivedReviewsRef.current();
+      loadGivenReviewsRef.current();
     });
 
     // Helpful marked → refresh received reviews to update helpful counts
     const unsubHelpful = onWebSocketEvent('ts:helpful_marked' as any, () => {
       clearTruthStreamCache('given');
       givenOffsetRef.current = 0;
-      loadGivenReviews();
+      loadGivenReviewsRef.current();
     });
 
     // Review classified → refresh received reviews for new classification
     const unsubClassified = onWebSocketEvent('ts:review_classified' as any, () => {
       clearTruthStreamCache('received');
       receivedOffsetRef.current = 0;
-      loadReceivedReviews();
+      loadReceivedReviewsRef.current();
     });
 
     // Analysis complete → refresh analysis
     const unsubAnalysis = onWebSocketEvent('ts:analysis_complete' as any, () => {
       clearTruthStreamCache('analysis');
-      loadAnalysis();
+      loadAnalysisRef.current();
     });
 
     // Queue assigned → refresh queue
     const unsubQueue = onWebSocketEvent('ts:queue_assigned' as any, () => {
-      loadQueue();
+      loadQueueRef.current();
     });
 
     // Milestone earned → refresh milestones + stats
     const unsubMilestone = onWebSocketEvent('ts:milestone_earned' as any, () => {
-      loadMilestones();
-      loadStats();
+      loadMilestonesRef.current();
+      loadStatsRef.current();
     });
 
     return () => {
@@ -686,7 +701,9 @@ export function TruthStreamProvider({ children }: { children: React.ReactNode })
       unsubQueue();
       unsubMilestone();
     };
-  }, [isAuthenticated, user, loadReceivedReviews, loadGivenReviews, loadStats, loadAnalysis, loadQueue, loadMilestones]);
+    // Only re-register when the user identity changes — not when callbacks are recreated
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.id]);
 
   // Auto-clear success messages after 5 seconds
   useEffect(() => {

@@ -23,6 +23,8 @@ import TestPage from './pages/TestPage';
 import GlobalDashboard from './components/dashboard/GlobalDashboard';
 import MirrorGroupsPage from './pages/MirrorGroupsPage';
 import TruthStreamPage from './pages/TruthStreamPage';
+import MyJournalPage from './pages/MyJournalPage';
+import MyMirrorPage from './pages/MyMirrorPage';
 
 // -----------------------------------------------------------------------------
 // Config: prefer same-origin; honor VITE_API_URL if explicitly set
@@ -205,6 +207,36 @@ const App: React.FC = () => {
                   redirectTo="/intake"
                 >
                   <Review />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* MyJournal - Requires Authentication */}
+            <Route
+              path="/journal"
+              element={
+                <ProtectedRoute
+                  accessLevel={AccessLevel.AUTHENTICATED}
+                  securityLevel={SecurityLevel.BASIC}
+                  redirectTo="/login"
+                >
+                  <MyJournalPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* MyMirror - Requires Completed Intake */}
+            <Route
+              path="/mymirror"
+              element={
+                <ProtectedRoute
+                  accessLevel={AccessLevel.INTAKE_REQUIRED}
+                  securityLevel={SecurityLevel.BASIC}
+                  customCheck={(user) => user?.intakeCompleted === true}
+                  redirectTo="/intake"
+                  errorMessage="Please complete the intake process to view your Mirror."
+                >
+                  <MyMirrorPage />
                 </ProtectedRoute>
               }
             />
