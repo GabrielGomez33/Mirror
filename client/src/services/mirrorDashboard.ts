@@ -1,7 +1,50 @@
 // client/src/services/mirrorDashboard.ts
+// Mirror Dashboard + Personal Analysis API Service
+// Follows the same patterns as truthStreamApi.ts (caching, retry, rate limiting)
+
 import { getToken } from '../utils/token';
 
 const BASE_URL = import.meta.env.VITE_API_URL;
+
+// ============================================================================
+// CACHING (matches truthStreamApi.ts pattern)
+// ============================================================================
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  expiresIn: number;
+}
+
+class DashboardCache {
+  private cache = new Map<string, CacheEntry<any>>();
+
+  get<T>(key: string): T | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    if (Date.now() - entry.timestamp > entry.expiresIn) {
+      this.cache.delete(key);
+      return null;
+    }
+    return entry.data as T;
+  }
+
+  set<T>(key: string, data: T, expiresIn: number = 300000): void {
+    this.cache.set(key, { data, timestamp: Date.now(), expiresIn });
+  }
+
+  invalidate(prefix: string): void {
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(prefix)) this.cache.delete(key);
+    }
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+}
+
+const cache = new DashboardCache();
 
 // ============================================================================
 // MIRROR DASHBOARD API SERVICE
@@ -9,9 +52,11 @@ const BASE_URL = import.meta.env.VITE_API_URL;
 
 class MirrorDashboardService {
   private baseUrl: string;
+  private analysisBaseUrl: string;
 
   constructor() {
     this.baseUrl = `${BASE_URL}/mirror/api/dashboard`;
+    this.analysisBaseUrl = `${BASE_URL}/mirror/api/personal-analysis`;
   }
 
   private getAuthHeaders(): Record<string, string> {
@@ -22,8 +67,8 @@ class MirrorDashboardService {
     };
   }
 
-  private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+  private async makeRequest<T>(url: string, options: RequestInit = {}): Promise<T> {
+    const response = await fetch(url, {
       ...options,
       headers: {
         ...this.getAuthHeaders(),
@@ -40,60 +85,242 @@ class MirrorDashboardService {
     return response.json();
   }
 
-  /**
-   * Get personal intelligence dashboard data
-   */
+  // ==========================================================================
+  // PERSONAL INTELLIGENCE (existing endpoint — unchanged)
+  // ==========================================================================
+
   async getPersonalIntelligence(): Promise<any> {
+    // Check cache first
+    const cached = cache.get<any>('dashboard:personal-intelligence');
+    if (cached) return cached;
+
     try {
-      console.log('📊 Fetching personal intelligence dashboard');
-      const result = await this.makeRequest<any>('/personal-intelligence');
-      
+      console.log('[Dashboard] Fetching personal intelligence');
+      const result = await this.makeRequest<any>(`${this.baseUrl}/personal-intelligence`);
+
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch personal intelligence');
       }
 
+      cache.set('dashboard:personal-intelligence', result.data, 120000); // 2 min cache
       return result.data;
     } catch (error) {
-      console.error('Failed to fetch personal intelligence:', error);
+      console.error('[Dashboard] Failed to fetch personal intelligence:', error);
+      throw error;
+    }
+  }
+
+  // ==========================================================================
+  // PERSONAL ANALYSIS — New endpoints (follows TruthStream pattern)
+  // ==========================================================================
+
+  /**
+   * Request new personal analysis generation.
+   * Returns immediately with jobId — analysis runs async on backend.
+   * Frontend should poll getLatestAnalysis() to get results.
+   */
+  async requestPersonalAnalysis(
+    analysisType: string = 'comprehensive'
+  ): Promise<{ jobId: string; message: string; analysisType: string }> {
+    try {
+      console.log(`[Dashboard] Requesting ${analysisType} personal analysis`);
+
+      const result = await this.makeRequest<any>(`${this.analysisBaseUrl}/generate`, {
+        method: 'POST',
+        body: JSON.stringify({ analysisType }),
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to request analysis');
+      }
+
+      // Invalidate analysis cache so next poll gets fresh data
+      cache.invalidate('analysis:');
+
+      return result.data;
+    } catch (error) {
+      console.error('[Dashboard] Failed to request personal analysis:', error);
       throw error;
     }
   }
 
   /**
-   * Request new analysis from DINA server
+   * Get the latest personal analysis for the current user.
+   * Returns null if no analysis exists yet.
    */
-  async requestNewAnalysis(analysisType: string, priority: string = 'normal'): Promise<void> {
+  async getLatestAnalysis(): Promise<PersonalAnalysisResult | null> {
     try {
-      console.log(`🔄 Requesting ${analysisType} analysis from DINA`);
-      
-      // Call existing DINA endpoint directly
-      const response = await fetch(`${BASE_URL.replace('/mirror', '')}/api/mirror/analyze`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
-        body: JSON.stringify({ 
-          analysis_type: analysisType,
-          data: {},
-          options: { priority }
-        })
-      });
+      const result = await this.makeRequest<any>(`${this.analysisBaseUrl}/latest`);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to request analysis: ${response.statusText}`);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch analysis');
       }
 
-      console.log(`✅ ${analysisType} analysis requested successfully`);
+      return result.data || null;
     } catch (error) {
-      console.error('Failed to request analysis:', error);
+      console.error('[Dashboard] Failed to fetch latest analysis:', error);
       throw error;
     }
   }
+
+  /**
+   * Get analysis history for trend comparison.
+   */
+  async getAnalysisHistory(limit: number = 10): Promise<PersonalAnalysisHistoryItem[]> {
+    const cacheKey = `analysis:history:${limit}`;
+    const cached = cache.get<PersonalAnalysisHistoryItem[]>(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const result = await this.makeRequest<any>(
+        `${this.analysisBaseUrl}/history?limit=${limit}`
+      );
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch history');
+      }
+
+      const data = result.data || [];
+      cache.set(cacheKey, data, 300000); // 5 min cache
+      return data;
+    } catch (error) {
+      console.error('[Dashboard] Failed to fetch analysis history:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Clear analysis cache (used before polling for new results).
+   */
+  clearAnalysisCache(): void {
+    cache.invalidate('analysis:');
+  }
+
+  /**
+   * Clear all dashboard caches.
+   */
+  clearAllCache(): void {
+    cache.clear();
+  }
 }
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+export interface PersonalAnalysisResult {
+  id: string;
+  analysisType: string;
+  analysisData: PersonalMirrorReportData;
+  overallScore: number;
+  confidenceLevel: number;
+  journalEntriesAnalyzed: number;
+  intakeSectionsAvailable: number;
+  createdAt: string;
+}
+
+export interface PersonalAnalysisHistoryItem {
+  id: string;
+  analysisType: string;
+  overallScore: number;
+  confidenceLevel: number;
+  journalEntriesAnalyzed: number;
+  intakeSectionsAvailable: number;
+  createdAt: string;
+}
+
+export interface PersonalMirrorReportData {
+  executiveSummary: string;
+
+  dimensionScores: {
+    selfAwareness: number;
+    emotionalIntelligence: number;
+    growthMomentum: number;
+    authenticity: number;
+    resilience: number;
+    mindfulness: number;
+  };
+
+  personalityInsights: {
+    overview: string;
+    strengths: string[];
+    growthEdges: string[];
+    blindSpots: string[];
+  };
+
+  journalAnalysis: {
+    moodTrend: 'improving' | 'stable' | 'declining' | 'volatile';
+    moodTrendDescription: string;
+    emotionalPatterns: Array<{
+      pattern: string;
+      frequency: string;
+      significance: 'high' | 'medium' | 'low';
+    }>;
+    energyPatterns: {
+      peakTimeOfDay: string;
+      averageEnergy: number;
+      trend: 'increasing' | 'stable' | 'decreasing';
+    };
+    thematicThreads: Array<{
+      theme: string;
+      occurrences: number;
+      sentiment: 'positive' | 'neutral' | 'negative';
+      evolution: string;
+    }>;
+    writingDepthTrend: 'deepening' | 'stable' | 'surface';
+    reflectionQuality: number;
+  };
+
+  temporalTrends: {
+    overallTrajectory: 'ascending' | 'plateau' | 'descending' | 'cyclical';
+    trajectoryDescription: string;
+    milestones: Array<{
+      date: string;
+      description: string;
+      type: 'breakthrough' | 'challenge' | 'insight' | 'shift';
+    }>;
+    comparedToPrevious?: {
+      scoreChange: number;
+      improvingAreas: string[];
+      decliningAreas: string[];
+      newInsights: string[];
+    };
+  };
+
+  crossModalCorrelations: Array<{
+    modalities: string[];
+    correlation: string;
+    insight: string;
+    confidence: number;
+  }>;
+
+  growthRecommendations: Array<{
+    area: string;
+    recommendation: string;
+    priority: 'high' | 'medium' | 'low';
+    actionSteps: string[];
+    relatedModalities: string[];
+  }>;
+
+  dailyPractices: Array<{
+    practice: string;
+    targetArea: string;
+    frequency: string;
+    expectedImpact: string;
+  }>;
+}
+
+// ============================================================================
+// SINGLETON EXPORT (matches truthStreamApi pattern)
+// ============================================================================
 
 export const mirrorDashboardApi = new MirrorDashboardService();
 export const getPersonalIntelligenceApi = () => mirrorDashboardApi.getPersonalIntelligence();
-export const requestNewAnalysisApi = (analysisType: string, priority?: string) => 
-  mirrorDashboardApi.requestNewAnalysis(analysisType, priority);
+export const requestPersonalAnalysisApi = (analysisType?: string) =>
+  mirrorDashboardApi.requestPersonalAnalysis(analysisType);
+export const getLatestAnalysisApi = () => mirrorDashboardApi.getLatestAnalysis();
+export const getAnalysisHistoryApi = (limit?: number) =>
+  mirrorDashboardApi.getAnalysisHistory(limit);
+export const clearAnalysisCache = () => mirrorDashboardApi.clearAnalysisCache();
 
 export default mirrorDashboardApi;

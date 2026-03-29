@@ -114,27 +114,38 @@ export default function MyMirrorPage() {
                 {'\u2190'} Back to Dashboard
               </button>
 
-              <h1
-                style={{
-                  fontSize: isMobile ? '1.5rem' : '1.75rem',
-                  fontWeight: 700,
-                  color: COLORS.heading,
-                  textShadow: '0 3px 12px rgba(0, 0, 0, .4), 0 1px 3px rgba(255, 255, 255, .15)',
-                  margin: 0,
-                }}
-              >
-                MyMirror
-              </h1>
-              <p
-                style={{
-                  fontSize: '0.85rem',
-                  color: COLORS.body,
-                  textShadow: '0 3px 12px rgba(0, 0, 0, .4), 0 1px 3px rgba(255, 255, 255, .15)',
-                  margin: '4px 0 0',
-                }}
-              >
-                Your personal intelligence dashboard
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <h1
+                    style={{
+                      fontSize: isMobile ? '1.5rem' : '1.75rem',
+                      fontWeight: 700,
+                      color: COLORS.heading,
+                      textShadow: '0 3px 12px rgba(0, 0, 0, .4), 0 1px 3px rgba(255, 255, 255, .15)',
+                      margin: 0,
+                    }}
+                  >
+                    MyMirror
+                  </h1>
+                  <p
+                    style={{
+                      fontSize: '0.85rem',
+                      color: COLORS.body,
+                      textShadow: '0 3px 12px rgba(0, 0, 0, .4), 0 1px 3px rgba(255, 255, 255, .15)',
+                      margin: '4px 0 0',
+                    }}
+                  >
+                    Your personal intelligence dashboard &middot; Powered by Dina
+                  </p>
+                </div>
+                {/* Decorative glow orb */}
+                <div style={{
+                  width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+                  background: 'radial-gradient(circle, rgba(244,114,182,0.25), rgba(167,139,250,0.1), transparent)',
+                  boxShadow: '0 0 20px rgba(244,114,182,0.2), 0 0 40px rgba(167,139,250,0.1)',
+                  animation: 'pulse 3s ease-in-out infinite',
+                }} />
+              </div>
             </div>
 
             {/* Mirror content */}
