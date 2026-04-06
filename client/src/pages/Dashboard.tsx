@@ -2,6 +2,7 @@
 // Main dashboard — zen scene + magical sphere orb navigation only
 // All content panels (MyJournal, MyMirror, TruthStream, MirrorGroups) are now
 // their own dedicated pages accessible via sphere navigation.
+// Subscription management is in the GlobalDashboard sidebar.
 
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';

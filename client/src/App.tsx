@@ -6,9 +6,15 @@ import { IntakeProvider } from './context/IntakeContext';
 import { GroupProvider } from './context/GroupContext';
 import { ChatProvider } from './context/ChatContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { SubscriptionProvider } from './context/SubscriptionContext';
 import IntakeErrorBoundary from './components/intake/IntakeErrorBoundary';
 import { ProtectedRoute, ConditionalRender } from './components/auth/RouteProtection';
 import { AccessLevel, SecurityLevel } from './context/AuthContext';
+
+// Paywall UI components (global)
+import UpgradeModal from './components/paywall/UpgradeModal';
+import TrialBanner from './components/paywall/TrialBanner';
+import PaymentFailedBanner from './components/paywall/PaymentFailedBanner';
 
 // Import your existing pages
 import Home from './pages/Home';
@@ -20,6 +26,7 @@ import LogUserIn from './components/Login';
 import RegistrationStep from './components/intake/RegistrationStep';
 import Landing from './pages/Landing';
 import TestPage from './pages/TestPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
 import GlobalDashboard from './components/dashboard/GlobalDashboard';
 import MirrorGroupsPage from './pages/MirrorGroupsPage';
 import TruthStreamPage from './pages/TruthStreamPage';
@@ -109,11 +116,22 @@ const App: React.FC = () => {
         <GroupProvider>
           <ChatProvider>
           <NotificationProvider>
+          <SubscriptionProvider>
           <div className="App min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+
+          {/* Paywall banners — shown globally for authenticated users */}
+          <ConditionalRender condition="authenticated">
+            <TrialBanner />
+            <PaymentFailedBanner />
+          </ConditionalRender>
+
           {/* Conditionally render Global Dashboard only for authenticated users */}
           <ConditionalRender condition="authenticated">
             <GlobalDashboard />
           </ConditionalRender>
+
+          {/* Upgrade modal — rendered globally, triggered by FeatureGate or openUpgradeModal() */}
+          <UpgradeModal />
 
           {/* Main Application Routes */}
           <Routes>
@@ -124,6 +142,7 @@ const App: React.FC = () => {
             <Route path="/home" element={<Home />} />
             <Route path="/landing" element={<Landing />} />
             <Route path="/test" element={<TestPage />} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
 
             {/* Authentication Routes */}
             <Route
@@ -290,6 +309,7 @@ const App: React.FC = () => {
             />
           </Routes>
           </div>
+          </SubscriptionProvider>
           </NotificationProvider>
           </ChatProvider>
         </GroupProvider>

@@ -345,10 +345,10 @@ class GroupsApiClient {
     return transformKeys<GroupDetailResponse>(response.data);
   }
 
-  async joinGroup(groupId: string, joinCode?: string): Promise<ApiResponse<{ message: string }>> {
-    const result = await this.makeRequest<ApiResponse<{ message: string }>>(`/${groupId}/join`, {
+  async joinGroup(groupId: string, joinCode?: string): Promise<ApiResponse<{ status: string; autoApproved?: boolean; requestId?: string; groupId: string; message?: string }>> {
+    const result = await this.makeRequest<ApiResponse<{ status: string; autoApproved?: boolean; requestId?: string; groupId: string; message?: string }>>(`/${groupId}/join`, {
       method: 'POST',
-      body: JSON.stringify({ joinCode }),
+      body: JSON.stringify(joinCode ? { joinCode } : {}),
     });
 
     cache.invalidate('groups:');
@@ -485,6 +485,62 @@ class GroupsApiClient {
         body: JSON.stringify({ role }),
       }
     );
+  }
+
+  // ==================== MEMBER MODERATION ====================
+
+  async banMember(
+    groupId: string,
+    userId: number,
+    reason?: string
+  ): Promise<ApiResponse<{ userId: number; status: string }>> {
+    const result = await this.makeRequest<ApiResponse<{ userId: number; status: string }>>(
+      `/${groupId}/members/${userId}/ban`,
+      {
+        method: 'POST',
+        body: JSON.stringify(reason ? { reason } : {}),
+      }
+    );
+    cache.invalidate(`groups:/${groupId}`);
+    return result;
+  }
+
+  async unbanMember(
+    groupId: string,
+    userId: number
+  ): Promise<ApiResponse<{ userId: number; status: string }>> {
+    const result = await this.makeRequest<ApiResponse<{ userId: number; status: string }>>(
+      `/${groupId}/members/${userId}/unban`,
+      { method: 'POST' }
+    );
+    cache.invalidate(`groups:/${groupId}`);
+    return result;
+  }
+
+  async getBannedMembers(
+    groupId: string
+  ): Promise<{ banned: Array<{ userId: number; username: string; bannedAt: string }>; total: number }> {
+    const response = await this.makeRequest<ApiResponse<{ banned: Array<{ userId: number; username: string; bannedAt: string }>; total: number }>>(
+      `/${groupId}/banned`,
+      { method: 'GET' }
+    );
+    return response.data || { banned: [], total: 0 };
+  }
+
+  async transferOwnership(
+    groupId: string,
+    newOwnerId: number
+  ): Promise<ApiResponse<{ message: string }>> {
+    const result = await this.makeRequest<ApiResponse<{ message: string }>>(
+      `/${groupId}/transfer-ownership`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ newOwnerId }),
+      }
+    );
+    cache.invalidate(`groups:/${groupId}`);
+    cache.invalidate('groups:/list');
+    return result;
   }
 
   // ==================== JOIN REQUESTS ====================
@@ -940,6 +996,14 @@ export const removeMember = (groupId: string, userId: number) =>
   groupsApi.removeMember(groupId, userId);
 export const updateMemberRole = (groupId: string, userId: number, role: string) =>
   groupsApi.updateMemberRole(groupId, userId, role);
+export const banMember = (groupId: string, userId: number, reason?: string) =>
+  groupsApi.banMember(groupId, userId, reason);
+export const unbanMember = (groupId: string, userId: number) =>
+  groupsApi.unbanMember(groupId, userId);
+export const getBannedMembers = (groupId: string) =>
+  groupsApi.getBannedMembers(groupId);
+export const transferOwnership = (groupId: string, newOwnerId: number) =>
+  groupsApi.transferOwnership(groupId, newOwnerId);
 export const acceptInvitation = (groupId: string, requestId: string) =>
   groupsApi.acceptInvitation(groupId, requestId);
 export const declineInvitation = (groupId: string, requestId: string) =>

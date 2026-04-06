@@ -384,6 +384,9 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
             groupId={groupId}
             members={currentMembers}
             canInvite={canInvite}
+            currentUserRole={memberRole}
+            currentUserId={currentUserId}
+            groupType={currentGroup?.type}
             onRefresh={() => fetchGroupDetails(groupId)}
           />
         )}

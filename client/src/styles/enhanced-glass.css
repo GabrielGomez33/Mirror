@@ -795,3 +795,24 @@
     background: rgba(255, 255, 255, 0.15);
   }
 }
+
+/* Hide scrollbar for upgrade modal while keeping it scrollable */
+.upgrade-modal-panel::-webkit-scrollbar {
+  display: none;
+}
+
+/* Override enhanced-glass-panel defaults for the upgrade modal */
+.upgrade-modal-panel.enhanced-glass-panel {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0;
+  transform: none;
+}
+
+.upgrade-modal-panel.enhanced-glass-panel:hover {
+  transform: none;
+}
+
+.upgrade-modal-panel.enhanced-glass-panel::before {
+  display: none;
+}
