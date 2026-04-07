@@ -33,8 +33,8 @@ function groupMessagesByDate(messages: ChatMessage[]): MessageGroup[] {
   const groups: MessageGroup[] = [];
   let currentDate = '';
 
-  // Messages are already sorted newest first, we need to reverse for display
-  const sortedMessages = [...messages].reverse();
+  // Messages are sorted ascending (oldest first) — ready for top-to-bottom display
+  const sortedMessages = messages;
 
   for (const message of sortedMessages) {
     const messageDate = new Date(message.createdAt).toDateString();

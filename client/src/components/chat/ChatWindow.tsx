@@ -70,9 +70,51 @@ export default function ChatWindow({ groupId, groupName, onClose }: ChatWindowPr
     // closeGroupChat should only be called when leaving GroupDetailView
   }, [groupId]);
 
-  // Scroll to bottom on new messages (if at bottom)
+  // Scroll to bottom on initial load and new messages
+  const isInitialLoad = useRef(true);
   useEffect(() => {
-    if (isAtBottom && messagesEndRef.current) {
+    if (!messagesEndRef.current) return;
+
+    if (isInitialLoad.current && allMessages.length > 0) {
+      isInitialLoad.current = false;
+
+      // Enterprise approach: observe DOM mutations until rendering settles,
+      // then scroll. Handles any message count — no fixed timeout.
+      const container = messagesContainerRef.current;
+      if (!container) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+        return;
+      }
+
+      let settleTimer: ReturnType<typeof setTimeout>;
+      const observer = new MutationObserver(() => {
+        // Every time the DOM changes, reset the settle timer.
+        // When mutations stop for 150ms, the layout is stable — scroll.
+        clearTimeout(settleTimer);
+        settleTimer = setTimeout(() => {
+          observer.disconnect();
+          messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+        }, 150);
+      });
+
+      observer.observe(container, { childList: true, subtree: true, characterData: true });
+
+      // Fallback: if no mutations happen within 2s, scroll anyway
+      const fallback = setTimeout(() => {
+        observer.disconnect();
+        messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+      }, 2000);
+
+      // Cleanup
+      return () => {
+        observer.disconnect();
+        clearTimeout(settleTimer);
+        clearTimeout(fallback);
+      };
+    }
+
+    // Subsequent messages: smooth scroll if user is at bottom
+    if (isAtBottom && allMessages.length > 0) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [allMessages.length, isAtBottom]);
@@ -94,7 +136,7 @@ export default function ChatWindow({ groupId, groupName, onClose }: ChatWindowPr
 
     // Mark visible messages as read
     if (atBottom && allMessages.length > 0) {
-      const newestMessage = allMessages[0];
+      const newestMessage = allMessages[allMessages.length - 1];
       if (newestMessage && newestMessage.senderUserId !== currentUserId) {
         markAsRead(newestMessage.id);
       }

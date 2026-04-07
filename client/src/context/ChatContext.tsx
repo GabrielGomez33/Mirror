@@ -166,8 +166,14 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
     case 'ADD_MESSAGE': {
       const message = action.payload;
-      // Check for duplicates
-      if (state.messages.some((m) => m.id === message.id)) {
+      // Check for duplicates — allow upsert if existing is a placeholder
+      const existingIdx = state.messages.findIndex((m) => m.id === message.id);
+      if (existingIdx >= 0) {
+        if (state.messages[existingIdx].status === 'sending' && message.status === 'sent') {
+          const updated = [...state.messages];
+          updated[existingIdx] = message;
+          return { ...state, messages: updated };
+        }
         return state;
       }
       // Check if resolving a pending message
@@ -745,6 +751,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
             message: response.data.message,
           },
         });
+
       }
     } catch (error) {
       dispatch({ type: 'FAIL_PENDING_MESSAGE', payload: clientMessageId });
@@ -1121,14 +1128,34 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
   const sortedMessages = useMemo(() => {
     return [...state.messages].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
   }, [state.messages]);
 
   const allMessages = useMemo(() => {
     const pending = Array.from(state.pendingMessages.values());
     const failed = Array.from(state.failedMessages.values());
-    return [...pending, ...failed, ...sortedMessages];
+    const all = [...sortedMessages, ...pending, ...failed];
+
+    // Build a map of messageId → createdAt for parent lookups
+    const timeMap = new Map<string, number>();
+    for (const m of all) {
+      timeMap.set(m.id, new Date(m.createdAt).getTime());
+    }
+
+    // Sort: Dina responses sort by their PARENT message's time + 1ms
+    // This places each Dina response immediately after the query it answers
+    return all.sort((a, b) => {
+       const aParent = a.metadata?.replyPreview?.messageId || (a.metadata?.custom as any)?.replyPreview?.messageId;
+      const bParent = b.metadata?.replyPreview?.messageId || (b.metadata?.custom as any)?.replyPreview?.messageId;
+      const aTime = aParent && timeMap.has(aParent)
+        ? timeMap.get(aParent)! + 1
+        : new Date(a.createdAt).getTime();
+      const bTime = bParent && timeMap.has(bParent)
+        ? timeMap.get(bParent)! + 1
+        : new Date(b.createdAt).getTime();
+      return aTime - bTime;
+    });
   }, [sortedMessages, state.pendingMessages, state.failedMessages]);
 
   // ==================== EFFECTS ====================
@@ -1136,6 +1163,24 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   // Setup WebSocket event handlers
   useEffect(() => {
     if (!isAuthenticated) return;
+
+    // Clean up any existing handlers before re-registering (prevents duplicates on re-render)
+    cleanupRef.current.forEach((cleanup) => cleanup());
+    cleanupRef.current = [];
+
+    // Synchronous dedup — tracks processed event IDs across rapid WebSocket deliveries.
+    // Messages arrive via multiple paths (chat WS, notification WS, DINA bridge).
+    // React state refs are stale between dispatches, so we need a plain JS Set.
+    const processedEventIds = new Set<string>();
+    const isDuplicate = (id: string): boolean => {
+      if (processedEventIds.has(id)) return true;
+      processedEventIds.add(id);
+      // Prevent memory leak — remove after 30 seconds
+      setTimeout(() => processedEventIds.delete(id), 30000);
+      return false;
+    };
+    cleanupRef.current.forEach((cleanup) => cleanup());
+    cleanupRef.current = [];
 
     // Connection handlers
     const unsubConnect = onChatConnect(async () => {
@@ -1179,6 +1224,10 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
       // Only process messages for current group (use ref for latest value)
       if (payload.groupId !== currentGroupIdRef.current) return;
+
+      // Synchronous dedup across all WebSocket paths (chat WS, notification WS, DINA bridge)
+      const eventId = payload.id || (payload as any).messageId;
+      if (eventId && isDuplicate(`msg:${eventId}`)) return;
 
       // Skip if we already have this message or it's our own pending message (use refs)
       if (messagesRef.current.some((m) => m.id === payload.id)) return;
@@ -1348,7 +1397,9 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
 
     // Dina is processing a query (show "thinking" indicator)
     const unsubDinaProcessing = onChatEvent('dina:processing_start', (data: unknown) => {
-      const payload = data as { groupId: string; query?: string; username?: string; messageId?: string };
+      const payload = data as { groupId: string; query?: string; username?: string; messageId?: string; queueId?: string };
+      const dinaEventId = payload.queueId || payload.messageId || '';
+      if (dinaEventId && isDuplicate(`dina:proc:${dinaEventId}`)) return;
       console.log('[ChatContext] Dina processing started:', payload);
       dispatch({
         type: 'SET_DINA_PROCESSING',
@@ -1364,6 +1415,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     // Dina stream started (placeholder message appearing)
     const unsubDinaStreamStart = onChatEvent('dina:stream_start', (data: unknown) => {
       const payload = data as { messageId: string; senderUserId: number; senderUsername: string };
+      if (payload.messageId && isDuplicate(`dina:start:${payload.messageId}`)) return;
       console.log('[ChatContext] Dina stream started:', payload);
       dispatch({
         type: 'SET_DINA_STREAMING',
@@ -1388,6 +1440,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     // Dina stream complete (message finalized)
     const unsubDinaStreamComplete = onChatEvent('dina:stream_complete', (data: unknown) => {
       const payload = data as { messageId: string; groupId: string; finalContent: string };
+      if (payload.messageId && isDuplicate(`dina:done:${payload.messageId}`)) return;
       console.log('[ChatContext] Dina stream complete:', payload);
       // Clear processing state - the chat:message event will handle the final message
       dispatch({

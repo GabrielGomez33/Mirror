@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSubscription } from '../context/SubscriptionContext';
 import { TruthStreamProvider, useTruthStream, type TruthStreamView } from '../context/TruthStreamContext';
 import TruthStreamOverview from '../components/truthstream/TruthStreamOverview';
 import ProfileSetup from '../components/truthstream/ProfileSetup';
@@ -121,6 +122,90 @@ function TruthStreamRouter() {
 export default function TruthStreamPage() {
   const navigate = useNavigate();
   const isMobile = useMediaQuery('(max-width: 640px)');
+  const { isPremium, isTrialing, status, openUpgradeModal } = useSubscription();
+  const [showGate, setShowGate] = useState(false);
+
+  const hasAccess = isPremium() || isTrialing() || status === 'past_due';
+
+  useEffect(() => {
+    if (!hasAccess) {
+      setShowGate(true);
+      const timer = setTimeout(() => navigate(-1), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [hasAccess, navigate]);
+
+  if (showGate) {
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'linear-gradient(135deg, #1a0a10, #2d1220, #1a0a15)',
+          zIndex: 9999,
+        }}
+      >
+        <div
+          style={{
+            textAlign: 'center',
+            padding: '40px',
+            borderRadius: '24px',
+            background: 'rgba(255, 255, 255, 0.06)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            backdropFilter: 'blur(20px)',
+            maxWidth: '400px',
+          }}
+        >
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div>
+          <h2 style={{
+            fontFamily: "'Poppins', sans-serif",
+            fontSize: '1.5rem',
+            fontWeight: 600,
+            color: '#fff',
+            marginBottom: '8px',
+          }}>
+            Premium Feature
+          </h2>
+          <p style={{
+            fontFamily: "'Inter', sans-serif",
+            fontSize: '0.9rem',
+            color: 'rgba(255, 255, 255, 0.6)',
+            marginBottom: '20px',
+            lineHeight: 1.5,
+          }}>
+            TruthStream is available exclusively for Premium members. Upgrade to unlock anonymous peer reviews, Truth Mirror reports, and deep self-insight.
+          </p>
+          <button
+            onClick={() => { openUpgradeModal('truthstream'); }}
+            style={{
+              padding: '10px 28px',
+              borderRadius: '9999px',
+              border: 'none',
+              background: 'linear-gradient(135deg, #ff69b4, #ff1493)',
+              color: '#fff',
+              fontFamily: "'Inter', sans-serif",
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              marginBottom: '12px',
+            }}
+          >
+            Upgrade to Premium
+          </button>
+          <p style={{
+            fontFamily: "'Inter', sans-serif",
+            fontSize: '0.7rem',
+            color: 'rgba(255, 255, 255, 0.3)',
+          }}>
+            Redirecting back...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <TruthStreamProvider>
