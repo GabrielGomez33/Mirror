@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   getPersonalIntelligenceApi,
@@ -6,6 +6,8 @@ import {
   getLatestAnalysisApi,
   clearAnalysisCache,
 } from '../../services/mirrorDashboard';
+const DataExportTab = lazy(() => import('./DataExportTab'));
+
 import type {
   PersonalAnalysisResult,
 } from '../../services/mirrorDashboard';
@@ -507,7 +509,7 @@ function buildMicroNarratives(d: DashboardData): Narrative[] {
 // MAIN COMPONENT
 // ============================================================================
 
-type TabId = 'overview' | 'analysis' | 'personality' | 'astrology' | 'cognitive' | 'emotional' | 'voice' | 'answers' | 'meta';
+type TabId = 'overview' | 'analysis' | 'personality' | 'astrology' | 'cognitive' | 'emotional' | 'voice' | 'answers' | 'meta' | 'export';
 
 export function MyMirrorPanel() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -865,6 +867,7 @@ export function MyMirrorPanel() {
           { id: 'voice', label: 'Voice', icon: '🎙️' },
           { id: 'answers', label: 'Answers', icon: '🧾' },
           { id: 'meta', label: 'Metadata', icon: 'ℹ️' },
+          { id: 'export', label: 'Export', icon: '📥' },
         ].map((t) => (
           <button
             key={t.id}
@@ -1911,7 +1914,16 @@ export function MyMirrorPanel() {
         </motion.div>
       </AnimatePresence>
 
-      {/* Actions */}
+      {/* Export tab (lazy loaded) */}
+      {active === 'export' && (
+        <Suspense fallback={
+          <div style={{ textAlign: 'center', padding: '40px' }}>
+            <div className="animate-spin" style={{ display: 'inline-block', width: '24px', height: '24px', border: '3px solid #e8c4d0', borderTopColor: '#c6469b', borderRadius: '50%' }} />
+          </div>
+        }>
+          <DataExportTab />
+        </Suspense>
+      )}
 
     </div>
   );
