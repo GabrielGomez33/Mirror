@@ -153,8 +153,6 @@ const USAGE_LABELS: Record<string, string> = {
   journal_entries_per_month: 'Journal entries',
   groups_joined: 'Groups joined',
   dina_queries_per_day: '@Dina queries',
-  personal_analysis_per_week: 'Personal analysis',
-  truth_mirror_per_week: 'Truth Mirror',
 };
 
 // ============================================================================
@@ -274,16 +272,11 @@ const SubscriptionManager: React.FC = () => {
         )}
 
         {(status === 'cancelled' || status === 'expired') && (
-          <div className="rounded-xl p-3" style={{ background: 'rgba(198, 70, 155, 0.06)', border: '1px solid rgba(198, 70, 155, 0.15)' }}>
-            <p style={{ color: C.body, fontSize: '0.75rem', fontFamily: "'Inter', sans-serif", marginBottom: 8, textAlign: 'center' }}>
-              {status === 'cancelled' ? 'Your subscription has been cancelled.' : 'Your subscription has expired.'} Resubscribe to restore unlimited access to all Premium features.
-            </p>
-            <button onClick={() => openUpgradeModal()}
-              className="w-full py-2 rounded-xl text-xs font-bold text-white transition-all duration-200"
-              style={{ fontFamily: "'Inter', sans-serif", background: 'linear-gradient(135deg, #ff69b4, #ff1493)', boxShadow: '0 4px 16px rgba(255, 105, 180, 0.3)' }}>
-              Resubscribe — $9.99/mo
-            </button>
-          </div>
+          <button onClick={() => openUpgradeModal()}
+            className="w-full py-2 rounded-xl text-xs font-bold text-white transition-all duration-200"
+            style={{ fontFamily: "'Inter', sans-serif", background: 'linear-gradient(135deg, #ff69b4, #ff1493)', boxShadow: '0 4px 16px rgba(255, 105, 180, 0.3)' }}>
+            Resubscribe — $9.99/mo
+          </button>
         )}
 
         {(status === 'active' || status === 'trialing') && !showCancelConfirm && (
@@ -296,28 +289,8 @@ const SubscriptionManager: React.FC = () => {
 
         {showCancelConfirm && (
           <div className="rounded-xl p-3 mt-1" style={{ background: 'rgba(239, 68, 68, 0.06)', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
-            <p style={{ color: '#b91c1c', fontSize: '0.8rem', fontWeight: 600, fontFamily: "'Inter', sans-serif", marginBottom: 6 }}>
-              You will lose access to:
-            </p>
-            <div style={{ marginBottom: 10, paddingLeft: 4 }}>
-              {[
-                'Unlimited journal entries',
-                'AI-powered journal analysis',
-                'Personal Mirror Reports',
-                'Creating MirrorGroups',
-                'Group AI insights',
-                'TruthStream peer reviews',
-                'Unlimited @Dina queries',
-                'Data export',
-              ].map((feature, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                  <span style={{ color: '#b91c1c', fontSize: '0.6rem' }}>✕</span>
-                  <span style={{ color: C.body, fontSize: '0.7rem', fontFamily: "'Inter', sans-serif" }}>{feature}</span>
-                </div>
-              ))}
-            </div>
-            <p style={{ color: C.subtle, fontSize: '0.7rem', fontFamily: "'Inter', sans-serif", marginBottom: 8 }}>
-              {status === 'active' ? "You'll retain access until your billing period ends." : 'Your trial will end immediately.'}
+            <p style={{ color: C.body, fontSize: '0.75rem', fontFamily: "'Inter', sans-serif", marginBottom: 8 }}>
+              Are you sure? {status === 'active' ? "You'll retain access until your billing period ends." : 'Your trial will end immediately.'}
             </p>
             <textarea value={cancelReason} onChange={(e) => setCancelReason(e.target.value)}
               placeholder="Optional: why are you cancelling?"

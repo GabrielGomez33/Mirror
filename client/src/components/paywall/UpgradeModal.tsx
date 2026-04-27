@@ -63,25 +63,6 @@ const PREMIUM_FEATURES = [
 
 type ModalState = 'idle' | 'loading_sdk' | 'ready' | 'processing' | 'success' | 'error';
 
-const FEATURE_MESSAGES: Record<string, string> = {
-  journal_entries_per_month: "You've reached your monthly journal limit. Upgrade for unlimited entries.",
-  groups_joined: "You've reached your group join limit. Upgrade to join unlimited groups.",
-  dina_queries_per_day: "You've used all your daily @Dina queries. Upgrade for unlimited AI conversations.",
-  personal_analysis_per_week: "You've used your weekly personal analysis. Upgrade for unlimited reports.",
-  personal_analysis: "Personal analysis reports help you understand yourself deeply. Upgrade to generate more.",
-  truth_mirror_report: "Truth Mirror reports reveal how others perceive you. Upgrade to access TruthStream.",
-  truthstream: "TruthStream — anonymous peer reviews and deep self-insight — is a Premium feature.",
-  create_group: "Creating MirrorGroups is a Premium feature. Upgrade to build your own groups.",
-  group_insights: "Group AI insights are a Premium feature. Upgrade to unlock compatibility analysis.",
-  data_export: "Data export is a Premium feature. Upgrade to download your complete Mirror report.",
-  join_one_group: "You've reached your group join limit this month. Upgrade for unlimited access.",
-};
-
-function getFeatureMessage(feature: string | null): string {
-  if (!feature) return 'Get the full Mirror experience';
-  return FEATURE_MESSAGES[feature] || 'Unlock this feature and everything Mirror has to offer';
-}
-
 // ============================================================================
 // COMPONENT
 // ============================================================================
@@ -316,7 +297,9 @@ const UpgradeModal: React.FC = () => {
               ? 'Subscribe now to keep Premium access after your trial ends'
               : status === 'cancelled'
                 ? 'Welcome back — resubscribe to restore Premium access'
-                : getFeatureMessage(upgradeModalFeature)}
+                : upgradeModalFeature
+                  ? 'Unlock this feature and everything Mirror has to offer'
+                  : 'Get the full Mirror experience'}
           </p>
 
           {/* Price */}
