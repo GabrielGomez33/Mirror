@@ -2,6 +2,7 @@
 // MirrorGroups API Service - Comprehensive backend communication
 
 import { getToken } from '../utils/token';
+import { dispatchPaywallEvent } from './paywallInterceptor';
 import type {
   Group,
   GroupMember,
@@ -251,6 +252,9 @@ class GroupsApiClient {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 403 && (data.code === 'USAGE_LIMIT' || data.code === 'UPGRADE_REQUIRED')) {
+          dispatchPaywallEvent({ code: data.code, feature: data.feature, error: data.error, used: data.used, limit: data.limit });
+        }
         throw {
           error: data.error || 'Request failed',
           code: data.code || 'UNKNOWN_ERROR',
@@ -539,7 +543,6 @@ class GroupsApiClient {
       }
     );
     cache.invalidate(`groups:/${groupId}`);
-    cache.invalidate('groups:/list');
     return result;
   }
 

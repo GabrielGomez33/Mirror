@@ -2,6 +2,7 @@
 // Robust Journal API with security, caching, retry logic, and rate limiting
 
 import { getToken } from '../utils/token';
+import { dispatchPaywallEvent } from './paywallInterceptor';
 
 const API_BASE = '/mirror/api';
 const MAX_RETRIES = 3;
@@ -410,6 +411,10 @@ export async function createEntry(
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      // Intercept paywall responses — trigger upgrade modal
+      if (response.status === 403 && (errorData.code === 'USAGE_LIMIT' || errorData.code === 'UPGRADE_REQUIRED')) {
+        dispatchPaywallEvent({ code: errorData.code, feature: errorData.feature, error: errorData.error, used: errorData.used, limit: errorData.limit });
+      }
       throw new Error(errorData.error || `Failed to create entry: ${response.statusText}`);
     }
 
