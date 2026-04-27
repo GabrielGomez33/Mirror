@@ -7,6 +7,7 @@
 // ============================================================================
 
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
+import { onPaywallEvent } from '../services/paywallInterceptor';
 import {
   getSubscriptionStatus,
   getPlans,
@@ -189,6 +190,17 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     refreshSubscription();
   }, [refreshSubscription]);
+
+  // Listen for paywall events from API interceptor — auto-open UpgradeModal
+  useEffect(() => {
+    const cleanup = onPaywallEvent((event) => {
+      console.log('[Subscription] Paywall triggered:', event.code, event.feature);
+      openUpgradeModal(event.feature || undefined);
+      // Also refresh subscription to get latest usage data
+      refreshSubscription();
+    });
+    return cleanup;
+  }, [openUpgradeModal, refreshSubscription]);
 
   const refreshUsage = useCallback(async () => {
     try {

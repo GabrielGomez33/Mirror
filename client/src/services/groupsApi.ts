@@ -1,1102 +1,371 @@
-// src/services/groupsApi.ts
-// MirrorGroups API Service - Comprehensive backend communication
-
-import { getToken } from '../utils/token';
-import type {
-  Group,
-  GroupMember,
-  GroupInsights,
-  GroupDetailResponse,
-  GroupListResponse,
-  ShareDataRequest,
-  SharedData,
-  Vote,
-  VoteResults,
-  ProposeVoteRequest,
-  CastVoteRequest,
-  VoteHistoryResponse,
-  JoinRequest,
-  CreateGroupFormData,
-  ConversationInsight,
-  SessionInsightsSummary,
-  ApiResponse,
-  LLMSynthesis,
-  ExtendedGroupMember,
-  SharedDataDetail,
-} from '../types/groups';
-
 // ============================================================================
-// CONFIGURATION
+// SUBSCRIPTION CONTEXT
+// ============================================================================
+// File: context/SubscriptionContext.tsx
+// Global subscription state management. Provides tier, status, features,
+// usage, and methods for upgrade/cancel flows.
 // ============================================================================
 
-const API_BASE = import.meta.env.VITE_API_URL
-  ? `${import.meta.env.VITE_API_URL}/mirror/api`
-  : '/mirror/api';
-
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 1000;
-const RATE_LIMIT_WINDOW = 60000; // 1 minute
-const MAX_REQUESTS_PER_WINDOW = 30;
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
+import { onPaywallEvent } from '../services/paywallInterceptor';
+import {
+  getSubscriptionStatus,
+  getPlans,
+  createSubscription,
+  activateSubscription,
+  cancelSubscription,
+  startTrial,
+  getUsage,
+} from '../services/subscriptionApi';
+import type { SubscriptionStatus, Plan } from '../services/subscriptionApi';
 
 // ============================================================================
-// RATE LIMITING
+// TYPES
 // ============================================================================
 
-class RateLimiter {
-  private timestamps: number[] = [];
+interface SubscriptionState {
+  // Core subscription data
+  tier: 'free' | 'premium' | 'enterprise';
+  status: 'free' | 'trialing' | 'active' | 'past_due' | 'cancelled' | 'expired';
+  features: string[];
+  usage: SubscriptionStatus['usage'];
 
-  canMakeRequest(): boolean {
-    const now = Date.now();
-    this.timestamps = this.timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW);
+  // Time-sensitive
+  trialDaysLeft: number | null;
+  graceDaysLeft: number | null;
+  accessUntil: string | null;
+  currentPeriodEnd: string | null;
 
-    if (this.timestamps.length >= MAX_REQUESTS_PER_WINDOW) {
-      return false;
-    }
+  // Plans
+  plans: Plan[];
 
-    this.timestamps.push(now);
-    return true;
-  }
+  // UI state
+  isLoading: boolean;
+  error: string | null;
+  upgradeModalOpen: boolean;
+  upgradeModalFeature: string | null;
 
-  getWaitTime(): number {
-    if (this.timestamps.length < MAX_REQUESTS_PER_WINDOW) return 0;
-    const oldestTimestamp = this.timestamps[0];
-    return RATE_LIMIT_WINDOW - (Date.now() - oldestTimestamp);
-  }
+  // Metadata
+  lastFetched: number | null;
 }
 
-const rateLimiter = new RateLimiter();
+type SubscriptionAction =
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_SUBSCRIPTION'; payload: SubscriptionStatus }
+  | { type: 'SET_PLANS'; payload: Plan[] }
+  | { type: 'SET_ERROR'; payload: string }
+  | { type: 'CLEAR_ERROR' }
+  | { type: 'OPEN_UPGRADE_MODAL'; payload: string | null }
+  | { type: 'CLOSE_UPGRADE_MODAL' }
+  | { type: 'RESET' };
 
-// ============================================================================
-// CACHING
-// ============================================================================
+interface SubscriptionContextValue extends SubscriptionState {
+  // Queries
+  canAccess: (feature: string) => boolean;
+  isPremium: () => boolean;
+  isTrialing: () => boolean;
+  hasGracePeriod: () => boolean;
+  getFeatureUsage: (feature: string) => { used: number; limit: number; remaining: number } | null;
 
-interface CacheEntry<T> {
-  data: T;
-  timestamp: number;
-  expiresIn: number;
-}
+  // Actions
+  refreshSubscription: () => Promise<void>;
+  refreshUsage: () => Promise<void>;
+  loadPlans: () => Promise<void>;
+  initiateUpgrade: (planId: string) => Promise<string>;
+  confirmActivation: (subscriptionId: string) => Promise<void>;
+  requestCancel: (reason?: string) => Promise<void>;
+  requestTrial: () => Promise<void>;
 
-class SimpleCache {
-  private cache = new Map<string, CacheEntry<unknown>>();
-
-  set<T>(key: string, data: T, expiresIn: number = 300000): void {
-    this.cache.set(key, {
-      data,
-      timestamp: Date.now(),
-      expiresIn,
-    });
-  }
-
-  get<T>(key: string): T | null {
-    const entry = this.cache.get(key);
-    if (!entry) return null;
-
-    const age = Date.now() - entry.timestamp;
-    if (age > entry.expiresIn) {
-      this.cache.delete(key);
-      return null;
-    }
-
-    return entry.data as T;
-  }
-
-  invalidate(pattern?: string): void {
-    if (!pattern) {
-      this.cache.clear();
-      return;
-    }
-
-    for (const key of this.cache.keys()) {
-      if (key.includes(pattern)) {
-        this.cache.delete(key);
-      }
-    }
-  }
-}
-
-const cache = new SimpleCache();
-
-// ============================================================================
-// INPUT SANITIZATION
-// ============================================================================
-
-function sanitizeString(input: string, maxLength: number = 1000): string {
-  if (!input) return '';
-
-  let sanitized = input
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/javascript:/gi, '')
-    .replace(/on\w+\s*=/gi, '');
-
-  return sanitized.slice(0, maxLength).trim();
+  // UI
+  openUpgradeModal: (feature?: string) => void;
+  closeUpgradeModal: () => void;
 }
 
 // ============================================================================
-// SNAKE_CASE TO CAMELCASE TRANSFORMATION
+// INITIAL STATE
 // ============================================================================
 
-function snakeToCamel(str: string): string {
-  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-}
-
-function transformKeys<T>(obj: unknown): T {
-  if (obj === null || obj === undefined) {
-    return obj as T;
-  }
-
-  if (Array.isArray(obj)) {
-    return obj.map((item) => transformKeys(item)) as T;
-  }
-
-  if (typeof obj === 'object') {
-    const transformed: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
-      const camelKey = snakeToCamel(key);
-      transformed[camelKey] = transformKeys(value);
-    }
-    return transformed as T;
-  }
-
-  return obj as T;
-}
+const initialState: SubscriptionState = {
+  tier: 'free',
+  status: 'free',
+  features: [],
+  usage: {},
+  trialDaysLeft: null,
+  graceDaysLeft: null,
+  accessUntil: null,
+  currentPeriodEnd: null,
+  plans: [],
+  isLoading: false,
+  error: null,
+  upgradeModalOpen: false,
+  upgradeModalFeature: null,
+  lastFetched: null,
+};
 
 // ============================================================================
-// FETCH WITH RETRY
+// REDUCER
 // ============================================================================
 
-async function fetchWithRetry(
-  url: string,
-  options: RequestInit,
-  retries: number = MAX_RETRIES
-): Promise<Response> {
-  try {
-    const response = await fetch(url, options);
+function subscriptionReducer(state: SubscriptionState, action: SubscriptionAction): SubscriptionState {
+  switch (action.type) {
+    case 'SET_LOADING':
+      return { ...state, isLoading: action.payload };
 
-    // Don't retry on 4xx errors
-    if (response.status >= 400 && response.status < 500) {
-      return response;
-    }
+    case 'SET_SUBSCRIPTION':
+      return {
+        ...state,
+        tier: action.payload.tier,
+        status: action.payload.status,
+        features: action.payload.features,
+        usage: action.payload.usage,
+        trialDaysLeft: action.payload.trialDaysLeft,
+        graceDaysLeft: action.payload.graceDaysLeft,
+        accessUntil: action.payload.accessUntil,
+        currentPeriodEnd: action.payload.currentPeriodEnd,
+        isLoading: false,
+        error: null,
+        lastFetched: Date.now(),
+      };
 
-    // Retry on 5xx errors
-    if (!response.ok && retries > 0) {
-      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
-      return fetchWithRetry(url, options, retries - 1);
-    }
+    case 'SET_PLANS':
+      return { ...state, plans: action.payload };
 
-    return response;
-  } catch (error) {
-    if (retries > 0) {
-      console.warn(`Fetch failed, retrying... (${retries} attempts left)`);
-      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
-      return fetchWithRetry(url, options, retries - 1);
-    }
-    throw error;
+    case 'SET_ERROR':
+      return { ...state, error: action.payload, isLoading: false };
+
+    case 'CLEAR_ERROR':
+      return { ...state, error: null };
+
+    case 'OPEN_UPGRADE_MODAL':
+      return { ...state, upgradeModalOpen: true, upgradeModalFeature: action.payload };
+
+    case 'CLOSE_UPGRADE_MODAL':
+      return { ...state, upgradeModalOpen: false, upgradeModalFeature: null };
+
+    case 'RESET':
+      return initialState;
+
+    default:
+      return state;
   }
 }
 
 // ============================================================================
-// GROUPS API CLIENT CLASS
+// CONTEXT
 // ============================================================================
 
-class GroupsApiClient {
-  private baseUrl: string;
+const SubscriptionContext = createContext<SubscriptionContextValue | null>(null);
 
-  constructor() {
-    this.baseUrl = `${API_BASE}/groups`;
-  }
+// ============================================================================
+// PROVIDER
+// ============================================================================
 
-  // ==================== PRIVATE HELPERS ====================
+export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
+  const [state, dispatch] = useReducer(subscriptionReducer, initialState);
+  const fetchInProgress = useRef(false);
 
-  private async makeRequest<T>(
-    endpoint: string,
-    options: RequestInit = {},
-    useCache: boolean = false,
-    cacheTTL: number = 300000
-  ): Promise<T> {
-    const token = getToken();
-    if (!token) {
-      throw new Error('No authentication token');
-    }
+  // ========================================================================
+  // DATA FETCHING
+  // ========================================================================
 
-    if (!rateLimiter.canMakeRequest()) {
-      const waitTime = rateLimiter.getWaitTime();
-      throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds.`);
-    }
-
-    // Check cache for GET requests
-    const cacheKey = `groups:${endpoint}`;
-    if (useCache && options.method === 'GET') {
-      const cached = cache.get<T>(cacheKey);
-      if (cached) {
-        console.log(`[GroupsAPI] Cache hit: ${endpoint}`);
-        return cached;
-      }
-    }
-
-    const url = `${this.baseUrl}${endpoint}`;
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...(options.headers as Record<string, string>),
-    };
-
-    const config: RequestInit = {
-      ...options,
-      headers,
-      credentials: 'include',
-    };
+  const refreshSubscription = useCallback(async () => {
+    if (fetchInProgress.current) return;
+    fetchInProgress.current = true;
 
     try {
-      const response = await fetchWithRetry(url, config);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw {
-          error: data.error || 'Request failed',
-          code: data.code || 'UNKNOWN_ERROR',
-          status: response.status,
-        };
+      dispatch({ type: 'SET_LOADING', payload: true });
+      const sub = await getSubscriptionStatus();
+      dispatch({ type: 'SET_SUBSCRIPTION', payload: sub });
+    } catch (error: any) {
+      // Don't show error for 401 (not logged in)
+      if (error?.status !== 401) {
+        dispatch({ type: 'SET_ERROR', payload: error?.error || 'Failed to load subscription' });
       }
+    } finally {
+      fetchInProgress.current = false;
+    }
+  }, []);
 
-      // Cache successful GET responses
-      if (useCache && options.method === 'GET') {
-        cache.set(cacheKey, data, cacheTTL);
+  // Auto-refresh subscription status on mount
+  useEffect(() => {
+    refreshSubscription();
+  }, [refreshSubscription]);
+
+  // Listen for paywall events from API interceptor — auto-open UpgradeModal
+  useEffect(() => {
+    const cleanup = onPaywallEvent((event) => {
+      console.log('[Subscription] Paywall triggered:', event.code, event.feature);
+      openUpgradeModal(event.feature || undefined);
+      // Also refresh subscription to get latest usage data
+      refreshSubscription();
+    });
+    return cleanup;
+  }, [openUpgradeModal, refreshSubscription]);
+
+  const refreshUsage = useCallback(async () => {
+    try {
+      const usageData = await getUsage();
+      if (usageData.usage) {
+        // Usage is already part of subscription status, but this allows targeted refresh
+        await refreshSubscription();
       }
+    } catch {
+      // Non-critical — usage display is supplementary
+    }
+  }, [refreshSubscription]);
 
-      return data;
-    } catch (error) {
-      console.error(`[GroupsAPI] Error on ${endpoint}:`, error);
+  const loadPlans = useCallback(async () => {
+    try {
+      const { plans } = await getPlans();
+      dispatch({ type: 'SET_PLANS', payload: plans });
+    } catch (error: any) {
+      console.error('Failed to load plans:', error);
+    }
+  }, []);
+
+  // ========================================================================
+  // QUERIES
+  // ========================================================================
+
+  const canAccess = useCallback((feature: string): boolean => {
+    // If feature is in the user's features list, they have access
+    if (state.features.includes(feature)) return true;
+
+    // Premium features require active-like status
+    const activeStatuses = ['active', 'trialing', 'past_due'];
+    if (activeStatuses.includes(state.status) && state.tier !== 'free') {
+      return true;
+    }
+
+    // Cancelled but within period
+    if (state.status === 'cancelled' && state.accessUntil) {
+      return new Date(state.accessUntil) > new Date();
+    }
+
+    return false;
+  }, [state.features, state.status, state.tier, state.accessUntil]);
+
+  const isPremium = useCallback((): boolean => {
+    return state.tier !== 'free' && ['active', 'trialing', 'past_due'].includes(state.status);
+  }, [state.tier, state.status]);
+
+  const isTrialing = useCallback((): boolean => {
+    return state.status === 'trialing';
+  }, [state.status]);
+
+  const hasGracePeriod = useCallback((): boolean => {
+    return state.status === 'past_due';
+  }, [state.status]);
+
+  const getFeatureUsage = useCallback((feature: string) => {
+    const usage = state.usage[feature];
+    if (!usage) return null;
+    return {
+      used: usage.used,
+      limit: usage.limit,
+      remaining: Math.max(0, usage.limit - usage.used),
+    };
+  }, [state.usage]);
+
+  // ========================================================================
+  // ACTIONS
+  // ========================================================================
+
+  const initiateUpgrade = useCallback(async (planId: string): Promise<string> => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+      const result = await createSubscription(planId);
+      dispatch({ type: 'SET_LOADING', payload: false });
+      return result.approvalUrl;
+    } catch (error: any) {
+      dispatch({ type: 'SET_ERROR', payload: error?.error || 'Failed to create subscription' });
       throw error;
     }
-  }
+  }, []);
 
-  // ==================== GROUP CRUD ====================
-
-  async createGroup(formData: CreateGroupFormData): Promise<ApiResponse<{ id: string; groupId?: string }>> {
-    const sanitizedData: Record<string, unknown> = {
-      name: sanitizeString(formData.name, 100),
-      description: sanitizeString(formData.description, 500),
-      type: formData.type,
-      privacy: formData.privacy,
-      maxMembers: Math.min(Math.max(formData.maxMembers, 2), 100),
-      settings: formData.settings,
-    };
-
-    // Include optional new fields
-    if (formData.subtype) {
-      sanitizedData.subtype = formData.subtype;
+  const confirmActivation = useCallback(async (subscriptionId: string): Promise<void> => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+      await activateSubscription(subscriptionId);
+      await refreshSubscription();
+      dispatch({ type: 'CLOSE_UPGRADE_MODAL' });
+    } catch (error: any) {
+      dispatch({ type: 'SET_ERROR', payload: error?.error || 'Failed to activate subscription' });
+      throw error;
     }
-    if (formData.goal) {
-      sanitizedData.goal = sanitizeString(formData.goal, 300);
+  }, [refreshSubscription]);
+
+  const requestCancel = useCallback(async (reason?: string): Promise<void> => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+      await cancelSubscription(reason);
+      await refreshSubscription();
+    } catch (error: any) {
+      dispatch({ type: 'SET_ERROR', payload: error?.error || 'Failed to cancel subscription' });
+      throw error;
     }
-    if (formData.goalCustom) {
-      sanitizedData.goalCustom = sanitizeString(formData.goalCustom, 500);
+  }, [refreshSubscription]);
+
+  const requestTrial = useCallback(async (): Promise<void> => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+      await startTrial();
+      await refreshSubscription();
+    } catch (error: any) {
+      dispatch({ type: 'SET_ERROR', payload: error?.error || 'Failed to start trial' });
+      throw error;
     }
+  }, [refreshSubscription]);
+
+  // ========================================================================
+  // UI HELPERS
+  // ========================================================================
+
+  const openUpgradeModal = useCallback((feature?: string) => {
+    dispatch({ type: 'OPEN_UPGRADE_MODAL', payload: feature || null });
+  }, []);
+
+  const closeUpgradeModal = useCallback(() => {
+    dispatch({ type: 'CLOSE_UPGRADE_MODAL' });
+  }, []);
+
+  // ========================================================================
+  // CONTEXT VALUE
+  // ========================================================================
+
+  const value: SubscriptionContextValue = {
+    ...state,
+    canAccess,
+    isPremium,
+    isTrialing,   
+    hasGracePeriod,
+    getFeatureUsage,
+    refreshSubscription,
+    refreshUsage,
+    loadPlans,
+    initiateUpgrade,
+    confirmActivation,
+    requestCancel,
+    requestTrial,
+    openUpgradeModal,
+    closeUpgradeModal,
+  };
 
-    const result = await this.makeRequest<ApiResponse<{ id: string; groupId?: string }>>('/create', {
-      method: 'POST',
-      body: JSON.stringify(sanitizedData),
-    });
-
-    // Invalidate cache
-    cache.invalidate('groups:list');
-    cache.invalidate('groups:/list');
-
-    return result;
-  }
-
-  async getMyGroups(): Promise<GroupListResponse> {
-    const response = await this.makeRequest<ApiResponse<GroupListResponse>>(
-      '/list',
-      { method: 'GET' },
-      true,
-      60000 // 1 minute cache
-    );
-    const data = response.data || { groups: [], total: 0 };
-    // Transform snake_case keys to camelCase
-    return transformKeys<GroupListResponse>(data);
-  }
-
-  async getSuggestedGroups(): Promise<GroupListResponse> {
-    const response = await this.makeRequest<ApiResponse<GroupListResponse>>(
-      '/suggested',
-      { method: 'GET' },
-      true,
-      300000 // 5 minute cache
-    );
-    const data = response.data || { groups: [], total: 0 };
-    // Transform snake_case keys to camelCase
-    return transformKeys<GroupListResponse>(data);
-  }
-
-  async getGroupDetails(groupId: string): Promise<GroupDetailResponse> {
-    const response = await this.makeRequest<ApiResponse<GroupDetailResponse>>(
-      `/${groupId}`,
-      { method: 'GET' },
-      true,
-      30000 // 30 second cache
-    );
-
-    if (!response.data) {
-      throw new Error('Group not found');
-    }
-
-    // Transform snake_case keys to camelCase
-    return transformKeys<GroupDetailResponse>(response.data);
-  }
-
-  async joinGroup(groupId: string, joinCode?: string): Promise<ApiResponse<{ status: string; autoApproved?: boolean; requestId?: string; groupId: string; message?: string }>> {
-    const result = await this.makeRequest<ApiResponse<{ status: string; autoApproved?: boolean; requestId?: string; groupId: string; message?: string }>>(`/${groupId}/join`, {
-      method: 'POST',
-      body: JSON.stringify(joinCode ? { joinCode } : {}),
-    });
-
-    cache.invalidate('groups:');
-    return result;
-  }
-
-  async leaveGroup(groupId: string): Promise<ApiResponse<{ message: string }>> {
-    const result = await this.makeRequest<ApiResponse<{ message: string }>>(`/${groupId}/leave`, {
-      method: 'POST',
-    });
-
-    cache.invalidate('groups:');
-    return result;
-  }
-
-  async updateGroup(
-    groupId: string,
-    updates: Partial<CreateGroupFormData>
-  ): Promise<ApiResponse<Group>> {
-    const result = await this.makeRequest<ApiResponse<Group>>(`/${groupId}`, {
-      method: 'PUT',
-      body: JSON.stringify(updates),
-    });
-
-    cache.invalidate(`groups:/${groupId}`);
-    return result;
-  }
-
-  async deleteGroup(groupId: string): Promise<ApiResponse<{ message: string }>> {
-    const result = await this.makeRequest<ApiResponse<{ message: string }>>(`/${groupId}`, {
-      method: 'DELETE',
-    });
-
-    cache.invalidate('groups:');
-    return result;
-  }
-
-  // ==================== MEMBERS ====================
-
-  async getMembers(groupId: string): Promise<GroupMember[]> {
-    const response = await this.makeRequest<ApiResponse<{ members: GroupMember[] }>>(
-      `/${groupId}/members`,
-      { method: 'GET' },
-      true,
-      30000
-    );
-    // Transform snake_case keys to camelCase (has_shared_data -> hasSharedData, etc.)
-    return transformKeys<GroupMember[]>(response.data?.members || []);
-  }
-
-  async inviteMember(
-    groupId: string,
-    data: { email?: string; username?: string; message?: string }
-  ): Promise<ApiResponse<{ message: string }>> {
-    return this.makeRequest<ApiResponse<{ message: string }>>(`/${groupId}/invite`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async acceptInvitation(
-    groupId: string,
-    requestId: string
-  ): Promise<ApiResponse<{ message: string }>> {
-    const result = await this.makeRequest<ApiResponse<{ message: string }>>(`/${groupId}/accept`, {
-      method: 'POST',
-      body: JSON.stringify({ requestId }),
-    });
-
-    // Invalidate caches since membership changed
-    cache.invalidate(`groups:list`);
-    cache.invalidate(`groups:/${groupId}`);
-    return result;
-  }
-
-  async getMyInvitations(): Promise<ApiResponse<{ invitations: Array<{
-    request_id: string;
-    group_id: string;
-    group_name: string;
-    group_description: string;
-    inviter_username: string;
-    inviter_id: number;
-    requested_at: string;
-    status: string;
-  }> }>> {
-    return this.makeRequest<ApiResponse<{ invitations: Array<{
-      request_id: string;
-      group_id: string;
-      group_name: string;
-      group_description: string;
-      inviter_username: string;
-      inviter_id: number;
-      requested_at: string;
-      status: string;
-    }> }>>('/my-invitations', { method: 'GET' });
-  }
-
-  async declineInvitation(
-    groupId: string,
-    requestId: string
-  ): Promise<ApiResponse<{ message: string }>> {
-    const result = await this.makeRequest<ApiResponse<{ message: string }>>(`/${groupId}/decline`, {
-      method: 'POST',
-      body: JSON.stringify({ requestId }),
-    });
-
-    // Invalidate caches since invitation is now declined
-    cache.invalidate('groups:');
-    return result;
-  }
-
-  async removeMember(
-    groupId: string,
-    userId: number
-  ): Promise<ApiResponse<{ message: string }>> {
-    const result = await this.makeRequest<ApiResponse<{ message: string }>>(
-      `/${groupId}/members/${userId}`,
-      { method: 'DELETE' }
-    );
-
-    cache.invalidate(`groups:/${groupId}`);
-    return result;
-  }
-
-  async updateMemberRole(
-    groupId: string,
-    userId: number,
-    role: string
-  ): Promise<ApiResponse<{ message: string }>> {
-    return this.makeRequest<ApiResponse<{ message: string }>>(
-      `/${groupId}/members/${userId}/role`,
-      {
-        method: 'PUT',
-        body: JSON.stringify({ role }),
-      }
-    );
-  }
-
-  // ==================== MEMBER MODERATION ====================
-
-  async banMember(
-    groupId: string,
-    userId: number,
-    reason?: string
-  ): Promise<ApiResponse<{ userId: number; status: string }>> {
-    const result = await this.makeRequest<ApiResponse<{ userId: number; status: string }>>(
-      `/${groupId}/members/${userId}/ban`,
-      {
-        method: 'POST',
-        body: JSON.stringify(reason ? { reason } : {}),
-      }
-    );
-    cache.invalidate(`groups:/${groupId}`);
-    return result;
-  }
-
-  async unbanMember(
-    groupId: string,
-    userId: number
-  ): Promise<ApiResponse<{ userId: number; status: string }>> {
-    const result = await this.makeRequest<ApiResponse<{ userId: number; status: string }>>(
-      `/${groupId}/members/${userId}/unban`,
-      { method: 'POST' }
-    );
-    cache.invalidate(`groups:/${groupId}`);
-    return result;
-  }
-
-  async getBannedMembers(
-    groupId: string
-  ): Promise<{ banned: Array<{ userId: number; username: string; bannedAt: string }>; total: number }> {
-    const response = await this.makeRequest<ApiResponse<{ banned: Array<{ userId: number; username: string; bannedAt: string }>; total: number }>>(
-      `/${groupId}/banned`,
-      { method: 'GET' }
-    );
-    return response.data || { banned: [], total: 0 };
-  }
-
-  async transferOwnership(
-    groupId: string,
-    newOwnerId: number
-  ): Promise<ApiResponse<{ message: string }>> {
-    const result = await this.makeRequest<ApiResponse<{ message: string }>>(
-      `/${groupId}/transfer-ownership`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ newOwnerId }),
-      }
-    );
-    cache.invalidate(`groups:/${groupId}`);
-    cache.invalidate('groups:/list');
-    return result;
-  }
-
-  // ==================== JOIN REQUESTS ====================
-
-  async getJoinRequests(groupId: string): Promise<JoinRequest[]> {
-    const response = await this.makeRequest<ApiResponse<{ requests: JoinRequest[] }>>(
-      `/${groupId}/join-requests`,
-      { method: 'GET' }
-    );
-    return response.data?.requests || [];
-  }
-
-  async approveJoinRequest(
-    groupId: string,
-    requestId: string
-  ): Promise<ApiResponse<{ message: string }>> {
-    return this.makeRequest<ApiResponse<{ message: string }>>(
-      `/${groupId}/join-requests/${requestId}/approve`,
-      { method: 'POST' }
-    );
-  }
-
-  async rejectJoinRequest(
-    groupId: string,
-    requestId: string
-  ): Promise<ApiResponse<{ message: string }>> {
-    return this.makeRequest<ApiResponse<{ message: string }>>(
-      `/${groupId}/join-requests/${requestId}/reject`,
-      { method: 'POST' }
-    );
-  }
-
-  // ==================== DATA SHARING ====================
-
-  async shareData(
-    groupId: string,
-    request: ShareDataRequest
-  ): Promise<ApiResponse<{ sharedDataIds: string[] }>> {
-    const result = await this.makeRequest<ApiResponse<{ sharedDataIds: string[] }>>(
-      `/${groupId}/share-data`,
-      {
-        method: 'POST',
-        body: JSON.stringify(request),
-      }
-    );
-
-    cache.invalidate(`groups:/${groupId}`);
-    return result;
-  }
-
-  async getSharedData(groupId: string): Promise<SharedData[]> {
-    const response = await this.makeRequest<ApiResponse<{ sharedData: SharedData[] }>>(
-      `/${groupId}/shared-data`,
-      { method: 'GET' }
-    );
-    return response.data?.sharedData || [];
-  }
-
-  async revokeSharedData(
-    groupId: string,
-    dataType: string
-  ): Promise<ApiResponse<{ message: string }>> {
-    return this.makeRequest<ApiResponse<{ message: string }>>(
-      `/${groupId}/shared-data/${dataType}`,
-      { method: 'DELETE' }
-    );
-  }
-
-  // ==================== INSIGHTS & ANALYSIS ====================
-
-  async getInsights(groupId: string): Promise<GroupInsights> {
-    const response = await this.makeRequest<ApiResponse<{ insights: GroupInsights }>>(
-      `/${groupId}/insights`,
-      { method: 'GET' },
-      true,
-      60000 // 1 minute cache
-    );
-
-    return (
-      response.data?.insights || {
-        groupId,
-        compatibility: null,
-        patterns: [],
-        conflicts: [],
-        llmSynthesis: null,
-        lastAnalyzed: null,
-        analysisStatus: 'none',
-      }
-    );
-  }
-
-  async triggerAnalysis(groupId: string, userContext?: string): Promise<ApiResponse<{ jobId: string }>> {
-    const body: Record<string, unknown> = {};
-    if (userContext) {
-      body.userContext = sanitizeString(userContext, 2000);
-    }
-
-    const result = await this.makeRequest<ApiResponse<{ jobId: string }>>(
-      `/${groupId}/analyze`,
-      {
-        method: 'POST',
-        body: JSON.stringify(body),
-      }
-    );
-
-    cache.invalidate(`groups:/${groupId}/insights`);
-    return result;
-  }
-
-  /**
-   * Generate new insights (Owner only)
-   * This queues a new full analysis with high priority
-   */
-  async generateInsights(
-    groupId: string,
-    forceRefresh: boolean = true,
-    userContext?: string
-  ): Promise<ApiResponse<{
-    jobId: string;
-    logId: string;
-    message: string;
-    estimatedTime: string;
-    membersWithData: number;
-  }>> {
-    const body: Record<string, unknown> = { forceRefresh };
-    if (userContext) {
-      body.userContext = sanitizeString(userContext, 2000);
-    }
-
-    const result = await this.makeRequest<
-      ApiResponse<{
-        jobId: string;
-        logId: string;
-        message: string;
-        estimatedTime: string;
-        membersWithData: number;
-      }>
-    >(
-      `/${groupId}/generate-insights`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      }
-    );
-
-    cache.invalidate(`groups:/${groupId}/insights`);
-    return result;
-  }
-
-  /**
-   * Get insights generation status
-   */
-  async getInsightsGenerationStatus(
-    groupId: string,
-    logId: string
-  ): Promise<ApiResponse<{
-    logId: string;
-    status: 'pending' | 'processing' | 'completed' | 'failed';
-    requestedBy: number;
-    createdAt: string;
-    completedAt: string | null;
-    errorMessage: string | null;
-  }>> {
-    return this.makeRequest<
-      ApiResponse<{
-        logId: string;
-        status: 'pending' | 'processing' | 'completed' | 'failed';
-        requestedBy: number;
-        createdAt: string;
-        completedAt: string | null;
-        errorMessage: string | null;
-      }>
-    >(`/${groupId}/insights/generation-status/${logId}`, { method: 'GET' });
-  }
-
-  async getCompatibilityMatrix(groupId: string): Promise<ApiResponse<{ matrix: unknown }>> {
-    return this.makeRequest<ApiResponse<{ matrix: unknown }>>(
-      `/${groupId}/compatibility`,
-      { method: 'GET' },
-      true,
-      60000
-    );
-  }
-
-  async getCollectivePatterns(groupId: string): Promise<ApiResponse<{ patterns: unknown[] }>> {
-    return this.makeRequest<ApiResponse<{ patterns: unknown[] }>>(
-      `/${groupId}/patterns`,
-      { method: 'GET' },
-      true,
-      60000
-    );
-  }
-
-  async getConflictRisks(groupId: string): Promise<ApiResponse<{ risks: unknown[] }>> {
-    return this.makeRequest<ApiResponse<{ risks: unknown[] }>>(
-      `/${groupId}/risks`,
-      { method: 'GET' },
-      true,
-      60000
-    );
-  }
-
-  async getInsightsHistory(
-    groupId: string,
-    limit: number = 20,
-    offset: number = 0
-  ): Promise<{
-    insights: LLMSynthesis[];
-    pagination: { total: number; limit: number; offset: number; hasMore: boolean };
-  }> {
-    const response = await this.makeRequest<
-      ApiResponse<{
-        insights: LLMSynthesis[];
-        pagination: { total: number; limit: number; offset: number; hasMore: boolean };
-      }>
-    >(`/${groupId}/insights/history?limit=${limit}&offset=${offset}`, { method: 'GET' });
-    return {
-      insights: response.data?.insights || [],
-      pagination: response.data?.pagination || { total: 0, limit, offset, hasMore: false },
-    };
-  }
-
-  async getMembersWithDetails(groupId: string): Promise<ExtendedGroupMember[]> {
-    const response = await this.makeRequest<
-      ApiResponse<{ members: ExtendedGroupMember[]; total: number }>
-    >(`/${groupId}/members-details`, { method: 'GET' });
-    return response.data?.members || [];
-  }
-
-  async getMemberDetails(
-    groupId: string,
-    memberId: string | number
-  ): Promise<ExtendedGroupMember | null> {
-    const response = await this.makeRequest<
-      ApiResponse<{ member: ExtendedGroupMember; sharedData: SharedDataDetail[]; hasSharedData: boolean; hasSharedProfile: boolean }>
-    >(`/${groupId}/members/${memberId}`, { method: 'GET' });
-
-    if (!response.data?.member) return null;
-
-    // Transform snake_case keys to camelCase on the member object
-    const member = transformKeys<ExtendedGroupMember>(response.data.member);
-
-    // Merge shared data info into the member object so the UI can access it
-    member.sharedData = response.data.sharedData || [];
-    if (member.hasSharedData === undefined) {
-      member.hasSharedData = response.data.hasSharedData ?? false;
-    }
-    if (!member.sharedDataTypes || member.sharedDataTypes.length === 0) {
-      member.sharedDataTypes = (response.data.sharedData || []).map(sd => sd.dataType);
-    }
-
-    return member;
-  }
-
-  // ==================== VOTING ====================
-
-  async proposeVote(groupId: string, request: ProposeVoteRequest): Promise<ApiResponse<Vote>> {
-    const sanitized = {
-      topic: sanitizeString(request.topic, 200),
-      argument: request.argument ? sanitizeString(request.argument, 1000) : undefined,
-      voteType: request.voteType,
-      options: request.options?.map((o) => sanitizeString(o, 100)),
-      durationSeconds: Math.min(Math.max(request.durationSeconds || 60, 30), 300),
-    };
-
-    return this.makeRequest<ApiResponse<Vote>>(`/${groupId}/votes/propose`, {
-      method: 'POST',
-      body: JSON.stringify(sanitized),
-    });
-  }
-
-  async castVote(
-    groupId: string,
-    voteId: string,
-    request: CastVoteRequest
-  ): Promise<ApiResponse<{ message: string }>> {
-    return this.makeRequest<ApiResponse<{ message: string }>>(
-      `/${groupId}/votes/${voteId}/cast`,
-      {
-        method: 'POST',
-        body: JSON.stringify(request),
-      }
-    );
-  }
-
-  async getActiveVotes(groupId: string): Promise<Vote[]> {
-    const response = await this.makeRequest<ApiResponse<{ votes: Vote[] }>>(
-      `/${groupId}/votes?status=active`,
-      { method: 'GET' }
-    );
-    return response.data?.votes || [];
-  }
-
-  async getVote(groupId: string, voteId: string): Promise<Vote> {
-    const response = await this.makeRequest<ApiResponse<{ vote: Vote }>>(
-      `/${groupId}/votes/${voteId}`,
-      { method: 'GET' }
-    );
-
-    if (!response.data?.vote) {
-      throw new Error('Vote not found');
-    }
-
-    return response.data.vote;
-  }
-
-  async getVoteResults(groupId: string, voteId: string): Promise<VoteResults> {
-    const response = await this.makeRequest<ApiResponse<{ results: VoteResults }>>(
-      `/${groupId}/votes/${voteId}/results`,
-      { method: 'GET' }
-    );
-
-    if (!response.data?.results) {
-      throw new Error('Vote results not found');
-    }
-
-    return response.data.results;
-  }
-
-  async getVoteHistory(groupId: string, limit: number = 20): Promise<VoteHistoryResponse> {
-    const response = await this.makeRequest<ApiResponse<VoteHistoryResponse>>(
-      `/${groupId}/votes?limit=${limit}`,
-      { method: 'GET' },
-      true,
-      60000
-    );
-    return response.data || { votes: [], total: 0 };
-  }
-
-  async cancelVote(
-    groupId: string,
-    voteId: string
-  ): Promise<ApiResponse<{ message: string }>> {
-    return this.makeRequest<ApiResponse<{ message: string }>>(
-      `/${groupId}/votes/${voteId}/cancel`,
-      { method: 'POST' }
-    );
-  }
-
-  // ==================== CONVERSATION INSIGHTS ====================
-
-  async appendTranscript(
-    groupId: string,
-    sessionId: string,
-    text: string
-  ): Promise<ApiResponse<{ segmentId: string }>> {
-    return this.makeRequest<ApiResponse<{ segmentId: string }>>(
-      `/${groupId}/sessions/${sessionId}/transcript`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ text: sanitizeString(text, 5000) }),
-      }
-    );
-  }
-
-  async requestInsight(
-    groupId: string,
-    sessionId: string,
-    userContext?: string
-  ): Promise<ApiResponse<ConversationInsight>> {
-    const body: Record<string, unknown> = {};
-    if (userContext) {
-      body.userContext = sanitizeString(userContext, 2000);
-    }
-
-    return this.makeRequest<ApiResponse<ConversationInsight>>(
-      `/${groupId}/sessions/${sessionId}/request-insight`,
-      {
-        method: 'POST',
-        body: JSON.stringify(body),
-      }
-    );
-  }
-
-  async getSessionInsights(groupId: string, sessionId: string): Promise<SessionInsightsSummary> {
-    const response = await this.makeRequest<ApiResponse<SessionInsightsSummary>>(
-      `/${groupId}/sessions/${sessionId}/insights`,
-      { method: 'GET' }
-    );
-
-    return (
-      response.data || {
-        sessionId,
-        groupId,
-        insights: [],
-        transcriptStats: { totalSegments: 0, uniqueSpeakers: 0, duration: 0 },
-      }
-    );
-  }
-
-  // ==================== PUBLIC DIRECTORY ====================
-
-  async searchPublicGroups(params: {
-    query?: string;
-    type?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<GroupListResponse> {
-    const searchParams = new URLSearchParams();
-    if (params.query) searchParams.set('q', sanitizeString(params.query, 100));
-    if (params.type) searchParams.set('type', params.type);
-    if (params.limit) searchParams.set('limit', String(params.limit));
-    if (params.offset) searchParams.set('offset', String(params.offset));
-
-    const queryString = searchParams.toString();
-    const endpoint = `/directory${queryString ? `?${queryString}` : ''}`;
-
-    const response = await this.makeRequest<ApiResponse<GroupListResponse>>(
-      endpoint,
-      { method: 'GET' },
-      true,
-      30000 // 30 second cache
-    );
-    const data = response.data || { groups: [], total: 0 };
-    return transformKeys<GroupListResponse>(data);
-  }
-
-  // ==================== UTILITY ====================
-
-  clearCache(pattern?: string): void {
-    cache.invalidate(pattern);
-  }
-}
-
-// ============================================================================
-// SINGLETON INSTANCE & EXPORTS
-// ============================================================================
-
-const groupsApi = new GroupsApiClient();
-
-// Group CRUD
-export const createGroup = (data: CreateGroupFormData) => groupsApi.createGroup(data);
-export const getMyGroups = () => groupsApi.getMyGroups();
-export const getSuggestedGroups = () => groupsApi.getSuggestedGroups();
-export const searchPublicGroups = (params: { query?: string; type?: string; limit?: number; offset?: number }) =>
-  groupsApi.searchPublicGroups(params);
-export const getGroupDetails = (groupId: string) => groupsApi.getGroupDetails(groupId);
-export const joinGroup = (groupId: string, joinCode?: string) =>
-  groupsApi.joinGroup(groupId, joinCode);
-export const leaveGroup = (groupId: string) => groupsApi.leaveGroup(groupId);
-export const updateGroup = (groupId: string, updates: Partial<CreateGroupFormData>) =>
-  groupsApi.updateGroup(groupId, updates);
-export const deleteGroup = (groupId: string) => groupsApi.deleteGroup(groupId);
-
-// Members
-export const getMembers = (groupId: string) => groupsApi.getMembers(groupId);
-export const inviteMember = (
-  groupId: string,
-  data: { email?: string; username?: string; message?: string }
-) => groupsApi.inviteMember(groupId, data);
-export const removeMember = (groupId: string, userId: number) =>
-  groupsApi.removeMember(groupId, userId);
-export const updateMemberRole = (groupId: string, userId: number, role: string) =>
-  groupsApi.updateMemberRole(groupId, userId, role);
-export const banMember = (groupId: string, userId: number, reason?: string) =>
-  groupsApi.banMember(groupId, userId, reason);
-export const unbanMember = (groupId: string, userId: number) =>
-  groupsApi.unbanMember(groupId, userId);
-export const getBannedMembers = (groupId: string) =>
-  groupsApi.getBannedMembers(groupId);
-export const transferOwnership = (groupId: string, newOwnerId: number) =>
-  groupsApi.transferOwnership(groupId, newOwnerId);
-export const acceptInvitation = (groupId: string, requestId: string) =>
-  groupsApi.acceptInvitation(groupId, requestId);
-export const declineInvitation = (groupId: string, requestId: string) =>
-  groupsApi.declineInvitation(groupId, requestId);
-export const getMyInvitations = () => groupsApi.getMyInvitations();
-
-// Join Requests
-export const getJoinRequests = (groupId: string) => groupsApi.getJoinRequests(groupId);
-export const approveJoinRequest = (groupId: string, requestId: string) =>
-  groupsApi.approveJoinRequest(groupId, requestId);
-export const rejectJoinRequest = (groupId: string, requestId: string) =>
-  groupsApi.rejectJoinRequest(groupId, requestId);
-
-// Data Sharing
-export const shareData = (groupId: string, request: ShareDataRequest) =>
-  groupsApi.shareData(groupId, request);
-export const getSharedData = (groupId: string) => groupsApi.getSharedData(groupId);
-export const revokeSharedData = (groupId: string, dataType: string) =>
-  groupsApi.revokeSharedData(groupId, dataType);
-
-// Insights
-export const getInsights = (groupId: string) => groupsApi.getInsights(groupId);
-export const triggerAnalysis = (groupId: string, userContext?: string) =>
-  groupsApi.triggerAnalysis(groupId, userContext);
-export const generateInsights = (groupId: string, forceRefresh?: boolean, userContext?: string) =>
-  groupsApi.generateInsights(groupId, forceRefresh, userContext);
-export const getInsightsGenerationStatus = (groupId: string, logId: string) =>
-  groupsApi.getInsightsGenerationStatus(groupId, logId);
-export const getCompatibilityMatrix = (groupId: string) =>
-  groupsApi.getCompatibilityMatrix(groupId);
-export const getCollectivePatterns = (groupId: string) => groupsApi.getCollectivePatterns(groupId);
-export const getConflictRisks = (groupId: string) => groupsApi.getConflictRisks(groupId);
-export const getInsightsHistory = (groupId: string, limit?: number, offset?: number) =>
-  groupsApi.getInsightsHistory(groupId, limit, offset);
-
-// Members with Extended Details
-export const getMembersWithDetails = (groupId: string) => groupsApi.getMembersWithDetails(groupId);
-export const getMemberDetails = (groupId: string, memberId: string | number) =>
-  groupsApi.getMemberDetails(groupId, memberId);
-
-// Voting
-export const proposeVote = (groupId: string, request: ProposeVoteRequest) =>
-  groupsApi.proposeVote(groupId, request);
-export const castVote = (groupId: string, voteId: string, request: CastVoteRequest) =>
-  groupsApi.castVote(groupId, voteId, request);
-export const getActiveVotes = (groupId: string) => groupsApi.getActiveVotes(groupId);
-export const getVote = (groupId: string, voteId: string) => groupsApi.getVote(groupId, voteId);
-export const getVoteResults = (groupId: string, voteId: string) =>
-  groupsApi.getVoteResults(groupId, voteId);
-export const getVoteHistory = (groupId: string, limit?: number) =>
-  groupsApi.getVoteHistory(groupId, limit);
-export const cancelVote = (groupId: string, voteId: string) =>
-  groupsApi.cancelVote(groupId, voteId);
-
-// Conversation Insights
-export const appendTranscript = (groupId: string, sessionId: string, text: string) =>
-  groupsApi.appendTranscript(groupId, sessionId, text);
-export const requestInsight = (groupId: string, sessionId: string, userContext?: string) =>
-  groupsApi.requestInsight(groupId, sessionId, userContext);
-export const getSessionInsights = (groupId: string, sessionId: string) =>
-  groupsApi.getSessionInsights(groupId, sessionId);
-
-// Utility
-export const clearGroupsCache = (pattern?: string) => groupsApi.clearCache(pattern);
-
-// Export instance for advanced usage
-export { groupsApi };
-
-// ============================================================================
-// ERROR HANDLING UTILITIES
-// ============================================================================
-
-export interface GroupsApiError {
-  error: string;
-  code: string;
-  status?: number;
-}
-
-export const isGroupsApiError = (error: unknown): error is GroupsApiError => {
   return (
-    typeof error === 'object' &&
-    error !== null &&
-    'error' in error &&
-    typeof (error as GroupsApiError).error === 'string'
+    <SubscriptionContext.Provider value={value}>
+      {children}
+    </SubscriptionContext.Provider>
   );
-};
+}
 
-export const getGroupsErrorMessage = (error: unknown): string => {
-  if (isGroupsApiError(error)) {
-    return error.error;
+// ============================================================================
+// HOOK
+// ============================================================================
+
+export function useSubscription(): SubscriptionContextValue {
+  const context = useContext(SubscriptionContext);
+  if (!context) {
+    throw new Error('useSubscription must be used within a SubscriptionProvider');
   }
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return 'An unexpected error occurred';
-};
+  return context;     
+}
