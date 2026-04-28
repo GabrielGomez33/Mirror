@@ -4,25 +4,16 @@
 import { useState, useEffect } from 'react';
 import InviteMembersPanel from './InviteMembersModal';
 import type { GroupMember, MemberRole, ExtendedGroupMember } from '../../types/groups';
-import {
-  getMemberDetails,
-  banMember,
-  removeMember,
-  updateMemberRole,
-  transferOwnership,
-} from '../../services/groupsApi';
+import { getMemberDetails } from '../../services/groupsApi';
 
 interface GroupMembersListProps {
   groupId: string;
   members: GroupMember[];
   canInvite?: boolean;
-  currentUserRole?: string;
-  currentUserId?: number;
-  groupType?: string;
   onRefresh?: () => void;
 }
 
-export default function GroupMembersList({ groupId, members, canInvite = false, currentUserRole, currentUserId, groupType, onRefresh }: GroupMembersListProps) {
+export default function GroupMembersList({ groupId, members, canInvite = false, onRefresh }: GroupMembersListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedMemberId, setExpandedMemberId] = useState<number | null>(null);
   const [showInvitePanel, setShowInvitePanel] = useState(false);
@@ -110,10 +101,6 @@ export default function GroupMembersList({ groupId, members, canInvite = false, 
             groupId={groupId}
             isExpanded={expandedMemberId === member.userId}
             onToggleExpand={() => handleToggleExpand(member.userId)}
-            currentUserRole={currentUserRole}
-            currentUserId={currentUserId}
-            groupType={groupType}
-            onRefresh={onRefresh}
           />
         ))}
       </div>
@@ -140,62 +127,11 @@ interface MemberCardProps {
   groupId: string;
   isExpanded: boolean;
   onToggleExpand: () => void;
-  currentUserRole?: string;
-  currentUserId?: number;
-  groupType?: string;
-  onRefresh?: () => void;
 }
 
-function MemberCard({ member, groupId, isExpanded, onToggleExpand, currentUserRole, currentUserId, groupType, onRefresh }: MemberCardProps) {
+function MemberCard({ member, groupId, isExpanded, onToggleExpand }: MemberCardProps) {
   const [extendedDetails, setExtendedDetails] = useState<ExtendedGroupMember | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [actionPending, setActionPending] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<'ban' | 'remove' | 'transfer' | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [selectedRole, setSelectedRole] = useState<string | null>(null);
-
-  const isOwner = currentUserRole === 'owner';
-  const isAdmin = currentUserRole === 'admin' || isOwner;
-  const isSelf = currentUserId === member.userId;
-  const isAnonymous = groupType === 'anonymous';
-  // In anonymous groups, only the owner can manage members (admins don't see real identities)
-  const canManage = (isAnonymous ? isOwner : isAdmin) && !isSelf && member.role !== 'owner';
-  const canChangeRole = isOwner && !isSelf && member.role !== 'owner';
-  const canTransfer = isOwner && !isSelf && member.role !== 'owner';
-
-  const handleAction = async (action: 'ban' | 'remove' | 'transfer') => {
-    setActionPending(true);
-    setActionError(null);
-    try {
-      if (action === 'ban') {
-        await banMember(groupId, member.userId);
-      } else if (action === 'remove') {
-        await removeMember(groupId, member.userId);
-      } else if (action === 'transfer') {
-        await transferOwnership(groupId, member.userId);
-      }
-      setConfirmAction(null);
-      onRefresh?.();
-    } catch (err: any) {
-      setActionError(err?.error || err?.message || 'Action failed');
-    } finally {
-      setActionPending(false);
-    }
-  };
-
-  const handleRoleChange = async (newRole: string) => {
-    setActionPending(true);
-    setActionError(null);
-    try {
-      await updateMemberRole(groupId, member.userId, newRole);
-      setSelectedRole(null);
-      onRefresh?.();
-    } catch (err: any) {
-      setActionError(err?.error || err?.message || 'Failed to update role');
-    } finally {
-      setActionPending(false);
-    }
-  };
   const [hasSharedProfile, setHasSharedProfile] = useState(false);
 
   // Fetch details when expanded
@@ -469,132 +405,6 @@ function MemberCard({ member, groupId, isExpanded, onToggleExpand, currentUserRo
                   <p className="text-white/50 text-xs text-center">
                     Contact info is only visible when the member shares their profile
                   </p>
-                </div>
-              )}
-
-              {/* ==================== MEMBER MANAGEMENT ACTIONS ==================== */}
-              {canManage && (
-                <div className="mt-3 pt-3 border-t border-white/10">
-                  {actionError && (
-                    <div className="mb-2 p-2 rounded bg-red-500/15 border border-red-500/30">
-                      <p className="text-red-300 text-xs">{actionError}</p>
-                    </div>
-                  )}
-
-                  {/* Confirmation dialog */}
-                  {confirmAction && (
-                    <div className="mb-3 p-3 rounded-lg bg-red-500/10 border border-red-500/25">
-                      <p className="text-white/80 text-sm mb-2">
-                        {confirmAction === 'ban' && `Ban ${member.displayName || member.username} from this group? They will not be able to rejoin.`}
-                        {confirmAction === 'remove' && `Remove ${member.displayName || member.username} from this group? They can rejoin later.`}
-                        {confirmAction === 'transfer' && `Transfer group ownership to ${member.displayName || member.username}? You will become an admin.`}
-                      </p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleAction(confirmAction)}
-                          disabled={actionPending}
-                          type="button"
-                          className="px-3 py-1.5 rounded text-xs font-medium"
-                          style={{
-                            background: confirmAction === 'transfer'
-                              ? 'rgba(251,191,36,0.2)'
-                              : 'rgba(239,68,68,0.2)',
-                            border: `1px solid ${confirmAction === 'transfer'
-                              ? 'rgba(251,191,36,0.4)'
-                              : 'rgba(239,68,68,0.4)'}`,
-                            color: confirmAction === 'transfer' ? '#fde68a' : '#fca5a5',
-                            opacity: actionPending ? 0.5 : 1,
-                            cursor: actionPending ? 'not-allowed' : 'pointer',
-                          }}
-                        >
-                          {actionPending ? 'Processing...' : 'Confirm'}
-                        </button>
-                        <button
-                          onClick={() => { setConfirmAction(null); setActionError(null); }}
-                          disabled={actionPending}
-                          type="button"
-                          className="px-3 py-1.5 rounded text-xs text-white/50"
-                          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Role change dropdown */}
-                  {canChangeRole && selectedRole === null && !confirmAction && (
-                    <div className="mb-2 flex items-center gap-2">
-                      <span className="text-white/40 text-xs">Role:</span>
-                      <select
-                        value={member.role}
-                        onChange={(e) => {
-                          if (e.target.value !== member.role) {
-                            handleRoleChange(e.target.value);
-                          }
-                        }}
-                        disabled={actionPending}
-                        className="text-xs rounded px-2 py-1"
-                        style={{
-                          background: 'rgba(255,255,255,0.08)',
-                          border: '1px solid rgba(255,255,255,0.15)',
-                          color: '#d4a0ad',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <option value="member">Member</option>
-                        <option value="moderator">Moderator</option>
-                        <option value="admin">Admin</option>
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Action buttons */}
-                  {!confirmAction && (
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={() => setConfirmAction('remove')}
-                        type="button"
-                        className="px-3 py-1.5 rounded text-xs"
-                        style={{
-                          background: 'rgba(239,68,68,0.1)',
-                          border: '1px solid rgba(239,68,68,0.25)',
-                          color: '#fca5a5',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Remove
-                      </button>
-                      <button
-                        onClick={() => setConfirmAction('ban')}
-                        type="button"
-                        className="px-3 py-1.5 rounded text-xs"
-                        style={{
-                          background: 'rgba(239,68,68,0.15)',
-                          border: '1px solid rgba(239,68,68,0.35)',
-                          color: '#f87171',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Ban
-                      </button>
-                      {canTransfer && (
-                        <button
-                          onClick={() => setConfirmAction('transfer')}
-                          type="button"
-                          className="px-3 py-1.5 rounded text-xs"
-                          style={{
-                            background: 'rgba(251,191,36,0.1)',
-                            border: '1px solid rgba(251,191,36,0.25)',
-                            color: '#fde68a',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Transfer Ownership
-                        </button>
-                      )}
-                    </div>
-                  )}
                 </div>
               )}
             </>

@@ -1146,7 +1146,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     // Sort: Dina responses sort by their PARENT message's time + 1ms
     // This places each Dina response immediately after the query it answers
     return all.sort((a, b) => {
-       const aParent = a.metadata?.replyPreview?.messageId || (a.metadata?.custom as any)?.replyPreview?.messageId;
+      const aParent = a.metadata?.replyPreview?.messageId || (a.metadata?.custom as any)?.replyPreview?.messageId;
       const bParent = b.metadata?.replyPreview?.messageId || (b.metadata?.custom as any)?.replyPreview?.messageId;
       const aTime = aParent && timeMap.has(aParent)
         ? timeMap.get(aParent)! + 1

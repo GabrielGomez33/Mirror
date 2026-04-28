@@ -3,6 +3,7 @@
 // Follows the same patterns as truthStreamApi.ts (caching, retry, rate limiting)
 
 import { getToken } from '../utils/token';
+import { dispatchPaywallEvent } from './paywallInterceptor';
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -79,6 +80,9 @@ class MirrorDashboardService {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      if (response.status === 403 && (errorData.code === 'USAGE_LIMIT' || errorData.code === 'UPGRADE_REQUIRED')) {
+        dispatchPaywallEvent({ code: errorData.code, feature: errorData.feature, error: errorData.error, used: errorData.used, limit: errorData.limit });
+      }
       throw new Error(errorData.error || `Request failed: ${response.statusText}`);
     }
 
