@@ -2,9 +2,30 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-	<link rel="icon" type="image/png" href="/mirror-logo-sakura.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<title>ＭＩЯ ЯＯＲ</title>
+
+    <!-- Browser tab favicons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/Mirror/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/Mirror/favicon-16x16.png" />
+
+    <!-- viewport-fit=cover lets the app draw under the iOS notch / home indicator
+         when launched as a standalone PWA; CSS uses safe-area-inset-* to compensate. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- Android Chrome: tints the address bar / task switcher card to brand color. -->
+    <meta name="theme-color" content="#0d0c1f" />
+
+    <!-- iOS PWA: Safari does NOT read manifest.webmanifest for these settings, so
+         they must live as legacy Apple-specific meta tags in the HTML head.
+         We include BOTH the legacy apple-* form (older iOS) and the modern
+         cross-vendor mobile-web-app-capable (current Chrome/Safari spec). -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Mirror" />
+    <link rel="apple-touch-icon" href="/Mirror/apple-touch-icon.png" />
+
+    <title>ＭＩЯ ЯＯＲ</title>
   </head>
   <body>
     <div id="root"></div>

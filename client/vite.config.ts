@@ -61,8 +61,9 @@ export default defineConfig({
 				cleanupOutdatedCaches: true,
 			},
 			devOptions: {
-				enabled: false,
+				enabled: true,
 				type: 'module',
+				navigateFallback: '/Mirror/index.html'
 			},
 		}),
 	],
