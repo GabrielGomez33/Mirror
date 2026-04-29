@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg 
+xmlns="http://www.w3.org/2000/svg" 
+xmlns:xlink="http://www.w3.org/1999/xlink"
+version="1.1" width="800" height="800"
+>
+<defs>
+  <path id="ticks" style="stroke-width:5" 
+	d="M 0 0 h 550 M0 0 m50 15 l0 -15 m50 15 l0 -15 m50 15 l0 -15 m50 15 l0 -15
+	 m50 25 l0 -25  m50 15 l0 -15  m50 15 l0 -15  m50 15 l0 -15  m50 15 l0 -15  m50 45 l0 -45"
+	/>
+  <circle id="kreis" r="100" fill="none" stroke="blue" stroke-width="2"
+	/>
+</defs>
+  <desc>Line with tick marks</desc>
+  <g transform="translate(250,150)" >
+	<use id="p1" style="stroke:red; " xlink:href="#ticks" />
+  <use xlink:href="#ticks" style="stroke:blue;" transform="rotate(90)" />
+	<use xlink:href="#ticks" style="stroke:green;" transform="rotate(90 100 0)" />
+	<use xlink:href="#ticks" style="stroke:purple;" transform="rotate(90 100,100)" />
+	<use xlink:href="#ticks" style="stroke:goldenrod;" 
+	transform="translate(-0,-0) rotate(90) translate(100,100)"
+	/>
+  <use xlink:href="#ticks" style="stroke:turquoise;" stroke-opacity="0.1"
+	transform="translate(100,100) rotate(90) translate(-100,-100)"
+	/>
+	<use xlink:href="#ticks" style="stroke:magenta;" transform="rotate(45 0 150)" />
+	<use xlink:href="#ticks" style="stroke:orange;" transform="rotate(45 150 0)" />
+	<use xlink:href="#ticks" style="stroke:maroon;" transform="rotate(45)" />
+  <use xlink:href="#ticks" style="stroke:darkcyan;" transform="rotate(45 150 150)" />
+	<use xlink:href="#kreis" />
+	<use xlink:href="#kreis" transform="scale(1.414213)"/>
+	</g>
+</svg>
