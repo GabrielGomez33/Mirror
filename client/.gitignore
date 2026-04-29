@@ -13,6 +13,7 @@ public/models/
 .env
 .env.*  # catch .env.local, .env.production, etc.
 .pay.env
+.env.development
 
 # Logs
 *.log
