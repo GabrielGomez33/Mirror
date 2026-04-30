@@ -1,15 +1,60 @@
-# React Router history fallback for the SPA served at /Mirror/
+# =============================================================================
+# Mirror SPA — Apache config (deployed to /var/www/mirror-client/dist/.htaccess)
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# MIME types
+# -----------------------------------------------------------------------------
+# Some Apache installs default .webmanifest to text/plain, which iOS rejects.
+# The PWA spec requires application/manifest+json.
+<IfModule mod_mime.c>
+  AddType application/manifest+json .webmanifest
+</IfModule>
+
+# -----------------------------------------------------------------------------
+# Service worker & manifest cache rules
+# -----------------------------------------------------------------------------
+# CRITICAL: the service worker file (sw.js) must NEVER be cached long-term.
+# If a user's browser holds a stale sw.js, they can get permanently stuck on
+# an old, broken version with no recovery path. Force revalidation every time.
+#
+# Hashed JS/CSS assets under /assets/* are content-addressed by Vite, so they
+# can be cached immutably — the URL changes whenever content changes.
+<IfModule mod_headers.c>
+  <FilesMatch "^(sw\.js|registerSW\.js|workbox-.*\.js)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+
+  <FilesMatch "\.webmanifest$">
+    # Short cache so manifest changes (icons, name) propagate quickly.
+    Header set Cache-Control "public, max-age=3600"
+  </FilesMatch>
+
+  <FilesMatch "^index\.html$">
+    # The SPA shell: never cache long. SW takes care of offline serving.
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+
+  # Vite hashes asset filenames (e.g. index-AbCd1234.js); safe to cache forever.
+  <FilesMatch "^.+\.[a-f0-9]{8,}\.(js|css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|webp|avif)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>
+
+# -----------------------------------------------------------------------------
+# React Router history fallback (SPA)
+# -----------------------------------------------------------------------------
 RewriteEngine On
 RewriteBase /Mirror/
 
-# Let real files/dirs through
+# Let real files/directories through unchanged. This is what makes sw.js,
+# manifest.webmanifest, icons, and hashed assets serve as themselves rather
+# than getting rewritten to index.html.
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# Don’t touch asset files that actually exist under /Mirror/assets/*
-# (The two conditions above already cover real assets; keeping the rule here is harmless.)
-RewriteRule ^assets/ - [L]
-
-# Fallback: anything else -> index.html
+# Fallback: anything else -> index.html (so client-side router can take over)
 RewriteRule . index.html [L]
