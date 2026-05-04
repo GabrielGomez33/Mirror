@@ -16,6 +16,9 @@ import UpgradeModal from './components/paywall/UpgradeModal';
 import TrialBanner from './components/paywall/TrialBanner';
 import PaymentFailedBanner from './components/paywall/PaymentFailedBanner';
 
+// PWA: shown when a new service worker is installed and waiting to activate.
+import UpdateBanner from './components/UpdateBanner';
+
 // Import your existing pages
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
@@ -132,6 +135,9 @@ const App: React.FC = () => {
 
           {/* Upgrade modal — rendered globally, triggered by FeatureGate or openUpgradeModal() */}
           <UpgradeModal />
+
+          {/* PWA update banner — appears when a new SW has finished installing. */}
+          <UpdateBanner />
 
           {/* Main Application Routes */}
           <Routes>
