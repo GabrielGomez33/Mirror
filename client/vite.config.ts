@@ -81,9 +81,22 @@ export default defineConfig({
 			// — the runtimeCaching `method` filter only matches GET, so the
 			// SW lets mutations pass through to the network unchanged.
 			workbox: {
-				globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],				
+				globPatterns: ['**/*.{js,css,html,svg,ico,png,webmanifest}'],
 				// Heavy media handled by runtimeCaching below, not precache.
 				globIgnores: ['**/models/**', '**/images/iq/**'],
+				// Take control of any uncontrolled clients as soon as the SW
+				// activates. On a brand-new install this means the page that
+				// just registered the SW starts routing fetches through it
+				// immediately — no need to navigate or reload first to begin
+				// populating the API cache. Also recovers gracefully after a
+				// Shift+Reload (which loads the page uncontrolled): the SW
+				// re-claims within ms and subsequent fetches are intercepted.
+				//
+				// Doesn't conflict with registerType: 'prompt': skipWaiting is
+				// still false, so on UPDATES the new SW still waits for the
+				// user's Reload click before activating. clientsClaim only
+				// fires on activation, which on updates is user-triggered.
+				clientsClaim: true,
 				// Default Workbox precache limit is 2 MiB. Mirror's main bundle
 				// is ~3 MiB minified (Three.js + face-api + framer-motion eagerly
 				// imported). Bumped to 6 MiB so the shell precaches in one shot.
