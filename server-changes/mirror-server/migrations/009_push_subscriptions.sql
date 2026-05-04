@@ -38,6 +38,10 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   -- Useful for debugging "why isn't this device receiving?" tickets.
   user_agent VARCHAR(500) DEFAULT NULL,
 
+  -- IP at subscription time, for abuse correlation. Stored as VARCHAR so it
+  -- holds either IPv4 (15 chars) or IPv6 (45 chars). Never used for auth.
+  created_ip VARCHAR(45) DEFAULT NULL,
+
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
@@ -49,6 +53,10 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   last_success_at TIMESTAMP NULL DEFAULT NULL,
   last_error TEXT DEFAULT NULL,
   failure_count INT NOT NULL DEFAULT 0,
+
+  -- When the push service returned a Retry-After header (e.g. on a 429).
+  -- pushService.send() respects this on subsequent fan-outs.
+  retry_after TIMESTAMP NULL DEFAULT NULL,
 
   -- One row per (user, endpoint). Browsers can re-issue the same endpoint
   -- after permission toggle; the upsert in pushService relies on this.
