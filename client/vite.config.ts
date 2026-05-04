@@ -81,7 +81,7 @@ export default defineConfig({
 			// — the runtimeCaching `method` filter only matches GET, so the
 			// SW lets mutations pass through to the network unchanged.
 			workbox: {
-				globPatterns: ['**/*.{js,css,html,svg,ico,webmanifest}'],
+				globPatterns: ['**/*.{js,css,html,svg,ico,png,webmanifest}'],
 				// Heavy media handled by runtimeCaching below, not precache.
 				globIgnores: ['**/models/**', '**/images/iq/**'],
 				// Default Workbox precache limit is 2 MiB. Mirror's main bundle
