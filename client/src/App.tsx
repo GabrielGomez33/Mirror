@@ -18,6 +18,11 @@ import PaymentFailedBanner from './components/paywall/PaymentFailedBanner';
 
 // PWA: shown when a new service worker is installed and waiting to activate.
 import UpdateBanner from './components/UpdateBanner';
+// PWA Phase 5: install nudges. InstallPrompt covers Android/desktop one-tap;
+// IOSInstallTutorial covers iOS Safari (no programmatic install). Both
+// self-suppress when not applicable to the current platform / install state.
+import InstallPrompt from './components/install/InstallPrompt';
+import IOSInstallTutorial from './components/install/IOSInstallTutorial';
 
 // Import your existing pages
 import Home from './pages/Home';
@@ -138,6 +143,13 @@ const App: React.FC = () => {
 
           {/* PWA update banner — appears when a new SW has finished installing. */}
           <UpdateBanner />
+
+          {/* PWA install nudges. Each component self-suppresses when its
+              platform / install-state isn't applicable (already installed,
+              wrong browser, dismissed-forever, etc.) so it's safe to mount
+              both globally. */}
+          <InstallPrompt />
+          <IOSInstallTutorial />
 
           {/* Main Application Routes */}
           <Routes>

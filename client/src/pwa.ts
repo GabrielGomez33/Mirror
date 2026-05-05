@@ -50,6 +50,13 @@ const SW_SCOPE = '/Mirror/';
 // Custom event the UpdateBanner listens for.
 export const PWA_UPDATE_EVENT = 'pwa:update-available';
 
+// Custom event dispatched when the SW notifies us that the browser
+// invalidated the push subscription (pushsubscriptionchange in the SW).
+// The notifications/push UI listens for this and triggers a re-subscribe
+// against the new endpoint. Without this, users would silently stop
+// receiving pushes when the browser rotates the token.
+export const PWA_PUSH_SUBSCRIPTION_CHANGED = 'pwa:push-subscription-changed';
+
 export interface PWAUpdateDetail {
 	registration: ServiceWorkerRegistration;
 }
@@ -57,6 +64,25 @@ export interface PWAUpdateDetail {
 declare global {
 	interface WindowEventMap {
 		[PWA_UPDATE_EVENT]: CustomEvent<PWAUpdateDetail>;
+		[PWA_PUSH_SUBSCRIPTION_CHANGED]: CustomEvent<void>;
+	}
+}
+
+// Persistent storage hint — asks the OS not to evict our cache under
+// storage pressure. Once a PWA is installed, browsers grant this
+// automatically; for casual visitors it's denied. Either outcome is fine
+// — denial just means we keep the default "best effort" tier.
+async function requestPersistentStorage(): Promise<void> {
+	if (!navigator.storage?.persist) return;
+	try {
+		const already = await navigator.storage.persisted?.();
+		if (already) return;
+		const granted = await navigator.storage.persist();
+		if (granted) {
+			console.log('[PWA] storage marked persistent — cache safe from auto-eviction');
+		}
+	} catch {
+		// Non-fatal — best-effort caching still works without persist().
 	}
 }
 
@@ -103,14 +129,32 @@ export function initPWA(): void {
 		window.location.reload();
 	});
 
+	// SW → page channel. The custom service worker posts these messages when
+	// the browser invalidates the push subscription (pushsubscriptionchange).
+	// Re-dispatched as a window CustomEvent so React components can react via
+	// useEffect listeners.
+	navigator.serviceWorker.addEventListener('message', (event) => {
+		if (!event.data || typeof event.data !== 'object') return;
+		if (event.data.type === 'PUSH_SUBSCRIPTION_CHANGED') {
+			window.dispatchEvent(new CustomEvent(PWA_PUSH_SUBSCRIPTION_CHANGED));
+		}
+	});
+
 	const register = async () => {
 		try {
+			// injectManifest mode + Vite serves the dev SW as an ES module,
+			// so we register with type: 'module' in dev. In prod the SW is
+			// bundled and served as classic — both work because the build
+			// uses different entry points.
 			const registration = await navigator.serviceWorker.register(SW_URL, {
 				scope: SW_SCOPE,
-				type: 'classic',
+				type: import.meta.env.DEV ? 'module' : 'classic',
 			});
 			console.log('[PWA] service worker registered:', registration.scope);
 			watchForWaiting(registration);
+			// Persistent storage is best requested AFTER registration so the
+			// browser can correlate the request with an installable PWA.
+			void requestPersistentStorage();
 		} catch (error) {
 			console.error('[PWA] service worker registration failed:', error);
 		}
