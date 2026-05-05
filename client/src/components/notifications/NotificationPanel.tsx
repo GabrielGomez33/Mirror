@@ -6,6 +6,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../context/NotificationContext';
 import type { Notification, NotificationType } from '../../types/notifications';
+import PushSettings from './PushSettings';
 
 // ============================================================================
 // NOTIFICATION ITEM COMPONENT
@@ -420,6 +421,9 @@ export default function NotificationPanel() {
             </button>
           </div>
         </div>
+
+        {/* Push notification opt-in / status (Phase 5) */}
+        <PushSettings onIOSInstallNudge={closePanel} />
 
         {/* Actions bar */}
         {visibleNotifications.length > 0 && (
