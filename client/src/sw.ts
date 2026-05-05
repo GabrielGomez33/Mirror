@@ -84,6 +84,33 @@ registerRoute(
 // ============================================================================
 // RUNTIME CACHING
 // ============================================================================
+// JS/CSS chunks under /Mirror/assets/* — vite emits content-hashed
+// filenames (index-XXXX.js), so each file is immutable per build.
+// CacheFirst is the right strategy: hit on every repeat visit / offline
+// load, only refetched when a new deploy emits a new hash. The
+// ExpirationPlugin auto-evicts old hashes as new ones arrive.
+//
+// This is what allows us to keep the giant main bundle OUT of precache
+// (where Workbox's size-limit machinery would complain) without
+// losing offline support: first visit downloads + caches the bundle,
+// subsequent visits serve from cache, offline launches do the same.
+registerRoute(
+	({ url, request }) =>
+		url.pathname.startsWith('/Mirror/assets/') &&
+		(request.destination === 'script' || request.destination === 'style'),
+	new CacheFirst({
+		cacheName: 'mirror-assets',
+		plugins: [
+			new CacheableResponsePlugin({ statuses: [0, 200] }),
+			new ExpirationPlugin({
+				maxEntries: 30,
+				maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+				purgeOnQuotaError: true,
+			}),
+		],
+	}),
+);
+
 // face-api ML models (216 MB total, served from /Mirror/models/faceapi/).
 // Files have no extension (e.g. tiny_face_detector_model-shard1) so we
 // match by URL path. Each shard is content-stable per name → CacheFirst.

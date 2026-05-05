@@ -72,14 +72,37 @@ export default defineConfig({
 				],
 			},
 
-			// injectManifest controls precache scope only — the Workbox
+			// injectManifest controls PRECACHE scope only — the Workbox
 			// strategies (NetworkFirst for API, CacheFirst for models, etc.)
-			// live in src/sw.ts now. Keep this minimal: just what to precache
-			// and the size ceiling. Anything else lives in the SW source.
+			// live in src/sw.ts now.
+			//
+			// PRECACHE STRATEGY (Phase 5 update):
+			// We deliberately exclude assets/*.{js,css} from precache. Vite
+			// emits content-hashed filenames for those (index-XXXX.js), so
+			// they're immutable per build — the perfect fit for runtime
+			// CacheFirst, registered in sw.ts. Benefits:
+			//   - Precache stays tiny (HTML + manifest + icons, well under 1 MiB)
+			//   - No file-size-limit gymnastics
+			//   - First visit downloads bundles → SW caches → repeat visits
+			//     and offline mode serve them from cache
+			//   - New deploy = new content-hash filename = fresh fetch +
+			//     cache; ExpirationPlugin retires stale hashes
+			//
+			// What stays precached: navigation shell + app icons. These are
+			// what the user needs INSTANTLY on first launch, even if the
+			// runtime cache is cold. Heavy bundles can wait the ~1s it
+			// takes to fetch them on first visit.
 			injectManifest: {
-				globPatterns: ['**/*.{js,css,html,svg,ico,png,webmanifest}'],
-				globIgnores: ['**/models/**', '**/images/iq/**'],
-				maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+				globPatterns: [
+					'index.html',
+					'manifest.webmanifest',
+					'favicon*.{ico,svg,png}',
+					'pwa-*.png',
+					'apple-touch-icon.png',
+					'mirror-logo-sakura.png',
+					'vite.svg',
+				],
+				globIgnores: ['**/models/**', '**/images/iq/**', '**/assets/**'],
 			},
 
 			// Run the SW + inject the manifest link during `npm run dev` so
