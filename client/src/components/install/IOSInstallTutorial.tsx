@@ -16,12 +16,9 @@
 //     iOS Share button → Add to Home Screen → Add.
 //   - Modal dismisses on backdrop tap, X button, or escape key.
 //
-// Why this specifically (not a generic install prompt):
-//   - iOS push REQUIRES standalone install. Without this UI, iOS users
-//     have no way to discover that "enable notifications" demands the
-//     install step first.
-//   - Apple's Share button is invisible to most users until pointed out.
-//     The arrow + screenshot is high-leverage UX.
+// Visual: matches Mirror's glass-card-enhanced aesthetic with sakura
+// gradient accents. Layout-critical dimensions are inline-styled so
+// global CSS rules can't break the proportions.
 // ============================================================================
 
 import React, { useEffect, useState } from 'react';
@@ -68,23 +65,46 @@ const IOSInstallTutorial: React.FC = () => {
 			<div
 				role="status"
 				aria-live="polite"
-				className="fixed bottom-4 left-1/2 z-[9990] -translate-x-1/2 transform w-[calc(100vw-2rem)] max-w-md"
-				style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+				style={{
+					position: 'fixed',
+					bottom: '1rem',
+					left: '50%',
+					transform: 'translateX(-50%)',
+					zIndex: 9990,
+					width: 'calc(100vw - 2rem)',
+					maxWidth: '440px',
+					paddingBottom: 'env(safe-area-inset-bottom)',
+				}}
 			>
 				<div
-					className="rounded-2xl border border-white/15 bg-[#0d0c1f]/95 px-4 py-3 text-white shadow-2xl backdrop-blur-xl"
-					style={{ backdropFilter: 'blur(20px)' }}
+					className="glass-card-enhanced"
+					style={{
+						borderRadius: 20,
+						padding: '14px 14px 12px 14px',
+						color: '#1a1024',
+					}}
 				>
-					<div className="flex items-start gap-3">
+					<div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
 						<img
 							src="/Mirror/pwa-192x192.png"
 							alt=""
 							aria-hidden="true"
-							className="h-10 w-10 flex-shrink-0 rounded-lg"
+							width={44}
+							height={44}
+							style={{
+								width: 44,
+								height: 44,
+								flexShrink: 0,
+								borderRadius: 12,
+								objectFit: 'cover',
+								boxShadow: '0 4px 12px rgba(0, 0, 0, 0.12)',
+							}}
 						/>
-						<div className="flex-1 min-w-0">
-							<p className="font-semibold text-sm">Install Mirror</p>
-							<p className="text-xs text-white/70 mt-0.5 leading-snug">
+						<div style={{ flex: 1, minWidth: 0 }}>
+							<p style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.3, margin: 0, color: '#1a1024' }}>
+								Install Mirror
+							</p>
+							<p style={{ fontSize: 12, lineHeight: 1.4, margin: '2px 0 0 0', color: 'rgba(26, 16, 36, 0.65)' }}>
 								Add to your Home Screen for offline access, notifications, and full-screen experience.
 							</p>
 						</div>
@@ -92,23 +112,53 @@ const IOSInstallTutorial: React.FC = () => {
 							type="button"
 							onClick={handleNotNow}
 							aria-label="Dismiss"
-							className="text-white/40 transition hover:text-white -mt-1 -mr-1"
+							style={{
+								flexShrink: 0,
+								background: 'transparent',
+								border: 'none',
+								color: 'rgba(26, 16, 36, 0.4)',
+								fontSize: 22,
+								lineHeight: 1,
+								cursor: 'pointer',
+								padding: '0 2px',
+								marginTop: -2,
+							}}
 						>
 							×
 						</button>
 					</div>
-					<div className="flex items-center gap-2 mt-3">
+
+					<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
 						<button
 							type="button"
 							onClick={() => setModalOpen(true)}
-							className="flex-1 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold transition hover:bg-white/25"
+							style={{
+								flex: 1,
+								borderRadius: 999,
+								padding: '9px 18px',
+								fontSize: 13,
+								fontWeight: 600,
+								background: 'linear-gradient(135deg, #f472b6, #fb7185)',
+								color: '#ffffff',
+								border: 'none',
+								cursor: 'pointer',
+								boxShadow: '0 4px 12px rgba(244, 114, 182, 0.35)',
+							}}
 						>
 							Show me how
 						</button>
 						<button
 							type="button"
 							onClick={handleDontAsk}
-							className="rounded-full px-3 py-2 text-xs text-white/50 transition hover:text-white/80"
+							style={{
+								borderRadius: 999,
+								padding: '8px 12px',
+								fontSize: 11,
+								color: 'rgba(26, 16, 36, 0.5)',
+								background: 'transparent',
+								border: 'none',
+								cursor: 'pointer',
+							}}
 						>
 							Don't ask again
 						</button>
@@ -122,48 +172,82 @@ const IOSInstallTutorial: React.FC = () => {
 					role="dialog"
 					aria-modal="true"
 					aria-label="How to install Mirror on iOS"
-					className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center"
-					style={{ paddingTop: 'env(safe-area-inset-top)' }}
+					style={{
+						position: 'fixed',
+						inset: 0,
+						zIndex: 9999,
+						display: 'flex',
+						alignItems: 'flex-end',
+						justifyContent: 'center',
+						paddingTop: 'env(safe-area-inset-top)',
+					}}
 				>
 					{/* Backdrop */}
 					<div
-						className="absolute inset-0 bg-black/60"
-						style={{ backdropFilter: 'blur(4px)' }}
+						style={{
+							position: 'absolute',
+							inset: 0,
+							background: 'rgba(26, 16, 36, 0.55)',
+							backdropFilter: 'blur(6px)',
+							WebkitBackdropFilter: 'blur(6px)',
+						}}
 						onClick={() => setModalOpen(false)}
 						aria-hidden="true"
 					/>
 
 					{/* Card */}
 					<div
-						className="relative w-full sm:max-w-md mx-0 sm:mx-4 rounded-t-3xl sm:rounded-3xl bg-[#0d0c1f] text-white shadow-2xl border border-white/10"
+						className="glass-card-enhanced"
 						style={{
-							paddingBottom: 'env(safe-area-inset-bottom, 1rem)',
-							maxHeight: '85vh',
+							position: 'relative',
+							width: '100%',
+							maxWidth: 440,
+							margin: '0 auto',
+							borderTopLeftRadius: 24,
+							borderTopRightRadius: 24,
+							borderBottomLeftRadius: 0,
+							borderBottomRightRadius: 0,
+							color: '#1a1024',
+							maxHeight: '88vh',
 							overflowY: 'auto',
+							paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)',
 						}}
 					>
-						<div className="px-6 pt-6 pb-2 flex items-start justify-between">
+						<div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '24px 24px 4px' }}>
 							<div>
-								<h2 className="text-xl font-semibold">Install Mirror</h2>
-								<p className="text-sm text-white/60 mt-1">Three quick steps in Safari.</p>
+								<h2 style={{ fontSize: 20, fontWeight: 600, margin: 0, color: '#1a1024' }}>
+									Install Mirror
+								</h2>
+								<p style={{ fontSize: 13, color: 'rgba(26, 16, 36, 0.6)', marginTop: 4, marginBottom: 0 }}>
+									Three quick steps in Safari.
+								</p>
 							</div>
 							<button
 								type="button"
 								onClick={() => setModalOpen(false)}
 								aria-label="Close"
-								className="text-white/40 hover:text-white text-2xl leading-none -mt-1"
+								style={{
+									background: 'transparent',
+									border: 'none',
+									color: 'rgba(26, 16, 36, 0.4)',
+									fontSize: 26,
+									lineHeight: 1,
+									cursor: 'pointer',
+									padding: '0 4px',
+									marginTop: -4,
+								}}
 							>
 								×
 							</button>
 						</div>
 
-						<ol className="px-6 py-4 space-y-5 text-sm">
+						<ol style={{ listStyle: 'none', padding: '16px 24px', margin: 0, display: 'flex', flexDirection: 'column', gap: 18 }}>
 							<Step
 								n={1}
 								title="Tap the Share button"
 								body={
 									<>
-										Look at the bottom toolbar for the <ShareIcon className="inline h-4 w-4 mx-0.5 align-text-bottom" /> icon. (On iPad, it's at the top.)
+										Look at the bottom toolbar for the <ShareIcon style={{ display: 'inline-block', verticalAlign: 'text-bottom', width: 16, height: 16, margin: '0 2px' }} /> icon. (On iPad, it's at the top.)
 									</>
 								}
 							/>
@@ -172,7 +256,7 @@ const IOSInstallTutorial: React.FC = () => {
 								title='Choose "Add to Home Screen"'
 								body={
 									<>
-										Scroll down in the share menu — it's near the bottom, with a <PlusIcon className="inline h-4 w-4 mx-0.5 align-text-bottom" /> icon.
+										Scroll down in the share menu — it's near the bottom, with a <PlusIcon style={{ display: 'inline-block', verticalAlign: 'text-bottom', width: 16, height: 16, margin: '0 2px' }} /> icon.
 									</>
 								}
 							/>
@@ -187,22 +271,41 @@ const IOSInstallTutorial: React.FC = () => {
 							/>
 						</ol>
 
-						<div className="px-6 pt-2 pb-5 border-t border-white/5 mt-2">
-							<p className="text-xs text-white/50 leading-relaxed">
-								<strong className="text-white/70">Important:</strong> Notifications on iPhone only work after installing. They cannot be enabled while browsing in Safari.
+						<div style={{ padding: '12px 24px 0', borderTop: '1px solid rgba(26, 16, 36, 0.08)', marginTop: 8 }}>
+							<p style={{ fontSize: 12, color: 'rgba(26, 16, 36, 0.6)', lineHeight: 1.5, margin: 0 }}>
+								<strong style={{ color: 'rgba(26, 16, 36, 0.85)' }}>Important:</strong> Notifications on iPhone only work after installing. They cannot be enabled while browsing in Safari.
 							</p>
-							<div className="flex items-center gap-2 mt-4">
+							<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16 }}>
 								<button
 									type="button"
 									onClick={() => setModalOpen(false)}
-									className="flex-1 rounded-full bg-white/15 px-4 py-2.5 text-sm font-semibold transition hover:bg-white/25"
+									style={{
+										flex: 1,
+										borderRadius: 999,
+										padding: '11px 20px',
+										fontSize: 13,
+										fontWeight: 600,
+										background: 'linear-gradient(135deg, #f472b6, #fb7185)',
+										color: '#ffffff',
+										border: 'none',
+										cursor: 'pointer',
+										boxShadow: '0 4px 12px rgba(244, 114, 182, 0.35)',
+									}}
 								>
 									Got it
 								</button>
 								<button
 									type="button"
 									onClick={handleDontAsk}
-									className="rounded-full px-3 py-2.5 text-xs text-white/50 transition hover:text-white/80"
+									style={{
+										borderRadius: 999,
+										padding: '10px 14px',
+										fontSize: 11,
+										color: 'rgba(26, 16, 36, 0.5)',
+										background: 'transparent',
+										border: 'none',
+										cursor: 'pointer',
+									}}
 								>
 									Don't show again
 								</button>
@@ -226,23 +329,36 @@ interface StepProps {
 }
 
 const Step: React.FC<StepProps> = ({ n, title, body }) => (
-	<li className="flex gap-3">
+	<li style={{ display: 'flex', gap: 12 }}>
 		<div
-			className="flex-shrink-0 h-7 w-7 rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-xs font-semibold"
 			aria-hidden="true"
+			style={{
+				flexShrink: 0,
+				width: 28,
+				height: 28,
+				borderRadius: 999,
+				background: 'linear-gradient(135deg, #f472b6, #fb7185)',
+				color: '#ffffff',
+				display: 'flex',
+				alignItems: 'center',
+				justifyContent: 'center',
+				fontSize: 12,
+				fontWeight: 600,
+				boxShadow: '0 2px 8px rgba(244, 114, 182, 0.35)',
+			}}
 		>
 			{n}
 		</div>
-		<div className="flex-1 pt-0.5">
-			<p className="font-medium">{title}</p>
-			<p className="text-white/60 leading-snug mt-0.5">{body}</p>
+		<div style={{ flex: 1, paddingTop: 2 }}>
+			<p style={{ fontWeight: 600, fontSize: 14, margin: 0, color: '#1a1024' }}>{title}</p>
+			<p style={{ fontSize: 13, color: 'rgba(26, 16, 36, 0.65)', lineHeight: 1.45, margin: '2px 0 0 0' }}>{body}</p>
 		</div>
 	</li>
 );
 
 // iOS Share icon — square with up arrow.
-const ShareIcon: React.FC<{ className?: string }> = ({ className }) => (
-	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+const ShareIcon: React.FC<{ style?: React.CSSProperties }> = ({ style }) => (
+	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true">
 		<path d="M12 3v13" />
 		<polyline points="7 8 12 3 17 8" />
 		<path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
@@ -250,8 +366,8 @@ const ShareIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 // Plus-in-square icon (used for Add to Home Screen).
-const PlusIcon: React.FC<{ className?: string }> = ({ className }) => (
-	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+const PlusIcon: React.FC<{ style?: React.CSSProperties }> = ({ style }) => (
+	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true">
 		<rect x="4" y="4" width="16" height="16" rx="3" />
 		<path d="M12 8v8M8 12h8" />
 	</svg>
