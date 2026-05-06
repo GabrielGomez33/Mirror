@@ -23,9 +23,10 @@
 
 import React, { useEffect, useState } from 'react';
 import { useInstallState } from '../../hooks/useInstallState';
+import OpenInSafariActions from './OpenInSafariActions';
 
 const IOSInstallTutorial: React.FC = () => {
-	const { shouldShowIOSTutorial, dismissPromptForever } = useInstallState();
+	const { shouldShowIOSTutorial, isIOSSafariBrowser, dismissPromptForever } = useInstallState();
 	const [hiddenThisSession, setHiddenThisSession] = useState(false);
 	const [modalOpen, setModalOpen] = useState(false);
 
@@ -272,9 +273,18 @@ const IOSInstallTutorial: React.FC = () => {
 						</ol>
 
 						<div style={{ padding: '12px 24px 0', borderTop: '1px solid rgba(26, 16, 36, 0.08)', marginTop: 8 }}>
-							<p style={{ fontSize: 12, color: 'rgba(26, 16, 36, 0.6)', lineHeight: 1.5, margin: 0 }}>
-								<strong style={{ color: 'rgba(26, 16, 36, 0.85)' }}>Important:</strong> Notifications on iPhone only work after installing. They cannot be enabled while browsing in Safari.
-							</p>
+							{isIOSSafariBrowser ? (
+								<p style={{ fontSize: 12, color: 'rgba(26, 16, 36, 0.6)', lineHeight: 1.5, margin: 0 }}>
+									<strong style={{ color: 'rgba(26, 16, 36, 0.85)' }}>Heads up:</strong> Push notifications on iPhone need Mirror installed to your Home Screen — they can't be enabled from the Safari tab.
+								</p>
+							) : (
+								<>
+									<p style={{ fontSize: 12, color: 'rgba(26, 16, 36, 0.6)', lineHeight: 1.5, margin: '0 0 8px 0' }}>
+										<strong style={{ color: 'rgba(26, 16, 36, 0.85)' }}>For notifications:</strong> install from <strong>Safari</strong> specifically — Apple gates push delivery to Safari-installed PWAs. Use the buttons below to copy or share this link, then open it in Safari.
+									</p>
+									<OpenInSafariActions size="compact" />
+								</>
+							)}
 							<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16 }}>
 								<button
 									type="button"
