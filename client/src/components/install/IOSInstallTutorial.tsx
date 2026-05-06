@@ -274,11 +274,11 @@ const IOSInstallTutorial: React.FC = () => {
 						<div style={{ padding: '12px 24px 0', borderTop: '1px solid rgba(26, 16, 36, 0.08)', marginTop: 8 }}>
 							{isIOSSafariBrowser ? (
 								<p style={{ fontSize: 12, color: 'rgba(26, 16, 36, 0.6)', lineHeight: 1.5, margin: 0 }}>
-									<strong style={{ color: 'rgba(26, 16, 36, 0.85)' }}>Important:</strong> Notifications on iPhone only work after installing. They cannot be enabled while browsing in Safari.
+									<strong style={{ color: 'rgba(26, 16, 36, 0.85)' }}>Heads up:</strong> Push notifications on iPhone need Mirror installed to your Home Screen — they can't be enabled from the Safari tab.
 								</p>
 							) : (
 								<p style={{ fontSize: 12, color: 'rgba(26, 16, 36, 0.6)', lineHeight: 1.5, margin: 0 }}>
-									<strong style={{ color: 'rgba(26, 16, 36, 0.85)' }}>Tip:</strong> For push notifications and the full app experience on iPhone, open this page in <strong>Safari</strong> first, then add to Home Screen from there. Other browsers create a bookmark icon only.
+									<strong style={{ color: 'rgba(26, 16, 36, 0.85)' }}>Heads up:</strong> If notifications don't work after install, try installing from <strong>Safari</strong> instead — it's the most consistent path on iPhone.
 								</p>
 							)}
 							<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16 }}>

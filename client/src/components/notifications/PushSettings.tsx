@@ -57,9 +57,12 @@ const PushSettings: React.FC<PushSettingsProps> = ({ onIOSInstallNudge }) => {
 		);
 	}
 
-	// iOS Safari, not yet installed — push won't work until install. Show
-	// the special CTA instead of an "Enable" button that would dead-end.
-	if (install.isIOSSafariBrowser && !install.isStandalone) {
+	// iOS, not yet installed — on iPhone/iPad, push reliably requires
+	// running the app in standalone (Home Screen) mode. Apple has loosened
+	// some of this in iOS 17.4+ but the standalone install path is still
+	// the most consistent across iOS versions and browsers, so we nudge
+	// install before showing an Enable button that might dead-end.
+	if (install.isIOS && !install.isStandalone) {
 		return (
 			<div className="px-5 py-4 border-b border-white/5">
 				<div className="flex items-start gap-3">
@@ -67,7 +70,9 @@ const PushSettings: React.FC<PushSettingsProps> = ({ onIOSInstallNudge }) => {
 					<div className="flex-1 min-w-0">
 						<p className="text-sm font-medium text-white">Install Mirror to enable notifications</p>
 						<p className="text-xs text-white/60 mt-0.5 leading-snug">
-							iPhone notifications only work after adding Mirror to your Home Screen.
+							{install.isIOSSafariBrowser
+								? 'iPhone notifications work most reliably after adding Mirror to your Home Screen from Safari.'
+								: 'For best results, open this page in Safari and add Mirror to your Home Screen from there.'}
 						</p>
 						<button
 							type="button"
