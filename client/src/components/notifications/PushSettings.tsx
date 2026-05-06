@@ -23,6 +23,7 @@
 import React, { useEffect, useState } from 'react';
 import { usePushSubscription } from '../../hooks/usePushSubscription';
 import { useInstallState } from '../../hooks/useInstallState';
+import OpenInSafariActions from '../install/OpenInSafariActions';
 
 interface PushSettingsProps {
 	/** Optional: invoked when the user clicks the iOS-install CTA so the
@@ -76,6 +77,11 @@ const PushSettings: React.FC<PushSettingsProps> = ({ onIOSInstallNudge }) => {
 								? 'iPhone notifications need Mirror on your Home Screen — install from Safari to enable.'
 								: 'iPhone notifications require installing from Safari specifically. Open this page in Safari first.'}
 						</p>
+						{!install.isIOSSafariBrowser && (
+							<div className="mt-2">
+								<OpenInSafariActions size="compact" />
+							</div>
+						)}
 						<button
 							type="button"
 							onClick={() => {
@@ -108,6 +114,9 @@ const PushSettings: React.FC<PushSettingsProps> = ({ onIOSInstallNudge }) => {
 						<p className="text-xs text-white/60 mt-0.5 leading-snug">
 							This copy of Mirror was installed from another browser. iPhone push notifications only work for installs from Safari. Open Mirror in Safari and add it to your Home Screen from there.
 						</p>
+						<div className="mt-2">
+							<OpenInSafariActions size="compact" />
+						</div>
 					</div>
 				</div>
 			</div>
