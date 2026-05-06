@@ -24,11 +24,74 @@ After Phase 4 ships and stabilizes, this folder can be deleted.
 server-changes/
 └── mirror-server/
     ├── migrations/
-    │   └── 009_push_subscriptions.sql
+    │   └── 009_push_subscriptions.sql              (Phase 4)
     ├── services/
-    │   └── pushService.ts
-    └── routes/
-        └── push.ts
+    │   ├── pushService.ts                          (Phase 4; PushPayload extended in 6a)
+    │   └── pushNotificationDispatcher.ts           (Phase 6a — new)
+    ├── routes/
+    │   └── push.ts                                 (Phase 4)
+    └── systems/
+        └── mirrorGroupNotifications.ts             (Phase 6a — full file with hook applied)
+```
+
+All files are full, ready-to-copy versions of their target paths in the
+`mirror-server` repo. No patches, no instructional snippets — just `cp`.
+
+## Phase 6a — auto-push on every notification event
+
+Hooks Web Push delivery into mirror-server's central notification system.
+Every event whose template has `'push'` in its `channels` array now
+dispatches to subscribed devices automatically; templates without
+`'push'` (e.g. `member_left`, `chat_typing`) stay WebSocket-only.
+
+**Files in this phase:**
+
+| Target path in mirror-server | Action | Notes |
+|---|---|---|
+| `services/pushService.ts` | Replace | PushPayload interface gained: `badge`, `unreadCount`, `requireInteraction`, `silent`, `renotify` (all optional, all already supported by the SW). Rest of the file unchanged from Phase 4. |
+| `services/pushNotificationDispatcher.ts` | New file | Bridges `sendNotification()` → `pushService.send()`. Builds the push payload, sanitizes & prefixes the URL with `/Mirror/`, derives a tag for OS-level dedup, swallows all errors. |
+| `systems/mirrorGroupNotifications.ts` | Replace | Two changes from upstream: (1) adds the dispatcher import, (2) `sendNotification()` calls `void dispatchPushFromNotification(notification, template)` after both the immediate-WebSocket and the queue paths. Templates and all other methods are untouched. |
+
+**Behavior under failure:**
+
+| Scenario | Outcome |
+|---|---|
+| Dispatcher throws | Caught inside dispatcher; logged via `Logger`; WebSocket / queue path completely unaffected. |
+| User has no active push subscriptions | `pushService.send()` returns `{sent:0, expired:0, skipped:0}`; dispatcher logs nothing. |
+| User has 3 devices, 1 dead | `pushService.send()` returns `{sent:2, expired:1, ...}`; dead device soft-deleted server-side via 410 handling. |
+| VAPID env vars missing | `pushService.send()` returns zeros silently (Phase 4 behavior); dispatcher no-ops. |
+| `actionUrl` malformed/off-origin | Dispatcher passes `undefined` to the SW; SW falls back to `/Mirror/` per its existing security boundary. |
+| Multiple chat messages in same group within seconds | Same `tag` (e.g. `chat_message:<groupId>`); OS collapses on the device. |
+
+**What's covered automatically** (templates with `'push'` in `channels`):
+
+`group_invite`, `member_joined`, `peer_review_received`, `video_call_started`,
+`admin_promoted`, `drawing_session_started`, `vote_proposed`, `vote_completed`,
+`conversation_summary`, `chat_message`, `chat_mention`, `analysis_completed`,
+`ts_review_received`, `ts_review_classified`, `ts_analysis_complete`,
+`ts_dialogue_message`, `ts_queue_assigned`, `ts_milestone_earned`.
+
+**What stays WebSocket-only** (correctly): `member_left`, `compatibility_updated`,
+`admin_demoted`, `conversation_insight`, `chat_message_edited` /
+`chat_message_deleted` / `chat_typing` / `chat_presence` /
+`chat_reactions_updated` / `chat_message_read`, `dina_processing_started`.
+
+**Apply order:**
+
+```bash
+cd mirror-server
+
+cp <Mirror-repo>/server-changes/mirror-server/services/pushService.ts                    services/
+cp <Mirror-repo>/server-changes/mirror-server/services/pushNotificationDispatcher.ts     services/
+cp <Mirror-repo>/server-changes/mirror-server/systems/mirrorGroupNotifications.ts        systems/
+
+npm run rebuild           # tsc must pass — verifies the import resolves
+sudo pm2 reload mirror-server
+
+# Verify: trigger an event the user is subscribed to (e.g. send yourself
+# a TruthStream review) and watch logs:
+pm2 logs mirror-server | grep PushDispatcher
+# Expect: "Push dispatched { userId: ..., type: ..., sent: 1, ... }"
 ```
 
 ## How to apply to mirror-server

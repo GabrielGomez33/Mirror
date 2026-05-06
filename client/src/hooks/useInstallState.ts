@@ -85,11 +85,42 @@ function detectIsIOSSafariBrowser(isIOS: boolean): boolean {
 	if (!isIOS) return false;
 	if (typeof navigator === 'undefined') return false;
 	const ua = navigator.userAgent || '';
-	// Excludes Chrome/Firefox/Edge on iOS (which embed WebKit but use a
-	// different UA). Also excludes in-app browsers (Instagram, Facebook).
-	const isWebKit = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
-	const isInAppBrowser = /FBAN|FBAV|Instagram|Line\/|Twitter/.test(ua);
-	return isWebKit && !isInAppBrowser;
+	// Strict Safari detection (used to gate features that only work in
+	// "true" Safari on iOS — namely standalone-mode push notifications).
+	// Excludes wrapper browsers that embed WebKit but use a different UA tag:
+	//   CriOS  = Chrome iOS
+	//   FxiOS  = Firefox iOS
+	//   EdgiOS = Edge iOS
+	//   OPiOS  = Opera Mini iOS (legacy)
+	//   OPT/   = Opera Touch / modern Opera iOS (no OPiOS tag)
+	//   GSA/   = Google Search App embedded webview
+	const isWebKit =
+		/Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|GSA\//.test(ua);
+	return isWebKit && !detectIsIOSInAppBrowser();
+}
+
+/**
+ * In-app browsers (Instagram, Facebook, Line, Twitter, TikTok, etc.) embed
+ * WebKit but disable / hide the share sheet's "Add to Home Screen" entry.
+ * No install path = no install tutorial.
+ */
+function detectIsIOSInAppBrowser(): boolean {
+	if (typeof navigator === 'undefined') return false;
+	const ua = navigator.userAgent || '';
+	return /FBAN|FBAV|Instagram|Line\/|Twitter|TikTok|Snapchat|MicroMessenger|WeChat/.test(ua);
+}
+
+/**
+ * Any iOS browser that exposes "Add to Home Screen" via its share sheet.
+ * Includes Safari, Chrome iOS, Firefox iOS, Edge iOS, Opera iOS, etc. —
+ * every iOS browser uses Apple's WebKit and exposes the same install path
+ * (with the caveat that only Safari-installed icons launch as full PWAs
+ * pre-iOS-17.4; Chrome/Firefox installs are bookmarks). Excludes in-app
+ * browsers where the share sheet hides the install entry entirely.
+ */
+function detectIsIOSInstallable(isIOS: boolean): boolean {
+	if (!isIOS) return false;
+	return !detectIsIOSInAppBrowser();
 }
 
 function detectIsStandalone(): boolean {
@@ -135,8 +166,10 @@ export interface InstallState {
 	isInstallable: boolean;
 	/** iOS / iPadOS device, any browser. */
 	isIOS: boolean;
-	/** iOS device AND Safari-the-browser (only context where Add-to-Home-Screen works). */
+	/** iOS device AND Safari specifically — where Add-to-Home-Screen produces a full PWA (push, standalone). */
 	isIOSSafariBrowser: boolean;
+	/** iOS device AND any non-in-app browser — where Add-to-Home-Screen at least works as an icon. */
+	isIOSInstallable: boolean;
 	/** Convenience: should we show the Android one-tap install button? */
 	canPromptInstall: boolean;
 	/** Convenience: should we show the iOS-specific tutorial? */
@@ -155,6 +188,7 @@ export function useInstallState(): InstallState {
 	const [wasDismissed, setWasDismissed] = useState<boolean>(readDismissed);
 	const [isIOS] = useState<boolean>(detectIsIOS);
 	const [isIOSSafariBrowser] = useState<boolean>(() => detectIsIOSSafariBrowser(detectIsIOS()));
+	const [isIOSInstallable] = useState<boolean>(() => detectIsIOSInstallable(detectIsIOS()));
 
 	// Subscribe to module-level prompt lifecycle.
 	useEffect(() => {
@@ -208,8 +242,12 @@ export function useInstallState(): InstallState {
 		isInstallable: hasPrompt,
 		isIOS,
 		isIOSSafariBrowser,
+		isIOSInstallable,
 		canPromptInstall: hasPrompt && !isStandalone && !wasDismissed,
-		shouldShowIOSTutorial: isIOSSafariBrowser && !isStandalone && !wasDismissed,
+		// Show on ANY iOS browser that exposes the share-sheet install path
+		// (Safari, Chrome iOS, Firefox iOS, Edge iOS, Opera iOS). Excludes
+		// in-app browsers where install is impossible.
+		shouldShowIOSTutorial: isIOSInstallable && !isStandalone && !wasDismissed,
 		wasDismissed,
 		promptInstall,
 		dismissPromptForever,

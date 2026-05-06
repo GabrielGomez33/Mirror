@@ -19,10 +19,12 @@ import PaymentFailedBanner from './components/paywall/PaymentFailedBanner';
 // PWA: shown when a new service worker is installed and waiting to activate.
 import UpdateBanner from './components/UpdateBanner';
 // PWA Phase 5: install nudges. InstallPrompt covers Android/desktop one-tap;
-// IOSInstallTutorial covers iOS Safari (no programmatic install). Both
-// self-suppress when not applicable to the current platform / install state.
+// IOSInstallTutorial covers iOS (any browser); SafariNudge nudges iOS users
+// in non-Safari browsers toward Safari (push delivery requires Safari-
+// installed PWAs on iOS). All three self-suppress when not applicable.
 import InstallPrompt from './components/install/InstallPrompt';
 import IOSInstallTutorial from './components/install/IOSInstallTutorial';
+import SafariNudge from './components/install/SafariNudge';
 
 // Import your existing pages
 import Home from './pages/Home';
@@ -147,9 +149,11 @@ const App: React.FC = () => {
           {/* PWA install nudges. Each component self-suppresses when its
               platform / install-state isn't applicable (already installed,
               wrong browser, dismissed-forever, etc.) so it's safe to mount
-              both globally. */}
+              all three globally. SafariNudge specifically targets non-Safari
+              iOS users (the path-of-least-resistance to working push). */}
           <InstallPrompt />
           <IOSInstallTutorial />
+          <SafariNudge />
 
           {/* Main Application Routes */}
           <Routes>

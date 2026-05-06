@@ -109,6 +109,17 @@ export function usePushSubscription(): UsePushSubscriptionResult {
 	}, []);
 
 	// Initial state load: read current permission + existing PushSubscription.
+	//
+	// SUBSCRIPTION RESILIENCE (iOS, but applies broadly):
+	// iOS Safari periodically wipes service worker registrations and push
+	// subscriptions for sites the user hasn't visited recently (ITP — Intelligent
+	// Tracking Prevention). The user's Notification permission stays 'granted'
+	// but the actual PushSubscription disappears, silently breaking delivery.
+	// Mitigation: on every app launch, if permission is granted but no
+	// subscription exists, attempt to re-subscribe transparently and re-POST
+	// to the server. The user never sees a permission prompt because permission
+	// is already granted; the new subscription replaces the dead one in our DB
+	// via the upsert behavior on (user_id, endpoint_hash).
 	useEffect(() => {
 		if (!PUSH_SUPPORTED) {
 			setReady(true);
@@ -118,10 +129,32 @@ export function usePushSubscription(): UsePushSubscriptionResult {
 		(async () => {
 			try {
 				const reg = await navigator.serviceWorker.ready;
-				const existing = await reg.pushManager.getSubscription();
+				let existing = await reg.pushManager.getSubscription();
 				if (cancelled) return;
+
+				const currentPermission = Notification.permission;
+				setPermission(currentPermission);
+
+				// Resilience: subscription went silently null but the user
+				// is still permission-granted → re-subscribe transparently.
+				if (!existing && currentPermission === 'granted') {
+					try {
+						const vapid = await getVapidPublicKey();
+						existing = await reg.pushManager.subscribe({
+							userVisibleOnly: true,
+							applicationServerKey: urlBase64ToUint8Array(vapid),
+						});
+						if (cancelled) return;
+						await subscribePush(existing);
+					} catch {
+						// Re-subscribe failed (network down, server VAPID config
+						// changed, browser refused). Surface as no subscription
+						// — user can re-enable manually from settings.
+						existing = null;
+					}
+				}
+
 				setSubscription(existing);
-				setPermission(Notification.permission);
 				if (existing) {
 					try {
 						const count = await getActiveDeviceCount();
