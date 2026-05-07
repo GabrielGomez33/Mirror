@@ -33,11 +33,15 @@
 
 import { pushService, PushPayload } from './pushService';
 import { Logger } from '../utils/logger';
-// Phase 6a.5: import the singleton so we can check isUserActive(userId)
-// before firing a push. Active users (WS connected + Page Visibility
-// 'visible' within last 60s) get the in-app WS notification — pushing
-// them too would buzz their device while they're already looking at it.
-import { mirrorGroupNotifications } from '../systems/mirrorGroupNotifications';
+// IMPORTANT — no top-level import of '../systems/mirrorGroupNotifications'.
+// That file imports THIS file (dispatchPushFromNotification), so a static
+// import here creates a circular dependency. Under Node CommonJS the
+// singleton would resolve to `undefined` at our load time and stay that
+// way for the lifetime of the process — every push call would TypeError.
+//
+// Phase 6a.5 needs to check whether the user is currently active in the
+// app before firing a push. Caller passes the check as an option (see
+// DispatchOptions below). The dispatcher itself has no implicit deps.
 
 const logger = new Logger('PushDispatcher');
 
@@ -81,6 +85,17 @@ export interface DispatchableTemplate {
 	priority: 'immediate' | 'normal' | 'low';
 }
 
+/**
+ * Phase 6a.5: caller-provided dependencies. Avoids circular imports.
+ * Currently only `isUserActive` — pass mirrorGroupNotifications.isUserActive
+ * (bound) so the dispatcher can skip push for users currently in the app.
+ * Optional. If omitted, dispatcher falls back to the original 6a behavior
+ * (always fire push when subscriptions exist).
+ */
+export interface DispatchOptions {
+	isUserActive?: (userId: string) => boolean;
+}
+
 // ============================================================================
 // PUBLIC ENTRY POINT
 // ============================================================================
@@ -93,6 +108,7 @@ export interface DispatchableTemplate {
 export async function dispatchPushFromNotification(
 	notification: DispatchableNotification,
 	template: DispatchableTemplate,
+	options: DispatchOptions = {},
 ): Promise<void> {
 	try {
 		// Skip if push isn't a configured channel for this notification type.
@@ -107,17 +123,28 @@ export async function dispatchPushFromNotification(
 			return;
 		}
 
-		// Phase 6a.5: skip push if the user is currently active in the app
-		// (WS connected + Page Visibility 'visible' within the last 60s).
-		// They'll see the in-app WS notification; buzzing them on the device
-		// would create a "I'm IN the app, why is it pinging me?" feedback
-		// loop — the most-reported UX bug from the initial Phase 6a rollout.
-		if (mirrorGroupNotifications.isUserActive(String(notification.userId))) {
-			logger.info('Push skipped — user is active in app', {
-				userId: notification.userId,
-				type: notification.type,
-			});
-			return;
+		// Phase 6a.5: skip push if the user is currently active in the app.
+		// `isUserActive` is injected by the caller (see DispatchOptions).
+		// If the check throws (defensive — caller bug, not ours), treat as
+		// inactive and fire push so the notification isn't silently dropped.
+		if (options.isUserActive) {
+			let active = false;
+			try {
+				active = options.isUserActive(String(notification.userId));
+			} catch (err) {
+				logger.warn('isUserActive threw — proceeding with push', {
+					userId: notification.userId,
+					type: notification.type,
+					message: (err as Error)?.message,
+				});
+			}
+			if (active) {
+				logger.info('Push skipped — user is active in app', {
+					userId: notification.userId,
+					type: notification.type,
+				});
+				return;
+			}
 		}
 
 		const payload = buildPushPayload(notification, template);

@@ -961,7 +961,10 @@ export class MirrorGroupNotificationSystem extends EventEmitter {
           await this.queueNotification(notification);
           // Phase 6a: also dispatch as Web Push when template.channels
           // includes 'push'. Fire-and-forget — never blocks delivery.
-          void dispatchPushFromNotification(notification, template);
+          // Phase 6a.5: pass isUserActive via DI to avoid circular import.
+          void dispatchPushFromNotification(notification, template, {
+            isUserActive: (uid) => this.isUserActive(uid),
+          });
           return true;
         }
       }
@@ -969,7 +972,9 @@ export class MirrorGroupNotificationSystem extends EventEmitter {
       // Queue for processing
       const queued = await this.queueNotification(notification);
       // Phase 6a: also dispatch as Web Push (mirror of the immediate path).
-      void dispatchPushFromNotification(notification, template);
+      void dispatchPushFromNotification(notification, template, {
+        isUserActive: (uid) => this.isUserActive(uid),
+      });
       return queued;
     } catch (error) {
       logError(`Error sending ${type} notification to user ${userId}`, error);

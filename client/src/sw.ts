@@ -349,14 +349,21 @@ async function handlePushEvent(event: PushEvent): Promise<void> {
 		} as unknown as NotificationOptions;
 
 		await self.registration.showNotification(payload.title, silentOptions);
-		// Close it after a tick — long enough to satisfy the spec, short
-		// enough that the user never sees it.
-		setTimeout(() => {
-			self.registration
-				.getNotifications({ tag: payload.tag })
-				.then((notifs) => notifs.forEach((n) => n.close()))
-				.catch(() => undefined);
-		}, 100);
+		// Close after a tick. Wrapping the timeout in a Promise so the
+		// outer event.waitUntil keeps the SW alive long enough to close.
+		// Otherwise on slower devices the SW could be killed mid-tick,
+		// leaving the silent notification on screen forever.
+		await new Promise<void>((resolve) => {
+			setTimeout(async () => {
+				try {
+					const notifs = await self.registration.getNotifications({ tag: payload.tag });
+					notifs.forEach((n) => n.close());
+				} catch {
+					/* non-fatal */
+				}
+				resolve();
+			}, 100);
+		});
 		// Update badge regardless — unread count should reflect reality.
 		await updateBadge(payload.unreadCount);
 		return;
