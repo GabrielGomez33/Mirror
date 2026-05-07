@@ -11,6 +11,10 @@ import { isWebSocketConnected } from '../../services/groupsWebSocket';
 import SubscriptionManager from '../paywall/SubscriptionManager';
 import { useSubscription } from '../../context/SubscriptionContext';
 import type { Notification } from '../../types/notifications';
+// Push notification opt-in / status panel (Phase 5). Embedded inside the
+// "Notifications" section below so users can enable / manage push from the
+// same drawer where they read their in-app notifications.
+import PushSettings from '../notifications/PushSettings';
 
 // ============================================================================
 // COLORS — matches MyMirror / TruthStream / MirrorGroups
@@ -356,6 +360,14 @@ export default function GlobalDashboard() {
                       {unreadCount} new
                     </span>
                   ) : undefined}>
+
+                  {/* Push notification opt-in / status (Phase 5). Renders the
+                      Enable button, active-device count, iOS install nudges,
+                      and the Reinstall-via-Safari path. Self-suppresses to a
+                      one-line message on unsupported browsers. */}
+                  <div style={{ marginBottom: 8 }}>
+                    <PushSettings onIOSInstallNudge={handleClose} />
+                  </div>
 
                   {visible.length > 0 && (
                     <div className="flex justify-end gap-3 mb-1.5">
