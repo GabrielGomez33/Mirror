@@ -33,8 +33,29 @@
 
 import { pushService, PushPayload } from './pushService';
 import { Logger } from '../utils/logger';
+// Phase 6a.5: import the singleton so we can check isUserActive(userId)
+// before firing a push. Active users (WS connected + Page Visibility
+// 'visible' within last 60s) get the in-app WS notification — pushing
+// them too would buzz their device while they're already looking at it.
+import { mirrorGroupNotifications } from '../systems/mirrorGroupNotifications';
 
 const logger = new Logger('PushDispatcher');
+
+// Phase 6a.5: notification types that should set requireInteraction:true
+// on the OS notification. These are higher-stakes events the user should
+// see / dismiss intentionally (vs. chat noise that auto-clears). Anything
+// not in this list — including chat_message — uses the OS default
+// (auto-dismiss after a few seconds).
+const REQUIRE_INTERACTION_TYPES = new Set<string>([
+	'group_invite',
+	'video_call_started',
+	'vote_proposed',
+	'chat_mention',
+	'personal_analysis_complete',
+	'ts_review_received',
+	'ts_milestone_earned',
+	'ts_analysis_complete',
+]);
 
 // ============================================================================
 // MINIMAL TYPES (decoupled from mirrorGroupNotifications.ts internals)
@@ -86,6 +107,19 @@ export async function dispatchPushFromNotification(
 			return;
 		}
 
+		// Phase 6a.5: skip push if the user is currently active in the app
+		// (WS connected + Page Visibility 'visible' within the last 60s).
+		// They'll see the in-app WS notification; buzzing them on the device
+		// would create a "I'm IN the app, why is it pinging me?" feedback
+		// loop — the most-reported UX bug from the initial Phase 6a rollout.
+		if (mirrorGroupNotifications.isUserActive(String(notification.userId))) {
+			logger.info('Push skipped — user is active in app', {
+				userId: notification.userId,
+				type: notification.type,
+			});
+			return;
+		}
+
 		const payload = buildPushPayload(notification, template);
 
 		// Fire-and-forget: pushService.send() already swallows per-device
@@ -130,10 +164,12 @@ function buildPushPayload(
 			notificationType: notification.type,
 			...(notification.content.metadata || {}),
 		},
-		// Render-on-screen hint: 'immediate' priority → require interaction
-		// (won't auto-dismiss after a few seconds) so e.g. video call
-		// invites don't disappear before the user can respond.
-		requireInteraction: _template.priority === 'immediate',
+		// Phase 6a.5: requireInteraction limited to high-stakes types
+		// (invites, calls, votes, mentions, completed analyses). Chat
+		// messages and reactions auto-dismiss like normal notifications;
+		// previously every 'immediate' priority event persisted on the
+		// lock screen which was annoying for active group chats.
+		requireInteraction: REQUIRE_INTERACTION_TYPES.has(notification.type),
 	};
 }
 
@@ -156,12 +192,20 @@ function deriveTag(notification: DispatchableNotification): string {
 	const reviewId = stringOrUndef(meta.reviewId);
 	const dialogueId = stringOrUndef(meta.dialogueId);
 	const messageId = stringOrUndef(meta.messageId);
+	const analysisId = stringOrUndef(meta.analysisId);
 
 	// Type-specific tag derivation. Order: most specific id wins.
 	if (type === 'ts_dialogue_message' && dialogueId) return `${type}:${dialogueId}`;
 	if (type === 'ts_review_received' && reviewId) return `${type}:${reviewId}`;
 	if (type === 'ts_review_classified' && reviewId) return `${type}:${reviewId}`;
+	// Phase 6a.5: each personal analysis gets its own tag so multiple
+	// completion notifications don't collapse into one on the device.
+	if (type === 'personal_analysis_complete' && analysisId) return `${type}:${analysisId}`;
+	// Mentions tagged per-message so each @-mention gets its own
+	// notification (won't collapse with regular chat_message bursts).
 	if (type === 'chat_mention' && messageId) return `${type}:${messageId}`;
+	// Regular chat: collapse all messages from the same group into one
+	// device-side notification (prevents 5 messages = 5 buzzes).
 	if (type === 'chat_message' && groupId) return `${type}:${groupId}`;
 	if (groupId) return `${type}:${groupId}`;
 	if (sessionId) return `${type}:${sessionId}`;

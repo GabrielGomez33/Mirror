@@ -27,11 +27,15 @@ server-changes/
     │   └── 009_push_subscriptions.sql              (Phase 4)
     ├── services/
     │   ├── pushService.ts                          (Phase 4; PushPayload extended in 6a)
-    │   └── pushNotificationDispatcher.ts           (Phase 6a — new)
+    │   └── pushNotificationDispatcher.ts           (Phase 6a; isUserActive skip + requireInteraction list in 6a.5)
     ├── routes/
     │   └── push.ts                                 (Phase 4)
-    └── systems/
-        └── mirrorGroupNotifications.ts             (Phase 6a — full file with hook applied)
+    ├── managers/
+    │   └── ChatMessageManager.ts                   (Phase 6a.5 — re-enables broadcastMessage + mention dispatch)
+    ├── systems/
+    │   └── mirrorGroupNotifications.ts             (Phase 6a hook + 6a.5 visibility tracking, personal_analysis_complete, priority bumps)
+    └── wss/
+        └── setupWSS.ts                             (Phase 6a.5 — accepts {type:'visibility'} client messages)
 ```
 
 All files are full, ready-to-copy versions of their target paths in the
@@ -76,22 +80,79 @@ dispatches to subscribed devices automatically; templates without
 `chat_message_deleted` / `chat_typing` / `chat_presence` /
 `chat_reactions_updated` / `chat_message_read`, `dina_processing_started`.
 
-**Apply order:**
+**Apply order (Phase 4 + 6a + 6a.5 — single bundle, copy all):**
 
 ```bash
 cd mirror-server
 
+# Phase 4 (subscription infra)
 cp <Mirror-repo>/server-changes/mirror-server/services/pushService.ts                    services/
+cp <Mirror-repo>/server-changes/mirror-server/routes/push.ts                             routes/
+# (also apply migrations/009_push_subscriptions.sql once if not done)
+
+# Phase 6a (hook into central notification system)
 cp <Mirror-repo>/server-changes/mirror-server/services/pushNotificationDispatcher.ts     services/
+
+# Phase 6a.5 (chat coverage + visibility tracking + personal_analysis_complete)
 cp <Mirror-repo>/server-changes/mirror-server/systems/mirrorGroupNotifications.ts        systems/
+cp <Mirror-repo>/server-changes/mirror-server/managers/ChatMessageManager.ts             managers/
+cp <Mirror-repo>/server-changes/mirror-server/wss/setupWSS.ts                            wss/
 
-npm run rebuild           # tsc must pass — verifies the import resolves
-sudo pm2 reload mirror-server
+npm run rebuild
+# IMPORTANT: restart ALL pm2 processes (workers import these systems too).
+sudo pm2 restart all
+```
 
-# Verify: trigger an event the user is subscribed to (e.g. send yourself
-# a TruthStream review) and watch logs:
+## Phase 6a.5 — what's new in this round
+
+Three categories of fix:
+
+**1. Chat coverage**
+- `chat_message` notifications fire again. `broadcastMessage()` was
+  removed in an earlier cleanup because client received the message
+  twice (chat WS + notification WS); the client now has cross-path
+  dedup (`ChatContext.tsx`), so we re-enable.
+- `chat_mention` now actually fires. Previously the template existed
+  but nothing in the codebase ever called `notify('chat:mention')`.
+  `broadcastMessage()` resolves @-usernames against the group's member
+  list and dispatches `chat:mention` to mentioned users instead of
+  `chat:message`. `@everyone` is honored as well.
+- chat edit/delete/reaction/read priorities bumped from `'low'`
+  (30s queue) to `'normal'` (5s) so they feel near-real-time.
+
+**2. Personal analysis completion**
+- `personal_analysis_complete` registered in TEMPLATES (was already
+  being called from `PersonalAnalysisQueueProcessor.ts:480` but fell
+  through to raw-WS path). Now flows through `sendNotification` →
+  Phase 6a hook → push delivers when the DINA Truth Mirror Report is
+  ready. Each analysis gets its own collapse tag so multiple
+  completions don't merge.
+
+**3. Skip push when user is active in app**
+- New `mirrorGroupNotifications.markUserVisible/Hidden/isUserActive`.
+  Tracks Page Visibility per user (keyed by userId).
+- `setupWSS.ts` accepts `{type:'visibility', payload:{state}}` client
+  messages and updates the visibility map.
+- `pushNotificationDispatcher.ts` calls `isUserActive(userId)` before
+  invoking `pushService.send()`. Active users skip push — they get
+  the in-app WS notification instead.
+- Active = WS connected AND last 'visible' report within 60s.
+- Conservative default: if no visibility ever reported (older client
+  before 6a.5 ships), user is treated as inactive → push fires.
+
+Plus refined `requireInteraction` so chat messages auto-dismiss like
+normal notifications; only invites, calls, votes, mentions, and
+analysis-complete persist on the lock screen until tapped.
+
+**Verify push-skip-when-active after deploy:**
+
+```bash
+# Open Mirror in a browser, log in, leave the tab focused.
+# From a 2nd account, send the user a TruthStream review.
 pm2 logs mirror-server | grep PushDispatcher
-# Expect: "Push dispatched { userId: ..., type: ..., sent: 1, ... }"
+# Expect: "Push skipped — user is active in app"
+# Background the tab. Trigger the same event again.
+# Expect: "Push dispatched { sent: 1, ... }" + actual notification on device.
 ```
 
 ## How to apply to mirror-server

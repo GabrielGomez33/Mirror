@@ -648,6 +648,16 @@ class GroupsWebSocketClient {
     this.sendMessage('presence:update', { groupId, status });
   }
 
+  // ==================== VISIBILITY (Phase 6a.5) ====================
+  //
+  // Reports the page's Page Visibility API state to the server so the
+  // push dispatcher can skip Web Push for users who are foregrounded
+  // (the in-app WS notification covers them). Sent on every visibility
+  // transition by the listener wired up in App.tsx.
+  sendVisibility(state: 'visible' | 'hidden'): void {
+    this.sendMessage('visibility', { state });
+  }
+
   // ==================== VOTING ACTIONS ====================
 
   sendVoteResponse(groupId: string, voteId: string, response: string): void {
@@ -733,6 +743,11 @@ export const unsubscribeFromGroup = (groupId: string) =>
 // Presence
 export const updatePresence = (groupId: string, status: 'active' | 'idle' | 'offline') =>
   groupsWebSocket.updatePresence(groupId, status);
+
+// Visibility (Phase 6a.5) — reports Page Visibility state to the server
+// so push delivery can skip foregrounded users. Wired up in App.tsx.
+export const sendVisibility = (state: 'visible' | 'hidden') =>
+  groupsWebSocket.sendVisibility(state);
 
 // Voting
 export const sendVoteResponse = (groupId: string, voteId: string, response: string) =>
