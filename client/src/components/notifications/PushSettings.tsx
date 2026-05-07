@@ -3,21 +3,21 @@
 // ============================================================================
 // File: components/notifications/PushSettings.tsx
 //
-// Where it appears: header section of NotificationPanel, above the
-// notification list. Always visible when the panel is open.
+// Rendered inside the GlobalDashboard drawer's "Notifications" section.
+// Visual language matches that panel — light glass, sakura accent, plum
+// text — and uses inline styles defensively so ambient CSS rules can't
+// stretch icons or hijack layout (same issue we hit with InstallPrompt).
 //
-// What it shows (state machine):
-//   - Unsupported browser → quiet "Notifications not supported" line.
-//   - iOS Safari, not installed → "Install first to enable notifications"
-//     CTA that opens the iOS install tutorial.
-//   - Permission default + ready → "Enable notifications" button.
-//   - Permission denied → "Blocked — change in browser settings" with
-//     short instruction.
-//   - Permission granted + subscribed → "Enabled on N devices" with a
-//     Disable button.
+// Renders one of these states based on platform / install / permission:
+//   - Unsupported browser           → quiet "not supported" line
+//   - iOS, not standalone           → "Install Mirror to enable" + Show me how
+//                                      (+ Copy/Share buttons for non-Safari iOS)
+//   - iOS, standalone via non-Safari→ "Reinstall from Safari" + Copy/Share
+//   - Permission denied             → "Notifications blocked" instruction
+//   - Default                       → "Enable notifications" button
+//   - Granted + subscribed          → "Enabled on N devices" + Disable (two-tap)
 //
-// All errors render inline below the button, color-coded, with the
-// specific actionable message from usePushSubscription.
+// Errors render inline below the action button, color-coded by severity.
 // ============================================================================
 
 import React, { useEffect, useState } from 'react';
@@ -25,9 +25,104 @@ import { usePushSubscription } from '../../hooks/usePushSubscription';
 import { useInstallState } from '../../hooks/useInstallState';
 import OpenInSafariActions from '../install/OpenInSafariActions';
 
+// Match GlobalDashboard's color palette so this section looks native to
+// the panel rather than imported from another visual world.
+const C = {
+	heading: '#3d1428',
+	body: '#2e1018',
+	subtle: '#6b4050',
+	muted: '#8a6070',
+	accent: '#c6469b',
+	accentSoft: 'rgba(198, 70, 155, 0.12)',
+	warning: '#b8770e',
+	warningSoft: 'rgba(212, 138, 26, 0.12)',
+	danger: '#a8324c',
+	dangerSoft: 'rgba(168, 50, 76, 0.12)',
+	success: '#1e7a52',
+	successSoft: 'rgba(30, 122, 82, 0.12)',
+};
+
+// ============================================================================
+// CONTAINER STYLES (match GlobalDashboard's glass cards but slightly tighter)
+// ============================================================================
+
+const containerStyle: React.CSSProperties = {
+	background: 'rgba(255, 255, 255, 0.5)',
+	border: '1px solid rgba(255, 255, 255, 0.55)',
+	borderRadius: 12,
+	padding: '10px 12px',
+	backdropFilter: 'blur(12px)',
+	WebkitBackdropFilter: 'blur(12px)',
+	fontFamily: "'Inter', sans-serif",
+};
+
+const titleStyle: React.CSSProperties = {
+	fontSize: '0.78rem',
+	fontWeight: 600,
+	color: C.heading,
+	margin: 0,
+	lineHeight: 1.3,
+};
+
+const bodyStyle: React.CSSProperties = {
+	fontSize: '0.7rem',
+	color: C.subtle,
+	lineHeight: 1.4,
+	margin: '2px 0 0 0',
+};
+
+const helperLinkStyle: React.CSSProperties = {
+	fontSize: '0.7rem',
+	fontWeight: 600,
+	color: C.accent,
+	background: 'transparent',
+	border: 'none',
+	cursor: 'pointer',
+	padding: 0,
+	marginTop: 6,
+	textAlign: 'left',
+};
+
+const primaryButtonStyle: React.CSSProperties = {
+	fontSize: '0.7rem',
+	fontWeight: 600,
+	color: '#ffffff',
+	background: 'linear-gradient(135deg, #f472b6, #fb7185)',
+	border: 'none',
+	borderRadius: 999,
+	padding: '7px 14px',
+	cursor: 'pointer',
+	boxShadow: '0 2px 8px rgba(244, 114, 182, 0.3)',
+	transition: 'transform 0.15s ease',
+};
+
+const secondaryButtonStyle: React.CSSProperties = {
+	fontSize: '0.7rem',
+	fontWeight: 600,
+	color: C.body,
+	background: 'rgba(46, 16, 24, 0.06)',
+	border: '1px solid rgba(46, 16, 24, 0.1)',
+	borderRadius: 999,
+	padding: '7px 12px',
+	cursor: 'pointer',
+};
+
+const dangerButtonStyle: React.CSSProperties = {
+	fontSize: '0.7rem',
+	fontWeight: 600,
+	color: C.danger,
+	background: C.dangerSoft,
+	border: '1px solid rgba(168, 50, 76, 0.18)',
+	borderRadius: 999,
+	padding: '7px 12px',
+	cursor: 'pointer',
+};
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
+
 interface PushSettingsProps {
-	/** Optional: invoked when the user clicks the iOS-install CTA so the
-	 *  parent (NotificationPanel) can close itself before the tutorial opens. */
 	onIOSInstallNudge?: () => void;
 }
 
@@ -36,108 +131,72 @@ const PushSettings: React.FC<PushSettingsProps> = ({ onIOSInstallNudge }) => {
 	const install = useInstallState();
 	const [confirmingDisable, setConfirmingDisable] = useState(false);
 
-	// Reset confirm state when subscription changes.
 	useEffect(() => {
 		if (!push.subscription) setConfirmingDisable(false);
 	}, [push.subscription]);
 
 	if (!push.supported) {
 		return (
-			<div className="px-5 py-3 border-b border-white/5 text-xs text-white/40">
-				Push notifications aren't supported in this browser.
-			</div>
+			<Frame icon={<BellSlashIcon color={C.muted} />} tone="muted">
+				<p style={titleStyle}>Push notifications</p>
+				<p style={bodyStyle}>This browser doesn't support push notifications.</p>
+			</Frame>
 		);
 	}
 
-	// Loading skeleton — keep height stable to avoid layout shift.
 	if (!push.ready) {
 		return (
-			<div className="px-5 py-4 border-b border-white/5">
-				<div className="h-4 w-32 rounded bg-white/5 animate-pulse" />
-			</div>
+			<Frame icon={<BellIcon color={C.muted} />} tone="muted">
+				<div style={{ height: 12, width: 100, background: 'rgba(0,0,0,0.06)', borderRadius: 4, animation: 'pulse 1.5s ease-in-out infinite' }} />
+			</Frame>
 		);
 	}
 
-	// iOS, not yet installed — on iPhone/iPad, push notifications require
-	// the user installing FROM SAFARI specifically (verified against Apple
-	// docs / WebKit blog as of iOS 26 / 2026). Other iOS browsers can put
-	// an icon on the Home Screen, but Notification.requestPermission()
-	// rejects in those installs. So the install nudge is shown to all
-	// iOS users (any browser can install at all), but the Safari
-	// requirement for push is called out explicitly to non-Safari users.
+	// iOS, not yet installed — push needs install (verified for iOS 26).
 	if (install.isIOS && !install.isStandalone) {
 		return (
-			<div className="px-5 py-4 border-b border-white/5">
-				<div className="flex items-start gap-3">
-					<BellIcon className="h-5 w-5 text-amber-300 flex-shrink-0 mt-0.5" />
-					<div className="flex-1 min-w-0">
-						<p className="text-sm font-medium text-white">Install Mirror to enable notifications</p>
-						<p className="text-xs text-white/60 mt-0.5 leading-snug">
-							{install.isIOSSafariBrowser
-								? 'iPhone notifications need Mirror on your Home Screen — install from Safari to enable.'
-								: 'iPhone notifications require installing from Safari specifically. Open this page in Safari first.'}
-						</p>
-						{!install.isIOSSafariBrowser && (
-							<div className="mt-2">
-								<OpenInSafariActions size="compact" />
-							</div>
-						)}
-						<button
-							type="button"
-							onClick={() => {
-								onIOSInstallNudge?.();
-							}}
-							className="mt-2 text-xs font-semibold text-amber-300 hover:text-amber-200 transition"
-						>
-							Show me how →
-						</button>
+			<Frame icon={<BellIcon color={C.warning} />} tone="warning">
+				<p style={titleStyle}>Install Mirror to enable notifications</p>
+				<p style={bodyStyle}>
+					{install.isIOSSafariBrowser
+						? 'iPhone notifications need Mirror on your Home Screen — install from Safari to enable.'
+						: 'iPhone notifications require installing from Safari specifically.'}
+				</p>
+				{!install.isIOSSafariBrowser && (
+					<div style={{ marginTop: 8 }}>
+						<OpenInSafariActions size="compact" />
 					</div>
-				</div>
-			</div>
+				)}
+				<button type="button" onClick={() => onIOSInstallNudge?.()} style={helperLinkStyle}>
+					Show me how →
+				</button>
+			</Frame>
 		);
 	}
 
-	// iOS, INSTALLED, but installed via a non-Safari iOS browser
-	// (Chrome/Firefox/Edge iOS each get their own isolated WebView; the
-	// Home Screen icon launches in that browser's WebView, not Safari's).
-	// Such installs cannot register for push as of iOS 26 — Apple still
-	// gates push on Safari-installed PWAs. Without this branch, the user
-	// would tap "Enable", we'd burn their permission prompt, and the
-	// subscribe call would silently reject.
+	// iOS, INSTALLED via a non-Safari iOS browser — push won't work.
 	if (install.isIOS && install.isStandalone && !install.isIOSSafariBrowser) {
 		return (
-			<div className="px-5 py-4 border-b border-white/5">
-				<div className="flex items-start gap-3">
-					<BellIcon className="h-5 w-5 text-amber-300 flex-shrink-0 mt-0.5" />
-					<div className="flex-1 min-w-0">
-						<p className="text-sm font-medium text-white">Reinstall from Safari to enable notifications</p>
-						<p className="text-xs text-white/60 mt-0.5 leading-snug">
-							This copy of Mirror was installed from another browser. iPhone push notifications only work for installs from Safari. Open Mirror in Safari and add it to your Home Screen from there.
-						</p>
-						<div className="mt-2">
-							<OpenInSafariActions size="compact" />
-						</div>
-					</div>
+			<Frame icon={<BellIcon color={C.warning} />} tone="warning">
+				<p style={titleStyle}>Reinstall from Safari to enable notifications</p>
+				<p style={bodyStyle}>
+					This copy of Mirror was installed from another browser. iPhone push notifications only work for installs from Safari.
+				</p>
+				<div style={{ marginTop: 8 }}>
+					<OpenInSafariActions size="compact" />
 				</div>
-			</div>
+			</Frame>
 		);
 	}
 
-	// Permission denied at the OS/browser level. We can't re-prompt; user
-	// must change settings manually.
 	if (push.permission === 'denied') {
 		return (
-			<div className="px-5 py-4 border-b border-white/5">
-				<div className="flex items-start gap-3">
-					<BellOffIcon className="h-5 w-5 text-rose-300 flex-shrink-0 mt-0.5" />
-					<div className="flex-1 min-w-0">
-						<p className="text-sm font-medium text-white">Notifications blocked</p>
-						<p className="text-xs text-white/60 mt-0.5 leading-snug">
-							You blocked notifications for Mirror. Enable them in your browser site settings, then reload the page.
-						</p>
-					</div>
-				</div>
-			</div>
+			<Frame icon={<BellSlashIcon color={C.danger} />} tone="danger">
+				<p style={titleStyle}>Notifications blocked</p>
+				<p style={bodyStyle}>
+					You blocked notifications for Mirror. Enable them in your browser site settings, then reload the page.
+				</p>
+			</Frame>
 		);
 	}
 
@@ -156,111 +215,170 @@ const PushSettings: React.FC<PushSettingsProps> = ({ onIOSInstallNudge }) => {
 	};
 
 	return (
-		<div className="px-5 py-4 border-b border-white/5">
-			<div className="flex items-start gap-3">
+		<Frame icon={enabled ? <BellOnIcon color={C.accent} /> : <BellIcon color={C.muted} />} tone={enabled ? 'accent' : 'muted'}>
+			<p style={titleStyle}>{enabled ? 'Notifications enabled' : 'Push notifications'}</p>
+			<p style={bodyStyle}>
+				{enabled
+					? push.activeDevices !== null
+						? `Active on ${push.activeDevices} ${push.activeDevices === 1 ? 'device' : 'devices'}.`
+						: 'Active on this device.'
+					: 'Get notified about reviews, replies, and group activity even when Mirror is closed.'}
+			</p>
+
+			<div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
 				{enabled ? (
-					<BellOnIcon className="h-5 w-5 text-emerald-300 flex-shrink-0 mt-0.5" />
-				) : (
-					<BellIcon className="h-5 w-5 text-white/60 flex-shrink-0 mt-0.5" />
-				)}
-
-				<div className="flex-1 min-w-0">
-					<p className="text-sm font-medium text-white">
-						{enabled ? 'Notifications enabled' : 'Push notifications'}
-					</p>
-					<p className="text-xs text-white/60 mt-0.5 leading-snug">
-						{enabled
-							? push.activeDevices !== null
-								? `Active on ${push.activeDevices} ${push.activeDevices === 1 ? 'device' : 'devices'}.`
-								: 'Active on this device.'
-							: 'Get notified about reviews, replies, and group activity even when Mirror is closed.'}
-					</p>
-
-					<div className="flex items-center gap-2 mt-2">
-						{enabled ? (
-							<>
-								<button
-									type="button"
-									onClick={handleDisable}
-									disabled={push.busy}
-									className={`text-xs font-semibold px-3 py-1.5 rounded-full transition disabled:opacity-50 ${
-										confirmingDisable
-											? 'bg-rose-500/20 text-rose-200 hover:bg-rose-500/30'
-											: 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
-									}`}
-								>
-									{push.busy
-										? 'Disabling…'
-										: confirmingDisable
-											? 'Tap again to confirm'
-											: 'Disable on this device'}
-								</button>
-								{confirmingDisable && !push.busy && (
-									<button
-										type="button"
-										onClick={() => setConfirmingDisable(false)}
-										className="text-xs text-white/50 hover:text-white/80 transition"
-									>
-										Cancel
-									</button>
-								)}
-							</>
-						) : (
+					<>
+						<button
+							type="button"
+							onClick={handleDisable}
+							disabled={push.busy}
+							style={{
+								...(confirmingDisable ? dangerButtonStyle : secondaryButtonStyle),
+								opacity: push.busy ? 0.5 : 1,
+								cursor: push.busy ? 'not-allowed' : 'pointer',
+							}}
+						>
+							{push.busy
+								? 'Disabling…'
+								: confirmingDisable
+									? 'Tap again to confirm'
+									: 'Disable on this device'}
+						</button>
+						{confirmingDisable && !push.busy && (
 							<button
 								type="button"
-								onClick={handleEnable}
-								disabled={push.busy}
-								className="text-xs font-semibold px-3 py-1.5 rounded-full bg-violet-500/20 text-violet-200 hover:bg-violet-500/30 transition disabled:opacity-50"
+								onClick={() => setConfirmingDisable(false)}
+								style={{ ...secondaryButtonStyle, background: 'transparent', border: 'none', color: C.muted }}
 							>
-								{push.busy ? 'Enabling…' : 'Enable notifications'}
+								Cancel
 							</button>
 						)}
-					</div>
-
-					{push.error && (
-						<p
-							className={`text-xs mt-2 leading-snug ${
-								push.error.code === 'rate-limited'
-									? 'text-amber-300'
-									: push.error.code === 'device-limit'
-										? 'text-amber-300'
-										: 'text-rose-300'
-							}`}
-							role="alert"
-						>
-							{push.error.message}
-						</p>
-					)}
-				</div>
+					</>
+				) : (
+					<button
+						type="button"
+						onClick={handleEnable}
+						disabled={push.busy}
+						style={{
+							...primaryButtonStyle,
+							opacity: push.busy ? 0.5 : 1,
+							cursor: push.busy ? 'not-allowed' : 'pointer',
+						}}
+					>
+						{push.busy ? 'Enabling…' : 'Enable notifications'}
+					</button>
+				)}
 			</div>
-		</div>
+
+			{push.error && (
+				<p
+					style={{
+						...bodyStyle,
+						marginTop: 8,
+						color:
+							push.error.code === 'rate-limited' || push.error.code === 'device-limit'
+								? C.warning
+								: C.danger,
+					}}
+					role="alert"
+				>
+					{push.error.message}
+				</p>
+			)}
+		</Frame>
 	);
 };
 
 // ============================================================================
-// ICONS
+// FRAME — shared layout: bordered card, icon + content row
 // ============================================================================
 
-const BellIcon: React.FC<{ className?: string }> = ({ className }) => (
-	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+interface FrameProps {
+	icon: React.ReactNode;
+	tone: 'accent' | 'warning' | 'danger' | 'muted';
+	children: React.ReactNode;
+}
+
+const Frame: React.FC<FrameProps> = ({ icon, children }) => (
+	<div style={containerStyle}>
+		<div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+			<div
+				style={{
+					flexShrink: 0,
+					width: 24,
+					height: 24,
+					borderRadius: 999,
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'center',
+					marginTop: 1,
+				}}
+				aria-hidden="true"
+			>
+				{icon}
+			</div>
+			<div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+		</div>
+	</div>
+);
+
+// ============================================================================
+// ICONS — explicit width/height so ambient CSS can't balloon them
+// ============================================================================
+
+interface IconProps {
+	color: string;
+}
+
+const BellIcon: React.FC<IconProps> = ({ color }) => (
+	<svg
+		width={18}
+		height={18}
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke={color}
+		strokeWidth={1.8}
+		strokeLinecap="round"
+		strokeLinejoin="round"
+		style={{ width: 18, height: 18, flexShrink: 0 }}
+		aria-hidden="true"
+	>
 		<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
 		<path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
 	</svg>
 );
 
-const BellOnIcon: React.FC<{ className?: string }> = ({ className }) => (
-	<svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+const BellOnIcon: React.FC<IconProps> = ({ color }) => (
+	<svg
+		width={18}
+		height={18}
+		viewBox="0 0 24 24"
+		fill={color}
+		style={{ width: 18, height: 18, flexShrink: 0 }}
+		aria-hidden="true"
+	>
 		<path d="M12 2a6 6 0 0 0-6 6c0 7-3 9-3 9h18s-3-2-3-9a6 6 0 0 0-6-6zm0 20a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2z" />
 	</svg>
 );
 
-const BellOffIcon: React.FC<{ className?: string }> = ({ className }) => (
-	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+const BellSlashIcon: React.FC<IconProps> = ({ color }) => (
+	<svg
+		width={18}
+		height={18}
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke={color}
+		strokeWidth={1.8}
+		strokeLinecap="round"
+		strokeLinejoin="round"
+		style={{ width: 18, height: 18, flexShrink: 0 }}
+		aria-hidden="true"
+	>
 		<path d="M13.73 21a2 2 0 0 1-3.46 0" />
 		<path d="M18.63 13A17.89 17.89 0 0 1 18 8" />
 		<path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14" />
 		<path d="M18 8a6 6 0 0 0-9.33-5" />
-		<line x1="1" y1="1" x2="23" y2="23" />
+		<line x1={1} y1={1} x2={23} y2={23} />
 	</svg>
 );
 
