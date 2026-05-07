@@ -295,7 +295,21 @@ async function updateBadge(count: number | undefined): Promise<void> {
 // ============================================================================
 // PUSH EVENT
 // ============================================================================
-self.addEventListener('push', (event) => {
+//
+// Phase 6a.5: skip the OS notification when a Mirror window is visible+focused.
+// The server already tries to skip push for active users (visibility-tracked
+// over WS), but races still happen — the user backgrounds, server fires push
+// based on stale visibility, push arrives ~50ms later. The SW catches that
+// last-ms case here.
+//
+// Web Push spec requires `userVisibleOnly: true` subscriptions to result in
+// a user-visible notification — most browsers warn but don't revoke if you
+// don't show one, but Safari/iOS is stricter. So when we suppress: post the
+// payload to the visible client (so the app can render an in-app toast if
+// it wants) AND show a `silent: true` notification briefly, then close it.
+// This satisfies the spec without buzzing the user mid-use.
+
+async function handlePushEvent(event: PushEvent): Promise<void> {
 	const payload = safeParsePayload(event);
 
 	// `renotify` is valid per spec but missing from TS's NotificationOptions
@@ -314,14 +328,75 @@ self.addEventListener('push', (event) => {
 		renotify: payload.renotify,
 	} as unknown as NotificationOptions;
 
-	const showPromise = self.registration.showNotification(payload.title, notificationOptions);
+	const visibleClient = await findVisibleClient();
+	if (visibleClient) {
+		// User is actively in the app — forward to the client for in-app
+		// rendering, suppress the OS notification.
+		try {
+			visibleClient.postMessage({ type: 'PUSH_RECEIVED_WHILE_ACTIVE', payload });
+		} catch {
+			// non-fatal
+		}
 
-	const badgePromise = updateBadge(payload.unreadCount);
+		// Spec compliance: still show *something* (silent + auto-close)
+		// so userVisibleOnly contract is satisfied. iOS Safari is the
+		// strictest enforcer; this dance keeps the subscription healthy.
+		const silentOptions = {
+			...notificationOptions,
+			silent: true,
+			requireInteraction: false,
+			tag: payload.tag,
+		} as unknown as NotificationOptions;
 
-	// waitUntil keeps the SW alive long enough to finish both — without it
-	// the push event handler can be killed before showNotification resolves
-	// and the user sees nothing.
-	event.waitUntil(Promise.all([showPromise, badgePromise]));
+		await self.registration.showNotification(payload.title, silentOptions);
+		// Close after a tick. Wrapping the timeout in a Promise so the
+		// outer event.waitUntil keeps the SW alive long enough to close.
+		// Otherwise on slower devices the SW could be killed mid-tick,
+		// leaving the silent notification on screen forever.
+		await new Promise<void>((resolve) => {
+			setTimeout(async () => {
+				try {
+					const notifs = await self.registration.getNotifications({ tag: payload.tag });
+					notifs.forEach((n) => n.close());
+				} catch {
+					/* non-fatal */
+				}
+				resolve();
+			}, 100);
+		});
+		// Update badge regardless — unread count should reflect reality.
+		await updateBadge(payload.unreadCount);
+		return;
+	}
+
+	// No visible client — show the regular OS notification.
+	await Promise.all([
+		self.registration.showNotification(payload.title, notificationOptions),
+		updateBadge(payload.unreadCount),
+	]);
+}
+
+async function findVisibleClient(): Promise<WindowClient | null> {
+	try {
+		const all = await self.clients.matchAll({
+			type: 'window',
+			includeUncontrolled: true,
+		});
+		for (const c of all) {
+			if (c.visibilityState === 'visible' && c.focused) {
+				return c as WindowClient;
+			}
+		}
+	} catch {
+		// matchAll is broadly supported, but if it ever throws we just
+		// fall through and show the notification — better to over-deliver.
+	}
+	return null;
+}
+
+self.addEventListener('push', (event) => {
+	// waitUntil keeps the SW alive for the whole show/skip flow.
+	event.waitUntil(handlePushEvent(event));
 });
 
 // ============================================================================

@@ -119,6 +119,65 @@ const IntakeGate: React.FC = () => {
   );
 };
 
+/**
+ * VisibilityReporter — Phase 6a.5
+ *
+ * Reports the page's Page Visibility state to the server over the
+ * existing groups WebSocket. The server uses this to decide whether
+ * to send Web Push for a given user — if the user is currently
+ * foregrounded (visible+focused), it skips push and relies on the
+ * in-app WS notification instead. Without this, users get buzzed on
+ * their device while the app is open in front of them.
+ *
+ * Mounted once at the app root. No UI. Self-contained side-effect
+ * component that listens for visibilitychange + window focus/blur and
+ * pushes the state through the WS. Sends one initial state on mount.
+ */
+const VisibilityReporter: React.FC = () => {
+  React.useEffect(() => {
+    let mounted = true;
+
+    const computeState = (): 'visible' | 'hidden' => {
+      if (typeof document === 'undefined') return 'visible';
+      // Treat tab-hidden OR window-blurred as "hidden" — both mean the
+      // user isn't actively looking at Mirror right now.
+      if (document.visibilityState !== 'visible') return 'hidden';
+      if (typeof document.hasFocus === 'function' && !document.hasFocus()) return 'hidden';
+      return 'visible';
+    };
+
+    const send = () => {
+      if (!mounted) return;
+      // Lazy import to keep the bundle untouched in test environments
+      // and to avoid pulling the WS service before the auth flow has
+      // wired anything up. groupsWebSocket auto-queues if not yet open.
+      import('./services/groupsWebSocket')
+        .then((mod) => mod.sendVisibility(computeState()))
+        .catch(() => undefined);
+    };
+
+    // Initial report.
+    send();
+
+    document.addEventListener('visibilitychange', send);
+    window.addEventListener('focus', send);
+    window.addEventListener('blur', send);
+    // pageshow fires after BFCache restore — visibility may have changed
+    // while the page was frozen.
+    window.addEventListener('pageshow', send);
+
+    return () => {
+      mounted = false;
+      document.removeEventListener('visibilitychange', send);
+      window.removeEventListener('focus', send);
+      window.removeEventListener('blur', send);
+      window.removeEventListener('pageshow', send);
+    };
+  }, []);
+
+  return null;
+};
+
 const App: React.FC = () => {
   return (
     <AuthProvider>
@@ -154,6 +213,10 @@ const App: React.FC = () => {
           <InstallPrompt />
           <IOSInstallTutorial />
           <SafariNudge />
+
+          {/* Phase 6a.5: reports Page Visibility to the server so push
+              delivery can skip foregrounded users. No UI. */}
+          <VisibilityReporter />
 
           {/* Main Application Routes */}
           <Routes>
