@@ -400,6 +400,20 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
 
     dispatch({ type: 'ADD_NOTIFICATION', payload: notification });
+
+    // Phase 6a.9: surface vote events as a window CustomEvent so
+    // feature views (GroupDetailView → voting tab) can live-refresh
+    // without us coupling NotificationContext to those specific feature
+    // refetchers. Other features (chat, truthstream) consume the
+    // notifications array directly; this pattern is the lightweight
+    // alternative for views that want "side-channel" refresh hooks.
+    if (notificationType === 'vote_proposed' || notificationType === 'vote_completed') {
+      window.dispatchEvent(
+        new CustomEvent('mirror:vote-event', {
+          detail: { type: notificationType, groupId: data.metadata?.groupId as string | undefined },
+        }),
+      );
+    }
   }, []);
 
   // Initial fetch + refetch on visibility change (Phase 6a.7).

@@ -163,11 +163,31 @@ function NItem({ notification, onAccept, onDecline, onDismiss, onNavigate, onMar
 
   const isInvite = notification.type === 'group_invite';
   const hasActions = notification.actions && notification.actions.length > 0 && !isInvite;
+  // Phase 6a.9: the whole row is tappable when the notification has a
+  // deep-link AND isn't an invite (invites need Accept/Decline kept as
+  // dedicated buttons). Action-button notifications also keep dedicated
+  // buttons; the row tap is the fallback for everything else
+  // (chat_message, chat_reply, chat_mention, member_joined, reactions,
+  // read receipts, personal_analysis_complete, etc. — anywhere we've set
+  // notification.actionUrl in NotificationContext).
+  const isRowClickable = !isInvite && !!notification.actionUrl;
+
+  const handleRowClick = () => {
+    if (!isRowClickable) return;
+    onNavigate(notification.actionUrl!);
+    onMarkRead(notification.id);
+  };
 
   return (
-    <div className="flex items-start gap-2.5 p-2 rounded-xl transition-colors" style={{ cursor: 'default' }}
+    <div
+      className="flex items-start gap-2.5 p-2 rounded-xl transition-colors"
+      style={{ cursor: isRowClickable ? 'pointer' : 'default' }}
       onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)'; }}
       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+      onClick={isRowClickable ? handleRowClick : undefined}
+      role={isRowClickable ? 'button' : undefined}
+      tabIndex={isRowClickable ? 0 : undefined}
+      onKeyDown={isRowClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRowClick(); } } : undefined}
     >
       <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs flex-shrink-0" style={{
         background: 'rgba(198, 70, 155, 0.12)', border: '1px solid rgba(198, 70, 155, 0.2)',
@@ -196,7 +216,7 @@ function NItem({ notification, onAccept, onDecline, onDismiss, onNavigate, onMar
         )}
 
         {hasActions && notification.actions!.map((a) => (
-          <button key={a.action} onClick={() => { if (notification.actionUrl) { onNavigate(notification.actionUrl); onMarkRead(notification.id); } }}
+          <button key={a.action} onClick={(e) => { e.stopPropagation(); if (notification.actionUrl) { onNavigate(notification.actionUrl); onMarkRead(notification.id); } }}
             style={{ background: 'rgba(198, 70, 155, 0.1)', color: C.accent, border: '1px solid rgba(198, 70, 155, 0.2)', fontSize: '0.65rem', fontWeight: 600, padding: '2px 8px', borderRadius: 6, marginTop: 4 }}>
             {a.label}
           </button>
@@ -206,7 +226,7 @@ function NItem({ notification, onAccept, onDecline, onDismiss, onNavigate, onMar
       </div>
 
       {(!isInvite || done) && (
-        <button onClick={() => onDismiss(notification.id)} style={{ color: C.muted, fontSize: '0.85rem', lineHeight: 1, opacity: 0.5 }}>×</button>
+        <button onClick={(e) => { e.stopPropagation(); onDismiss(notification.id); }} style={{ color: C.muted, fontSize: '0.85rem', lineHeight: 1, opacity: 0.5 }}>×</button>
       )}
     </div>
   );

@@ -59,6 +59,25 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Phase 6a.9: live-refresh active votes / history when a vote-related
+  // notification arrives for this group. NotificationContext dispatches
+  // a `mirror:vote-event` window CustomEvent whenever a vote_proposed
+  // or vote_completed notification is received via the WebSocket; we
+  // listen for it here and re-fetch if the event is for the group
+  // currently being viewed. Without this, a new vote (or a vote ending)
+  // would only appear after the user manually switched away and back to
+  // the voting tab — pre-Phase-6a behavior.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ type: string; groupId?: string }>).detail;
+      if (!detail || detail.groupId !== groupId) return;
+      fetchActiveVotes(groupId);
+      fetchVoteHistory(groupId);
+    };
+    window.addEventListener('mirror:vote-event', handler);
+    return () => window.removeEventListener('mirror:vote-event', handler);
+  }, [groupId, fetchActiveVotes, fetchVoteHistory]);
+
   // Check permissions based on current user's membership
   const currentUserId = getCurrentUserId();
 
@@ -339,7 +358,19 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
         {TABS.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => {
+              setActiveTab(tab.id);
+              // Phase 6a.9: refetch votes when switching INTO the voting
+              // tab. Live updates also flow via the WS-driven listener
+              // below, but the explicit on-open fetch guarantees fresh
+              // state at the moment the user looks at it (covers cases
+              // where the WS missed a beat, e.g. mobile background
+              // suspension).
+              if (tab.id === 'voting') {
+                fetchActiveVotes(groupId);
+                fetchVoteHistory(groupId);
+              }
+            }}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all ${
               activeTab === tab.id
                 ? 'bg-gradient-to-r from-pink-400/30 to-purple-400/30 border border-pink-400/30'
