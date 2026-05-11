@@ -10,6 +10,7 @@ export type NotificationType =
   | 'vote_completed'
   | 'chat_mention'
   | 'chat_message'
+  | 'chat_reply'
   | 'chat_message_edited'
   | 'chat_message_deleted'
   | 'chat_message_read'

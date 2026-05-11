@@ -62,6 +62,7 @@ function NotificationItem({
       vote_completed: { icon: '✅', color: '#22c55e' },
       chat_mention: { icon: '💬', color: '#f472b6' },
       chat_message: { icon: '💬', color: '#60a5fa' },
+      chat_reply: { icon: '↩️', color: '#f472b6' },
       chat_message_edited: { icon: '✏️', color: '#94a3b8' },
       chat_message_deleted: { icon: '🗑️', color: '#94a3b8' },
       chat_message_read: { icon: '👁️', color: '#94a3b8' },

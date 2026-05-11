@@ -337,6 +337,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         ? `/groups?groupId=${data.metadata.groupId}&messageId=${data.metadata.messageId}`
         : `/groups?groupId=${data.metadata.groupId}`;
     }
+    if (notificationType === 'chat_reply' && data.metadata?.groupId) {
+      // Deep-link to the reply itself — user's parent message is in scrollback.
+      notification.actionUrl = data.metadata.messageId
+        ? `/groups?groupId=${data.metadata.groupId}&messageId=${data.metadata.messageId}`
+        : `/groups?groupId=${data.metadata.groupId}`;
+    }
     if (notificationType === 'chat_reactions_updated' && data.metadata?.groupId) {
       notification.actionUrl = `/groups?groupId=${data.metadata.groupId}`;
     }
