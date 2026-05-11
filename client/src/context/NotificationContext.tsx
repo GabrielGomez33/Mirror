@@ -251,12 +251,36 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       return;
     }
 
-    // Create a deterministic ID based on notification content to prevent duplicates
+    // Phase 6a.7: group_invite notifications can arrive via two paths —
+    // WebSocket (real-time when the invite is sent) AND the REST fetch
+    // /mirror/api/groups/my-invitations (on app mount + visibilitychange).
+    // Both used to assign different IDs, producing duplicates. Standardize:
+    // when we have a requestId, the ID is `invite-<requestId>` so both
+    // paths converge on the same identifier and the existence check
+    // dedupes correctly. Same idea for any future notification type that
+    // has a stable upstream identifier — content-hash IDs are a fallback
+    // for events that don't.
     const contentHash = `${notificationType}-${data.metadata?.groupId || ''}-${data.metadata?.userId || ''}-${data.title || ''}-${data.message || ''}`;
-    const deterministicId = `${contentHash}-${Math.floor(Date.now() / 5000)}`; // Group by 5-second windows
+    const deterministicId =
+      notificationType === 'group_invite' && requestId
+        ? `invite-${requestId}`
+        : `${contentHash}-${Math.floor(Date.now() / 5000)}`;
 
-    // Check if we already have this notification (using ref for latest state)
-    const isDuplicate = notificationsRef.current.some((n) => n.id === deterministicId);
+    // Dedupe by id AND by requestId for invites (the REST-fetched copy
+    // might land with the same id we're about to insert; the WS-delivered
+    // copy might already have `inviteData.requestId` set from a previous
+    // ADD_NOTIFICATION dispatch).
+    const isDuplicate = notificationsRef.current.some((n) => {
+      if (n.id === deterministicId) return true;
+      if (
+        notificationType === 'group_invite' &&
+        requestId &&
+        n.inviteData?.requestId === requestId
+      ) {
+        return true;
+      }
+      return false;
+    });
     if (isDuplicate) {
       devLog('[NotificationContext] Skipping duplicate notification:', deterministicId);
       return;
@@ -293,11 +317,36 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       ];
     }
 
-    // Add action URL for certain notification types
+    // Add action URL for certain notification types.
+    // IMPORTANT: Mirror's groups route is /groups (no path param). The
+    // page reads ?groupId=<id> from the query string and opens the
+    // corresponding GroupDetailView. /groups/<id> would 404. This pattern
+    // mirrors the server-side push deep-link logic in
+    // services/pushNotificationDispatcher.ts so in-app and push taps
+    // land at the same place.
     if (notificationType === 'member_joined' || notificationType === 'member_left') {
       if (data.metadata?.groupId) {
-        notification.actionUrl = `/groups/${data.metadata.groupId}`;
+        notification.actionUrl = `/groups?groupId=${data.metadata.groupId}`;
       }
+    }
+    if (notificationType === 'chat_message' && data.metadata?.groupId) {
+      notification.actionUrl = `/groups?groupId=${data.metadata.groupId}`;
+    }
+    if (notificationType === 'chat_mention' && data.metadata?.groupId) {
+      notification.actionUrl = data.metadata.messageId
+        ? `/groups?groupId=${data.metadata.groupId}&messageId=${data.metadata.messageId}`
+        : `/groups?groupId=${data.metadata.groupId}`;
+    }
+    if (notificationType === 'chat_reactions_updated' && data.metadata?.groupId) {
+      notification.actionUrl = `/groups?groupId=${data.metadata.groupId}`;
+    }
+    if (notificationType === 'chat_message_read' && data.metadata?.groupId) {
+      notification.actionUrl = `/groups?groupId=${data.metadata.groupId}`;
+    }
+    if (notificationType === 'personal_analysis_complete') {
+      notification.actionUrl = data.metadata?.analysisId
+        ? `/mymirror?analysisId=${data.metadata.analysisId}`
+        : '/mymirror';
     }
 
     // Add action for video calls
@@ -347,7 +396,18 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     dispatch({ type: 'ADD_NOTIFICATION', payload: notification });
   }, []);
 
-  // Initial fetch only (WebSocket handles real-time updates)
+  // Initial fetch + refetch on visibility change (Phase 6a.7).
+  //
+  // The visibilitychange listener covers the case where a user taps a
+  // push notification (e.g. "X invited you to Y") while the app is
+  // closed: the SW opens/focuses a tab, the page becomes visible, and
+  // we re-fetch pending invitations so the panel shows the invite they
+  // just tapped on. Without this, the user lands in the app and can't
+  // find / accept / decline the invite they just opened.
+  //
+  // Also covers regular returning-to-tab usage — invites that arrived
+  // while the tab was in the background but the WebSocket disconnected
+  // (mobile browsers suspend WS after a while) get picked up on resume.
   useEffect(() => {
     const token = getToken();
     if (!token) return;
@@ -355,7 +415,24 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     // Fetch existing pending invitations on mount
     const initialTimeout = setTimeout(fetchPendingInvitations, 500);
 
-    return () => clearTimeout(initialTimeout);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchPendingInvitations();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    // pageshow fires after BFCache restore — also a moment we should refetch.
+    window.addEventListener('pageshow', onVisibility);
+    // focus is the safety net for browsers that don't fire visibilitychange
+    // when the tab is foregrounded via app-switcher / cmd-tab.
+    window.addEventListener('focus', onVisibility);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pageshow', onVisibility);
+      window.removeEventListener('focus', onVisibility);
+    };
   }, [fetchPendingInvitations]);
 
   // Connect WebSocket and set up handlers

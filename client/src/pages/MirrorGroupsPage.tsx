@@ -419,11 +419,33 @@ export default function MirrorGroupsPage() {
   }, []);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const initialGroupId = (location.state as { selectedGroupId?: string } | null)?.selectedGroupId || null;
+  // Phase 6a.7: prefer ?groupId=<id> from the URL query when present so
+  // deep-links from push notifications (e.g. chat_message taps) open the
+  // exact group. Fall back to location.state for in-app `navigate('/groups',
+  // { state: { selectedGroupId } })` callers.
+  const initialGroupId = (() => {
+    const query = new URLSearchParams(location.search);
+    const fromQuery = query.get('groupId');
+    if (fromQuery) return fromQuery;
+    return (location.state as { selectedGroupId?: string } | null)?.selectedGroupId || null;
+  })();
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(initialGroupId);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('my-groups');
+
+  // Phase 6a.7: react to ?groupId= changing while we're already on this
+  // page. Covers the case where the user tapped a push notification
+  // while the app was open on /groups — React Router doesn't remount the
+  // page, so the useState initializer above only runs once. This effect
+  // syncs selectedGroupId whenever the query string updates.
+  useEffect(() => {
+    const query = new URLSearchParams(location.search);
+    const fromQuery = query.get('groupId');
+    if (fromQuery && fromQuery !== selectedGroupId) {
+      setSelectedGroupId(fromQuery);
+    }
+  }, [location.search]);
 
   // Directory state
   const [directoryGroups, setDirectoryGroups] = useState<Group[]>([]);
