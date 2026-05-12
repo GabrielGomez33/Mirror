@@ -592,6 +592,31 @@
   z-index: 10;
 }
 
+/*
+ * Hover-bridge for the reaction picker.
+ *
+ * The picker sits 8px above the message bubble (margin-bottom: 8px).
+ * Moving the cursor up from the message to the picker passes through
+ * that 8px gap, leaving MessageItem's hover area, triggering
+ * onMouseLeave, and dismissing the picker before the user reaches it.
+ *
+ * This invisible pseudo-element fills the gap. As a DOM descendant of
+ * .chat-reaction-picker (which is a DOM child of MessageItem), cursor
+ * activity inside it counts as still hovering MessageItem — onMouseLeave
+ * doesn't fire, picker stays visible while the cursor crosses to it.
+ *
+ * Desktop-only effect; mobile uses the fixed-position override below
+ * which has its own placement and doesn't need the bridge.
+ */
+.chat-reaction-picker::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 10px;
+}
+
 .chat-reaction-option {
   display: flex;
   align-items: center;
