@@ -536,7 +536,16 @@
   gap: 4px;
   position: absolute;
   top: 4px;
-  right: 8px;
+  /*
+   * Phase 6a.10c: anchor hover actions to the SAME side as the message
+   * bubble. Foreign messages render the bubble on the left of the chat
+   * container, so the actions sit on the left (left: 8px). Own
+   * messages render the bubble on the right, so the override below
+   * flips actions to the right. Previously these were reversed —
+   * actions appeared across the chat from the bubble being hovered,
+   * making them awkward to reach on desktop.
+   */
+  left: 8px;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(10px);
   padding: 4px;
@@ -550,8 +559,8 @@
 }
 
 .chat-message-actions-own {
-  right: auto;
-  left: 8px;
+  left: auto;
+  right: 8px;
 }
 
 .chat-action-btn {
@@ -590,6 +599,18 @@
   border-radius: 12px;
   margin-bottom: 8px;
   z-index: 10;
+}
+
+/*
+ * Own messages are right-aligned in the chat. The default `left: 0` on
+ * the reaction picker anchors it to the far LEFT edge of MessageItem's
+ * full-width container, which puts the picker across the screen from
+ * the actual message bubble the user is hovering. Flip to the right
+ * edge instead so the picker appears directly above the user's bubble.
+ */
+.chat-message-own .chat-reaction-picker {
+  left: auto;
+  right: 0;
 }
 
 /*
