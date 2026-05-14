@@ -24,6 +24,7 @@ import React, { useEffect, useState } from 'react';
 import { usePushSubscription } from '../../hooks/usePushSubscription';
 import { useInstallState } from '../../hooks/useInstallState';
 import OpenInSafariActions from '../install/OpenInSafariActions';
+import NotificationPreferencesPanel from './NotificationPreferencesPanel';
 
 // Match GlobalDashboard's color palette so this section looks native to
 // the panel rather than imported from another visual world.
@@ -215,6 +216,7 @@ const PushSettings: React.FC<PushSettingsProps> = ({ onIOSInstallNudge }) => {
 	};
 
 	return (
+		<>
 		<Frame icon={enabled ? <BellOnIcon color={C.accent} /> : <BellIcon color={C.muted} />} tone={enabled ? 'accent' : 'muted'}>
 			<p style={titleStyle}>{enabled ? 'Notifications enabled' : 'Push notifications'}</p>
 			<p style={bodyStyle}>
@@ -286,6 +288,16 @@ const PushSettings: React.FC<PushSettingsProps> = ({ onIOSInstallNudge }) => {
 				</p>
 			)}
 		</Frame>
+
+		{/* Phase 6b: per-category mute controls. Only meaningful when push
+		    is actually enabled; collapsed by default so it doesn't crowd
+		    the panel. */}
+		{enabled && (
+			<div style={{ marginTop: 8 }}>
+				<NotificationPreferencesPanel />
+			</div>
+		)}
+		</>
 	);
 };
 
