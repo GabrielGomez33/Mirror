@@ -25,15 +25,80 @@ export default defineConfig({
 				start_url: '/Mirror/',
 				scope: '/Mirror/',
 				display: 'standalone',
+				// Phase 7: ordered fallback. Chrome/Edge honor display_override
+				// before display; iOS Safari ignores it and uses `display`.
+				// We list 'standalone' first (existing behavior) then
+				// 'minimal-ui' as a graceful fallback.
+				display_override: ['standalone', 'minimal-ui'],
 				orientation: 'portrait',
 				theme_color: '#0d0c1f',
 				background_color: '#0d0c1f',
 				lang: 'en',
+				dir: 'ltr',
+				// Defensive: tells the OS we're NOT a thin wrapper around a
+				// native app, so the install prompt isn't redirected to a
+				// store listing.
+				prefer_related_applications: false,
 				categories: ['lifestyle', 'productivity', 'social'],
 				icons: [
 					{ src: '/Mirror/pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
 					{ src: '/Mirror/pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
 					{ src: '/Mirror/pwa-maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+				],
+				// Phase 7: long-press home-screen shortcuts. Android Chrome
+				// and a subset of desktop installs expose these as a quick
+				// menu on the installed app icon. iOS ignores them today.
+				// Keep to 4 high-signal destinations to avoid clutter.
+				shortcuts: [
+					{
+						name: 'My Journal',
+						short_name: 'Journal',
+						description: 'Write a new journal entry.',
+						url: '/Mirror/journal',
+						icons: [{ src: '/Mirror/pwa-192x192.png', sizes: '192x192', type: 'image/png' }],
+					},
+					{
+						name: 'My Mirror',
+						short_name: 'Mirror',
+						description: 'Open your personal Truth Mirror Report.',
+						url: '/Mirror/mymirror',
+						icons: [{ src: '/Mirror/pwa-192x192.png', sizes: '192x192', type: 'image/png' }],
+					},
+					{
+						name: 'MirrorGroups',
+						short_name: 'Groups',
+						description: 'Jump to your groups.',
+						url: '/Mirror/groups',
+						icons: [{ src: '/Mirror/pwa-192x192.png', sizes: '192x192', type: 'image/png' }],
+					},
+					{
+						name: 'TruthStream',
+						short_name: 'TruthStream',
+						description: 'Review your TruthStream.',
+						url: '/Mirror/truthstream',
+						icons: [{ src: '/Mirror/pwa-192x192.png', sizes: '192x192', type: 'image/png' }],
+					},
+				],
+				// Phase 7: screenshots make Chrome show the rich install
+				// dialog (with carousel) instead of the mini info bar.
+				// We re-use the brand logo as a single hero shot until
+				// true product screenshots land. `form_factor` is required
+				// for each surface to gate on this.
+				screenshots: [
+					{
+						src: '/Mirror/mirror-logo-sakura.png',
+						sizes: '1024x1536',
+						type: 'image/png',
+						form_factor: 'narrow',
+						label: 'Mirror — personal intelligence',
+					},
+					{
+						src: '/Mirror/mirror-logo-sakura.png',
+						sizes: '1024x1536',
+						type: 'image/png',
+						form_factor: 'wide',
+						label: 'Mirror — personal intelligence',
+					},
 				],
 			},
 
