@@ -42,8 +42,12 @@
     <!-- vite-plugin-pwa injects <link rel="manifest"> automatically. -->
 
     <!-- Viewport — width=device-width is non-negotiable for mobile.
-         `viewport-fit=cover` lets us draw under the notch/home indicator. -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+         `viewport-fit=cover` lets us draw under the notch/home indicator.
+         `minimum-scale=1.0` prevents iOS pinch-zoom-out below 100%, which
+         would expose the underpan area (gray/black bars on either side of
+         the page). Zoom-IN is still allowed for accessibility — only the
+         out-of-bounds zoom-out is locked. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, viewport-fit=cover" />
 
     <!-- Mirror is a sakura/light-themed app. Declare `color-scheme: light`
          so native form controls + scrollbars stay light regardless of the

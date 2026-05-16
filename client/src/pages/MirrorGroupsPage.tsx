@@ -155,6 +155,8 @@ function GroupCard({ group, onClick, getGroupIcon }: GroupCardProps) {
 
       {/* Content */}
       <div style={{ flex: 1, minWidth: 0 }}>
+        {/* 2-line clamp so long names wrap instead of being cut off
+            mid-word; matches the "My Groups" card style. */}
         <p
           style={{
             fontWeight: 600,
@@ -162,8 +164,11 @@ function GroupCard({ group, onClick, getGroupIcon }: GroupCardProps) {
             color: COLORS.heading,
             margin: 0,
             overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            lineHeight: 1.3,
+            wordBreak: 'break-word',
           }}
         >
           {group.name}
@@ -824,8 +829,12 @@ export default function MirrorGroupsPage() {
                   </div>
                 )}
 
-                {/* My Groups Section */}
-                <div style={{ marginBottom: '2rem', backdropFilter: 'blur(5px)' }}>
+                {/* My Groups Section.
+                    Horizontal padding matches the header glass card's
+                    internal padding (1.25rem) so the "My Groups (N)"
+                    heading and the cards below align with the header
+                    content above instead of sitting 20px further left. */}
+                <div style={{ marginBottom: '2rem', backdropFilter: 'blur(5px)', paddingLeft: '0.25rem', paddingRight: '0.25rem' }}>
                   <h2
                     style={{
                       fontSize: '1.1rem',
@@ -947,7 +956,11 @@ export default function MirrorGroupsPage() {
                               {getGroupIcon(group.type)}
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <p style={{ fontWeight: 600, fontSize: '0.95rem', color: COLORS.heading, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {/* Title: 2-line clamp instead of single-line
+                                  truncate so long group names ("Let's get to
+                                  know each other. Brothers unite!!") wrap
+                                  instead of being cut off mid-word. */}
+                              <p style={{ fontWeight: 600, fontSize: '0.95rem', color: COLORS.heading, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.3, wordBreak: 'break-word' }}>
                                 {group.name}
                               </p>
                               <p style={{ fontSize: '0.75rem', color: COLORS.body, margin: '4px 0 6px', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.4 }}>
@@ -986,7 +999,9 @@ export default function MirrorGroupsPage() {
 
             {/* ==================== DIRECTORY VIEW ==================== */}
             {viewMode === 'directory' && (
-              <div>
+              /* Match the inset of the "My Groups" section above so the
+                 heading and cards align with the header card's content. */
+              <div style={{ paddingLeft: '0.25rem', paddingRight: '0.25rem' }}>
                 <div
                   style={{
                     display: 'flex',
