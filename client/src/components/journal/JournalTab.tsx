@@ -665,7 +665,17 @@ function CreateEntryModal({ date, onClose, onSuccess }: CreateEntryModalProps) {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
 
+  // Draft-save status pill. Transitions:
+  //   idle  -> saved (after autosave timer fires + saveDraft() succeeds)
+  //   saved -> idle  (after a short fade timer; the pill auto-hides)
+  // Kept as a single state machine to avoid the visual flicker that
+  // happens when you derive "showSaved" from a timestamp + Date.now().
+  const [draftStatus, setDraftStatus] = useState<'idle' | 'saved'>('idle');
+
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Independent timer for the "Draft saved" pill fade; lives alongside
+  // autoSaveTimerRef so the two don't stomp each other.
+  const savedFadeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Debug log
   useEffect(() => {
@@ -711,6 +721,12 @@ function CreateEntryModal({ date, onClose, onSuccess }: CreateEntryModalProps) {
           timestamp: Date.now(),
         });
         console.log('💾 Draft auto-saved');
+        // Surface the save with a brief pill near the header so the
+        // user has a visible "your draft is safe" signal. The pill
+        // fades after ~2.5s; the next autosave bumps it back into view.
+        setDraftStatus('saved');
+        if (savedFadeTimerRef.current) clearTimeout(savedFadeTimerRef.current);
+        savedFadeTimerRef.current = setTimeout(() => setDraftStatus('idle'), 2500);
       }, AUTOSAVE_DELAY);
     }
 
@@ -720,6 +736,15 @@ function CreateEntryModal({ date, onClose, onSuccess }: CreateEntryModalProps) {
       }
     };
   }, [date, timeOfDay, moodRating, energyLevel, primaryEmotion, emotionIntensity, freeFormEntry, gratefulFor, tags]);
+
+  // Defensive cleanup: the pill fade timer is independent of the autosave
+  // timer's cleanup above and would otherwise leak if the modal unmounts
+  // mid-fade. Clears once on unmount.
+  useEffect(() => {
+    return () => {
+      if (savedFadeTimerRef.current) clearTimeout(savedFadeTimerRef.current);
+    };
+  }, []);
 
   // Warn before closing with unsaved changes
   const handleClose = () => {
@@ -739,6 +764,29 @@ function CreateEntryModal({ date, onClose, onSuccess }: CreateEntryModalProps) {
     e.preventDefault();
     setSubmitting(true);
     setError('');
+
+    // Race fix: persist the very latest form state to the draft
+    // SYNCHRONOUSLY before the network call. The autosave runs on a
+    // 3s debounce, so without this, a fast type-then-submit-then-fail
+    // would leave the localStorage draft 2-3s stale — the user would
+    // recover an outdated version after reload.
+    //
+    // If the POST succeeds, this draft is immediately cleared below
+    // (clearDraft on the success path). If the POST fails, the user
+    // sees the error, the React form state is unchanged, AND the
+    // draft on disk now matches what they had at the moment of submit.
+    saveDraft({
+      date: formatDateForAPI(date),
+      timeOfDay,
+      moodRating,
+      energyLevel,
+      primaryEmotion,
+      emotionIntensity,
+      freeFormEntry,
+      gratefulFor,
+      tags,
+      timestamp: Date.now(),
+    });
 
     try {
       const payload: CreateEntryPayload = {
@@ -790,13 +838,41 @@ function CreateEntryModal({ date, onClose, onSuccess }: CreateEntryModalProps) {
                   New Entry {hasUnsavedChanges && '(Unsaved)'}
                 </h3>
                 <p className="text-sm" style={{ color: THEME.textSubtle }}>
-                  {date.toLocaleDateString('en-US', { 
+                  {date.toLocaleDateString('en-US', {
                     weekday: 'long',
-                    month: 'long', 
-                    day: 'numeric', 
-                    year: 'numeric' 
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
                   })}
                 </p>
+                {/* "Draft saved" pill — appears for ~2.5s after each
+                    autosave fires. aria-live so screen readers
+                    announce the save. Position absolute would clip
+                    against the header; inline keeps it part of the
+                    natural flow with no layout shift (height matched
+                    to the timestamp line above). */}
+                <div
+                  aria-live="polite"
+                  style={{
+                    marginTop: 4,
+                    height: 18,
+                    fontSize: '0.72rem',
+                    fontWeight: 500,
+                    color: '#34d399',
+                    opacity: draftStatus === 'saved' ? 1 : 0,
+                    transition: 'opacity 0.25s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  {draftStatus === 'saved' && (
+                    <>
+                      <span aria-hidden="true">✓</span>
+                      <span>Draft saved</span>
+                    </>
+                  )}
+                </div>
               </div>
               <button
                 type="button"
