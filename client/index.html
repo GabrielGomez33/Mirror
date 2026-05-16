@@ -1,19 +1,58 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
   <head>
     <meta charset="UTF-8" />
 
+    <!--
+      PHASE 7 — Lighthouse polish + iOS quirks.
+
+      What's in this head, and WHY:
+
+      - SEO meta (description, og:*) — Lighthouse SEO + social previews.
+      - Dual `theme-color` with media queries — system theme picks the
+        right tint for the address bar / task-switcher card on Android
+        Chrome.
+      - `color-scheme: dark light` — native form controls + scrollbars
+        get the right palette without ad-hoc overrides.
+      - `format-detection: telephone=no` — stops iOS Safari from
+        auto-linking numeric strings (timestamps, ids) as phone numbers.
+      - `preconnect` for the API origin — first auth fetch starts ~150
+        ms sooner on cold loads.
+      - Apple-specific PWA meta (capable, status-bar, title, icon) for
+        iOS Safari which still doesn't read manifest.webmanifest for
+        these. We keep the legacy `apple-mobile-web-app-*` forms AND
+        the cross-vendor `mobile-web-app-capable`.
+      - Apple splash screen meta tags — see scripts/generate-splash-
+        screens.mjs to regenerate the actual PNGs. Without them iOS
+        falls back to the icon + background-color combo from the
+        manifest (acceptable; a generated set is sharper).
+      - `<noscript>` fallback — Lighthouse + a11y; users with JS off
+        see something more useful than a blank page.
+
+      Note: viewport-fit=cover lets the app draw under the iOS notch /
+      home indicator when launched as a standalone PWA; CSS uses
+      safe-area-inset-* in pwa-shell.css to compensate.
+    -->
+
     <!-- Browser tab favicons -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/Mirror/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/Mirror/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/Mirror/favicon-16x16.png" />
 
-    <!-- viewport-fit=cover lets the app draw under the iOS notch / home indicator
-         when launched as a standalone PWA; CSS uses safe-area-inset-* to compensate. -->
+    <!-- vite-plugin-pwa injects <link rel="manifest"> automatically. -->
+
+    <!-- Viewport — width=device-width is non-negotiable for mobile.
+         `viewport-fit=cover` lets us draw under the notch/home indicator. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
-    <!-- Android Chrome: tints the address bar / task switcher card to brand color. -->
-    <meta name="theme-color" content="#0d0c1f" />
+    <!-- Native form / scrollbar palette. Mirror is dark-first with sakura
+         light surfaces; declaring both unblocks correct browser defaults. -->
+    <meta name="color-scheme" content="dark light" />
+
+    <!-- Android Chrome theme color — light/dark variants. The browser
+         picks whichever `media` matches. -->
+    <meta name="theme-color" content="#fff0f5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0d0c1f" media="(prefers-color-scheme: dark)" />
 
     <!-- iOS PWA: Safari does NOT read manifest.webmanifest for these settings, so
          they must live as legacy Apple-specific meta tags in the HTML head.
@@ -25,10 +64,114 @@
     <meta name="apple-mobile-web-app-title" content="Mirror" />
     <link rel="apple-touch-icon" href="/Mirror/apple-touch-icon.png" />
 
-    <title>ＭＩЯ ЯＯＲ</title>
+    <!-- Prevent iOS from auto-linking what it thinks are phone numbers.
+         Mirror surfaces timestamps and ids inline; we don't want those
+         turned into "tel:" links. -->
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
+
+    <!-- Pre-connect to the API origin. Harmless on prod (same origin —
+         the browser coalesces); meaningful in environments where the
+         API host differs (e.g. local dev via VITE_API_URL). The
+         crossorigin attribute is required for the DNS + TLS warm-up
+         to count for credentialed CORS requests. -->
+    <link rel="preconnect" href="https://www.theundergroundrailroad.world" crossorigin />
+    <link rel="dns-prefetch" href="https://www.theundergroundrailroad.world" />
+
+    <!-- SEO + social previews. The description doubles as OG/Twitter. -->
+    <meta
+      name="description"
+      content="Mirror — a personal intelligence platform for self-reflection, peer review, and collective insight."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Mirror" />
+    <meta
+      property="og:description"
+      content="See yourself in the world, and the world in you. Personal intelligence for reflection and growth."
+    />
+    <meta property="og:image" content="/Mirror/pwa-512x512.png" />
+    <meta property="og:url" content="https://www.theundergroundrailroad.world/Mirror/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Mirror" />
+    <meta
+      name="twitter:description"
+      content="Personal intelligence for self-reflection, peer review, and collective insight."
+    />
+    <meta name="twitter:image" content="/Mirror/pwa-512x512.png" />
+
+    <!--
+      Defense-in-depth headers via <meta http-equiv>. The Apache config
+      should ALSO set these as real HTTP headers (preferred — meta
+      versions don't apply to the document's initial request, only to
+      sub-resource policy where supported). Including them here as a
+      belt + suspenders so a misconfigured deployment still gets at
+      least the meta-driven enforcement.
+
+      Referrer-Policy: don't leak the path of TruthStream URLs etc. to
+        third-party assets we might embed later. `strict-origin-when-
+        cross-origin` keeps the origin (for analytics) but drops path.
+
+      Note: a full `Content-Security-Policy` belongs in real HTTP
+      headers, not here — `<meta http-equiv="content-security-policy">`
+      can lock us out of features that depend on inline modules and
+      it's nearly impossible to debug without a deploy. We leave CSP
+      to the server config.
+    -->
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+
+    <!--
+      iOS apple-touch-startup-image splash references.
+
+      These point at PNGs at specific pixel dimensions per device. They
+      are regenerated by scripts/generate-splash-screens.mjs from
+      mirror-logo-sakura.png. If the files are missing, iOS falls back
+      to the manifest icon + background_color (visually acceptable; a
+      generated set is sharper). We declare the full set here so that
+      as soon as the generated files land, iOS picks them up — no HTML
+      edits required.
+
+      The `media` queries match Apple's published device viewports —
+      conservative list (recent iPhones + iPads, portrait).
+    -->
+    <link rel="apple-touch-startup-image"
+          media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+          href="/Mirror/splash/apple-splash-1290-2796.png" />
+    <link rel="apple-touch-startup-image"
+          media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+          href="/Mirror/splash/apple-splash-1284-2778.png" />
+    <link rel="apple-touch-startup-image"
+          media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+          href="/Mirror/splash/apple-splash-1179-2556.png" />
+    <link rel="apple-touch-startup-image"
+          media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+          href="/Mirror/splash/apple-splash-1170-2532.png" />
+    <link rel="apple-touch-startup-image"
+          media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+          href="/Mirror/splash/apple-splash-1125-2436.png" />
+    <link rel="apple-touch-startup-image"
+          media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
+          href="/Mirror/splash/apple-splash-828-1792.png" />
+    <link rel="apple-touch-startup-image"
+          media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
+          href="/Mirror/splash/apple-splash-750-1334.png" />
+    <link rel="apple-touch-startup-image"
+          media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
+          href="/Mirror/splash/apple-splash-2048-2732.png" />
+
+    <title>Mirror — personal intelligence</title>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- React mounts here. The <noscript> below is what users with JS
+         disabled see; once React hydrates, it's invisible. Keep it
+         informational, no fancy styling — it's a fallback path. -->
+    <div id="root">
+      <noscript>
+        <p style="font-family: system-ui, sans-serif; padding: 1.5rem; line-height: 1.5;">
+          Mirror requires JavaScript to run. Please enable JavaScript in your
+          browser, or try a different browser, to continue.
+        </p>
+      </noscript>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

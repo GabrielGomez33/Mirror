@@ -4,6 +4,10 @@
 
 @import './styles/glass.css';
 @import './styles/enhanced-glass.css';
+/* Phase 7: global PWA shell — safe-area, iOS quirks, a11y baseline,
+   reduced-motion, print sanity. Loaded before component CSS so
+   components can override. */
+@import './styles/pwa-shell.css';
 /* Ensure backdrop-filter works everywhere */
 * {
   -webkit-font-smoothing: antialiased;

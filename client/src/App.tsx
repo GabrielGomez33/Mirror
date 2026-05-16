@@ -25,6 +25,8 @@ import UpdateBanner from './components/UpdateBanner';
 import InstallPrompt from './components/install/InstallPrompt';
 import IOSInstallTutorial from './components/install/IOSInstallTutorial';
 import SafariNudge from './components/install/SafariNudge';
+// Phase 7: keyboard-only shortcut past header/nav chrome (WCAG 2.4.1).
+import SkipLink from './components/a11y/SkipLink';
 
 // Import your existing pages
 import Home from './pages/Home';
@@ -188,6 +190,11 @@ const App: React.FC = () => {
           <SubscriptionProvider>
           <div className="App min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
 
+          {/* Phase 7: keyboard-only "Skip to main content" — visually
+              hidden until focused. Must be the FIRST focusable element
+              for tab-from-URL-bar to land on it. WCAG 2.4.1. */}
+          <SkipLink />
+
           {/* Paywall banners — shown globally for authenticated users */}
           <ConditionalRender condition="authenticated">
             <TrialBanner />
@@ -217,6 +224,12 @@ const App: React.FC = () => {
           {/* Phase 6a.5: reports Page Visibility to the server so push
               delivery can skip foregrounded users. No UI. */}
           <VisibilityReporter />
+
+          {/* Phase 7: skip-link target. tabIndex={-1} so it accepts
+              programmatic focus from SkipLink without entering the
+              normal tab order. role="main" is the landmark; screen
+              readers announce it as the page's primary region. */}
+          <main id="main-content" tabIndex={-1} role="main" style={{ outline: 'none' }}>
 
           {/* Main Application Routes */}
           <Routes>
@@ -393,6 +406,7 @@ const App: React.FC = () => {
               }
             />
           </Routes>
+          </main>
           </div>
           </SubscriptionProvider>
           </NotificationProvider>

@@ -1,0 +1,246 @@
+/* ============================================================================
+   PWA SHELL STYLES (Phase 7)
+   ============================================================================
+   File: styles/pwa-shell.css
+
+   Global shell-level rules that apply to the document/body, not to any
+   individual feature. Imported once from index.css; do not import this
+   from feature stylesheets.
+
+   Each rule explains WHY it exists — these are platform-specific
+   workarounds and accessibility primitives that won't be obvious
+   otherwise. Removing one will probably re-introduce a regression.
+   ============================================================================ */
+
+/* ---------------------------------------------------------------------------
+   1. Safe-area inset CSS variables — components reference these.
+   ---------------------------------------------------------------------------
+   Defining them as variables lets feature CSS use a consistent token
+   without re-typing the env() call (and without the env() function
+   silently evaluating to 0 if it's not supported).
+
+   Falls back to 0 on environments without env() (older browsers, non-
+   notched devices) — same end-result as bare env().
+   --------------------------------------------------------------------------- */
+:root {
+	--safe-area-inset-top: env(safe-area-inset-top, 0px);
+	--safe-area-inset-right: env(safe-area-inset-right, 0px);
+	--safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+	--safe-area-inset-left: env(safe-area-inset-left, 0px);
+}
+
+/* ---------------------------------------------------------------------------
+   2. html + body baseline.
+   ---------------------------------------------------------------------------
+   - min-height: 100% guarantees the document fills the viewport so the
+     sakura background reaches the bottom on short pages.
+   - background-color matches the manifest's background_color — when
+     the SW is cold and the initial HTML loads, the user sees the brand
+     color instead of a flash of white.
+   --------------------------------------------------------------------------- */
+html,
+body {
+	min-height: 100%;
+	background-color: #0d0c1f;
+}
+
+body {
+	/* Defeat iOS's pull-to-refresh and overscroll bounce on the document.
+	   Individual scrollable surfaces (chat panes, journal list) can opt
+	   back IN by setting overscroll-behavior: auto on themselves. */
+	overscroll-behavior-y: contain;
+
+	/* iOS shows a translucent gray flash on tap of any tappable element.
+	   We render our own active-states via :active/:focus; the default
+	   highlight competes with those. */
+	-webkit-tap-highlight-color: transparent;
+
+	/* Disable double-tap-to-zoom (we don't rely on it; it adds a 300 ms
+	   click delay on iOS). Individual elements that need zoom can opt
+	   back IN with touch-action: auto. */
+	touch-action: manipulation;
+
+	/* iOS Safari sometimes auto-grows text on rotation if this isn't
+	   pinned. Side effect: removes the very slight zoom-on-rotate that
+	   used to be a feature. We want consistent typography. */
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+}
+
+/* ---------------------------------------------------------------------------
+   3. Defeat iOS zoom-on-focus for inputs.
+   ---------------------------------------------------------------------------
+   iOS Safari zooms in when the user focuses an input with a computed
+   font-size below 16px. The zoom doesn't reset until the user
+   manually pinches out, which is jarring inside a fixed-layout app.
+
+   Fix: enforce a 16px minimum on touch-capable devices. We scope by
+   pointer:coarse so desktop UIs that use 14px or 13px inputs are
+   unaffected.
+
+   Visual side effect: text inputs read slightly larger on mobile than
+   on desktop. This is intentional and matches what the iOS HIG
+   recommends anyway.
+   --------------------------------------------------------------------------- */
+@media (pointer: coarse) {
+	input[type='text'],
+	input[type='email'],
+	input[type='password'],
+	input[type='search'],
+	input[type='tel'],
+	input[type='url'],
+	input[type='number'],
+	input:not([type]),
+	textarea,
+	select {
+		font-size: 16px;
+	}
+}
+
+/* ---------------------------------------------------------------------------
+   4. iOS standalone-only adjustments.
+   ---------------------------------------------------------------------------
+   `display-mode: standalone` is true when the user launched from the
+   Home Screen (vs. the in-Safari tab). Some rules only make sense in
+   that mode — most importantly, body padding to clear the status bar
+   on devices where status-bar-style is "black-translucent".
+   --------------------------------------------------------------------------- */
+@media (display-mode: standalone) {
+	/* Subtle root spacer so absolutely-positioned headers / banners
+	   know where the "safe top" is even when they don't add their own
+	   inset. Components that draw under the notch (chat header bg
+	   blur, splash overlays) opt out by zeroing this on themselves. */
+	body {
+		padding-top: var(--safe-area-inset-top);
+		padding-bottom: var(--safe-area-inset-bottom);
+	}
+
+	/* Prevent overscroll-rubber-banding at the top of the page (e.g.
+	   on the auth screen) which exposes the iOS chrome briefly. The
+	   contain-y on body above handles the bottom; the trick on iOS
+	   is that the chrome flashes only when the document scroll
+	   container itself is scrolled, not when an inner container
+	   scrolls. -webkit-overflow-scrolling forces a separate scrolling
+	   context for the body. */
+	html {
+		overflow-x: hidden;
+	}
+}
+
+/* ---------------------------------------------------------------------------
+   5. Accessibility — skip-link target rule.
+   ---------------------------------------------------------------------------
+   The SkipLink component renders a visually-hidden anchor that
+   becomes visible on focus (keyboard tab from the top of the page).
+   The styles below give it a consistent appearance across the app —
+   high contrast, predictable position.
+
+   The "sr-only" pattern hides the link from sighted users until a
+   keyboard user tabs into it, at which point the :focus rule
+   restores standard layout.
+   --------------------------------------------------------------------------- */
+.pwa-skip-link {
+	position: absolute;
+	left: -10000px;
+	top: auto;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	z-index: 100000;
+}
+
+.pwa-skip-link:focus {
+	position: fixed;
+	top: calc(var(--safe-area-inset-top) + 8px);
+	left: 8px;
+	width: auto;
+	height: auto;
+	padding: 10px 16px;
+	background: #ffffff;
+	color: #2e1018;
+	font-family: 'Inter', system-ui, sans-serif;
+	font-size: 14px;
+	font-weight: 600;
+	border-radius: 8px;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+	text-decoration: none;
+	outline: 3px solid #c6469b;
+	outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   6. Focus-visible baseline.
+   ---------------------------------------------------------------------------
+   Most browsers ship reasonable :focus-visible defaults, but Safari's
+   ring can be near-invisible on glass / gradient surfaces. We assert
+   a consistent ring that works against both light and dark
+   backgrounds. Individual components override this when their visual
+   language demands something different.
+
+   Note: :focus-visible (not :focus) — so mouse clicks don't show the
+   ring; only keyboard / programmatic focus does.
+   --------------------------------------------------------------------------- */
+:focus-visible {
+	outline: 2px solid #c6469b;
+	outline-offset: 2px;
+	border-radius: 4px;
+}
+
+/* Buttons + form controls often already have their own focus state;
+   suppress the default browser outline that would otherwise stack on
+   top of our component-level ring. We re-enable via :focus-visible
+   only. */
+button:focus,
+input:focus,
+textarea:focus,
+select:focus,
+a:focus {
+	outline: none;
+}
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+a:focus-visible {
+	outline: 2px solid #c6469b;
+	outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   7. Print sanity.
+   ---------------------------------------------------------------------------
+   Mirror isn't a print-first app, but users do print journal entries
+   and analyses. Hide non-content UI when printing so the user
+   doesn't burn ink on banners and nav chrome.
+   --------------------------------------------------------------------------- */
+@media print {
+	.pwa-skip-link,
+	/* Phase 5/6 banner components have a fixed/sticky position. */
+	[data-pwa-banner] {
+		display: none !important;
+	}
+	html,
+	body {
+		background: #ffffff !important;
+		color: #000000 !important;
+	}
+}
+
+/* ---------------------------------------------------------------------------
+   8. Reduced-motion accommodation.
+   ---------------------------------------------------------------------------
+   Users who request reduced motion via OS settings get all transitions
+   shortened to near-zero. Doesn't remove transforms outright (some
+   layouts depend on them) — just removes the animation. WCAG 2.3.3
+   compliance.
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
