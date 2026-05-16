@@ -33,15 +33,16 @@
    2. html + body baseline.
    ---------------------------------------------------------------------------
    - min-height: 100% guarantees the document fills the viewport so the
-     sakura background reaches the bottom on short pages.
-   - background-color matches the manifest's background_color — when
-     the SW is cold and the initial HTML loads, the user sees the brand
-     color instead of a flash of white.
+     sakura Background component reaches the bottom on short pages.
+
+   NOTE: we deliberately do NOT set a background-color here. The
+   <Background /> component owns the visual; setting a dark color on
+   html/body produced a visible dark band wherever Background didn't
+   reach (top of page, between routes during navigation).
    --------------------------------------------------------------------------- */
 html,
 body {
 	min-height: 100%;
-	background-color: #0d0c1f;
 }
 
 body {
@@ -98,75 +99,26 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
-   4. iOS standalone-only adjustments.
+   4. (Phase 7 v2) iOS standalone-mode body padding REMOVED.
    ---------------------------------------------------------------------------
-   `display-mode: standalone` is true when the user launched from the
-   Home Screen (vs. the in-Safari tab). Some rules only make sense in
-   that mode — most importantly, body padding to clear the status bar
-   on devices where status-bar-style is "black-translucent".
+   Initially we added body { padding-top: env(safe-area-inset-top) }
+   under @media (display-mode: standalone) to clear the iOS status bar.
+   In practice every component that needs notch-awareness already
+   reads --safe-area-inset-top itself (UpdateBanner, SafariNudge,
+   IOSInstallTutorial, InstallPrompt, TrialBanner). Doing it at the
+   body level created visible gutters above the sakura Background.
+   Removed.
    --------------------------------------------------------------------------- */
-@media (display-mode: standalone) {
-	/* Subtle root spacer so absolutely-positioned headers / banners
-	   know where the "safe top" is even when they don't add their own
-	   inset. Components that draw under the notch (chat header bg
-	   blur, splash overlays) opt out by zeroing this on themselves. */
-	body {
-		padding-top: var(--safe-area-inset-top);
-		padding-bottom: var(--safe-area-inset-bottom);
-	}
-
-	/* Prevent overscroll-rubber-banding at the top of the page (e.g.
-	   on the auth screen) which exposes the iOS chrome briefly. The
-	   contain-y on body above handles the bottom; the trick on iOS
-	   is that the chrome flashes only when the document scroll
-	   container itself is scrolled, not when an inner container
-	   scrolls. -webkit-overflow-scrolling forces a separate scrolling
-	   context for the body. */
-	html {
-		overflow-x: hidden;
-	}
-}
 
 /* ---------------------------------------------------------------------------
-   5. Accessibility — skip-link target rule.
+   5. (Phase 7 v2) Skip-link styles REMOVED.
    ---------------------------------------------------------------------------
-   The SkipLink component renders a visually-hidden anchor that
-   becomes visible on focus (keyboard tab from the top of the page).
-   The styles below give it a consistent appearance across the app —
-   high contrast, predictable position.
-
-   The "sr-only" pattern hides the link from sighted users until a
-   keyboard user tabs into it, at which point the :focus rule
-   restores standard layout.
+   The SkipLink component shipped briefly but was visibly bleeding
+   through Tailwind's preflight (couldn't be reliably hidden) and
+   wasn't worth the visual cost for Mirror's actual user base. Removed
+   from App.tsx; CSS gone. PageWrapper keeps its <div> (was <main>) so
+   the single-landmark rule is preserved either way.
    --------------------------------------------------------------------------- */
-.pwa-skip-link {
-	position: absolute;
-	left: -10000px;
-	top: auto;
-	width: 1px;
-	height: 1px;
-	overflow: hidden;
-	z-index: 100000;
-}
-
-.pwa-skip-link:focus {
-	position: fixed;
-	top: calc(var(--safe-area-inset-top) + 8px);
-	left: 8px;
-	width: auto;
-	height: auto;
-	padding: 10px 16px;
-	background: #ffffff;
-	color: #2e1018;
-	font-family: 'Inter', system-ui, sans-serif;
-	font-size: 14px;
-	font-weight: 600;
-	border-radius: 8px;
-	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-	text-decoration: none;
-	outline: 3px solid #c6469b;
-	outline-offset: 2px;
-}
 
 /* ---------------------------------------------------------------------------
    6. Focus-visible baseline.

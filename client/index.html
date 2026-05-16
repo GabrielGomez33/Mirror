@@ -45,14 +45,16 @@
          `viewport-fit=cover` lets us draw under the notch/home indicator. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
-    <!-- Native form / scrollbar palette. Mirror is dark-first with sakura
-         light surfaces; declaring both unblocks correct browser defaults. -->
-    <meta name="color-scheme" content="dark light" />
+    <!-- Mirror is a sakura/light-themed app. Declare `color-scheme: light`
+         so native form controls + scrollbars stay light regardless of the
+         OS-level dark-mode preference. -->
+    <meta name="color-scheme" content="light" />
 
-    <!-- Android Chrome theme color — light/dark variants. The browser
-         picks whichever `media` matches. -->
-    <meta name="theme-color" content="#fff0f5" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0d0c1f" media="(prefers-color-scheme: dark)" />
+    <!-- Android Chrome address-bar / task-switcher tint. Single sakura
+         value used regardless of OS theme — we deliberately do NOT swap
+         to a dark tint under (prefers-color-scheme: dark) because the
+         app itself stays light. -->
+    <meta name="theme-color" content="#fff0f5" />
 
     <!-- iOS PWA: Safari does NOT read manifest.webmanifest for these settings, so
          they must live as legacy Apple-specific meta tags in the HTML head.
