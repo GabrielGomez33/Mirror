@@ -159,8 +159,8 @@ const ForgotPasswordPage: React.FC = () => {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.4, delay: 0.1 }}
                   >
-                    <div className="glass-card-enhanced flex justify-center p-4 rounded-xl">
-                      <div className="flex items-center space-x-3 w-full">
+                    <div className="glass-card-enhanced flex items-center justify-center p-4 rounded-xl">
+                      <div className="flex items-center space-x-3">
                         <div className="flex-1">
                           <span className="text-sm shrink-0 opacity-70">📧</span>
                           <input
@@ -171,7 +171,7 @@ const ForgotPasswordPage: React.FC = () => {
                               if (emailError) setEmailError(null);
                             }}
                             className={`
-                              w-full p-3 bg-white/10 border-2 rounded-lg text-white placeholder-white/50
+                              w-lg sm:max-w-lg p-3 bg-white/10 border-2 rounded-lg text-white placeholder-white/50
                               focus:outline-none focus:border-white/40 transition-all duration-300
                               ${emailError ? 'border-red-400' :
                                 email && !emailError ? 'border-green-400' : 'border-white/20'}
