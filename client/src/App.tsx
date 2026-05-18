@@ -37,6 +37,9 @@ import RegistrationStep from './components/intake/RegistrationStep';
 import Landing from './pages/Landing';
 import TestPage from './pages/TestPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import VerifyEmailBanner from './components/auth/VerifyEmailBanner';
 import GlobalDashboard from './components/dashboard/GlobalDashboard';
 import MirrorGroupsPage from './pages/MirrorGroupsPage';
 import TruthStreamPage from './pages/TruthStreamPage';
@@ -190,6 +193,8 @@ const App: React.FC = () => {
 
           {/* Paywall banners — shown globally for authenticated users */}
           <ConditionalRender condition="authenticated">
+            {/* Email verification banner. Self-hides once verified, dismissible per-session. */}
+            <VerifyEmailBanner />
             <TrialBanner />
             <PaymentFailedBanner />
           </ConditionalRender>
@@ -228,6 +233,10 @@ const App: React.FC = () => {
             <Route path="/landing" element={<Landing />} />
             <Route path="/test" element={<TestPage />} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
+
+            {/* Forgotten-password flow (public — token is the credential) */}
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
 
             {/* Authentication Routes */}
             <Route

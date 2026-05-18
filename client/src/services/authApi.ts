@@ -75,7 +75,6 @@ export interface ApiError {
 
 class AuthApiClient {
   private baseUrl: string;
-  private retryCount: number = 0;
   private maxRetries: number = 3;
 
   constructor() {
@@ -84,10 +83,17 @@ class AuthApiClient {
 
   // ========== PRIVATE METHODS ==========
 
+  /**
+   * Wrapper around fetch with bounded, per-call retry on network failure.
+   * NOTE: retry count is a LOCAL variable, not a class field — previously this
+   * was tracked on the instance and a single bad network blip could lock all
+   * subsequent calls into retry mode if the success-reset path didn't run.
+   */
   private async makeRequest<T>(
-    endpoint: string, 
+    endpoint: string,
     options: RequestInit = {},
-    requireAuth: boolean = false
+    requireAuth: boolean = false,
+    attempt: number = 0
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const headers: Record<string, string> = {
@@ -95,7 +101,6 @@ class AuthApiClient {
       ...(options.headers as Record<string, string> || {})
     };
 
-    // Add auth header if required
     if (requireAuth) {
       const token = getToken();
       if (token) {
@@ -111,26 +116,29 @@ class AuthApiClient {
 
     try {
       const response = await fetch(url, config);
-      const data = await response.json();
+      // Some endpoints (HEAD/204) may not return JSON — guard against it.
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         const error: ApiError = {
-          error: data.error || 'Request failed',
-          code: data.code || 'UNKNOWN_ERROR',
+          error: (data as any).error || 'Request failed',
+          code: (data as any).code || 'UNKNOWN_ERROR',
           details: data
         };
+        // Surface retryAfter when the server emits one.
+        if ((data as any).retryAfter !== undefined) {
+          (error as any).retryAfter = (data as any).retryAfter;
+        }
         throw error;
       }
 
-      this.retryCount = 0; // Reset on success
-      return data;
+      return data as T;
     } catch (error) {
-      // Handle network errors
+      // Retry only on genuine network failures, bounded per-call.
       if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        if (this.retryCount < this.maxRetries) {
-          this.retryCount++;
-          await this.delay(1000 * this.retryCount);
-          return this.makeRequest<T>(endpoint, options, requireAuth);
+        if (attempt < this.maxRetries) {
+          await this.delay(1000 * (attempt + 1));
+          return this.makeRequest<T>(endpoint, options, requireAuth, attempt + 1);
         }
       }
       throw error;
@@ -309,7 +317,7 @@ class AuthApiClient {
 
   async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
     console.log('FUNCTION: resetPassword');
-    
+
     try {
       const response = await this.makeRequest<{ message: string }>('/reset-password', {
         method: 'POST',
@@ -320,6 +328,25 @@ class AuthApiClient {
     } catch (error) {
       console.error('Password reset failed:', error);
       throw error;
+    }
+  }
+
+  async validateResetToken(token: string): Promise<{ valid: boolean; expiresAt?: string; error?: string; code?: string }> {
+    // Read-only token check. Does NOT consume the token.
+    try {
+      const qs = encodeURIComponent(token);
+      const response = await this.makeRequest<{ valid: boolean; expiresAt?: string }>(
+        `/reset-password/validate?token=${qs}`,
+        { method: 'GET' }
+      );
+      return response;
+    } catch (error: any) {
+      // Normalize the failure shape so callers can switch on { valid, code }.
+      return {
+        valid: false,
+        error: error?.error || error?.message || 'Reset link could not be validated.',
+        code: error?.code || 'UNKNOWN_ERROR',
+      };
     }
   }
 
@@ -456,8 +483,10 @@ export const changePasswordApi = (oldPassword: string, newPassword: string) =>
   authApi.changePassword(oldPassword, newPassword);
 export const requestPasswordResetApi = (email: string) => 
   authApi.requestPasswordReset(email);
-export const resetPasswordApi = (token: string, newPassword: string) => 
+export const resetPasswordApi = (token: string, newPassword: string) =>
   authApi.resetPassword(token, newPassword);
+export const validateResetTokenApi = (token: string) =>
+  authApi.validateResetToken(token);
 export const requestEmailVerificationApi = () => 
   authApi.requestEmailVerification();
 export const verifyEmailApi = (token: string) => 

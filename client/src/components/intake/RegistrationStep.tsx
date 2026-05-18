@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useIntake } from '../../context/IntakeContext';
-import { registerUser } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import GlassCard from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import BasicScene from '../three/BasicScene';
@@ -26,6 +26,11 @@ interface FormField {
 const RegistrationStep = () => {
   const navigate = useNavigate();
   const { updateIntake } = useIntake();
+  // Use AuthContext's register so the global auth state hydrates immediately
+  // (the bare api.ts variant only writes tokens to localStorage, which left
+  // the rest of the app — including the verify-email banner — blind to the
+  // newly-created user until the next full page load).
+  const { register: registerWithAuth } = useAuth();
   
   // Form State
   const [username, setUsername] = useState('');
@@ -152,21 +157,23 @@ const RegistrationStep = () => {
     setMessage('');
     
     try {
-      await registerUser({ username, email, password });
+      await registerWithAuth(username, email, password);
       updateIntake({
         userRegistered: true,
         userLoggedIn: true,
-        name: username // Store username as name
+        name: username
       });
-      
+
       setIsSuccess(true);
       setMessage('Registration successful!');
-      
-      // Navigate after success animation
+
+      // Give the user a beat to see the "check your inbox" message before we
+      // hand them off into the intake flow. The verification banner persists
+      // throughout the app so they can re-trigger the link anytime.
       setTimeout(() => {
         navigate('/intake/visual');
-      }, 2000);
-      
+      }, 3500);
+
     } catch (err: any) {
       setMessage('❌ ' + (err.message || 'Registration failed. Please try again.'));
       console.error('REGISTRATION FAILED: ', err);
@@ -220,9 +227,17 @@ const RegistrationStep = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
+                className="space-y-3"
               >
-                <h2 className="text-3xl font-bold text-white mb-2">Welcome</h2>
-                <p className="text-white/80">Your account has been created successfully.</p>
+                <h2 className="text-3xl font-bold text-white mb-2">Welcome, {username || 'friend'}!</h2>
+                <p className="text-white/85 leading-relaxed">
+                  Your account has been created. We just sent a verification link to{' '}
+                  <strong className="text-white">{email}</strong>.
+                </p>
+                <p className="text-white/65 text-sm">
+                  You can continue to your intake now — we'll show a banner with a "Resend" option
+                  until your email is verified.
+                </p>
               </motion.div>
             </GlassCard>
           </motion.div>

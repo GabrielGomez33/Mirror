@@ -53,12 +53,29 @@ class LoginSecurity {
       failed
     };
 
-    // Keep only recent attempts (last 24 hours)
-    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-    const recentAttempts = attempts.filter(a => a.timestamp > oneDayAgo);
+    // Drop everything older than the lockout window — the array is otherwise
+    // unbounded and a 24h horizon adds nothing useful. This also bounds the
+    // localStorage growth indefinitely.
+    const horizon = Date.now() - this.LOCKOUT_DURATION;
+    const recentAttempts = attempts.filter(a => a.timestamp > horizon);
     recentAttempts.push(newAttempt);
 
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(recentAttempts));
+    // Defensive: localStorage can throw (Safari private mode, quota). Don't
+    // let a storage failure break the login submit.
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(recentAttempts));
+    } catch {
+      /* non-fatal */
+    }
+  }
+
+  /** Successful login wipes the failure history. */
+  static clearFailures(): void {
+    try {
+      localStorage.removeItem(this.STORAGE_KEY);
+    } catch {
+      /* non-fatal */
+    }
   }
 
   static isAccountLocked(): LockoutInfo {
@@ -151,7 +168,9 @@ const LogUserIn: React.FC = () => {
 
     if (!formData.password) {
       errors.password = 'Password is required';
-    } else if (formData.password.length < 3) {
+    } else if (formData.password.length < 8) {
+      // Server policy is 8+. Surfacing this client-side prevents a useless
+      // round trip when the user obviously typed too few characters.
       errors.password = 'Password is too short';
     }
 
@@ -179,17 +198,16 @@ const LogUserIn: React.FC = () => {
     try {
       await login(formData.email, formData.password);
 
-      // Record successful attempt
-      LoginSecurity.recordAttempt(false);
+      // Wipe failure history — successful login means we're done with the
+      // lockout state machine for this device.
+      LoginSecurity.clearFailures();
 
-      // Handle remember me
       if (formData.rememberMe) {
         localStorage.setItem('rememberedEmail', formData.email);
       } else {
         localStorage.removeItem('rememberedEmail');
       }
 
-      // Update intake context with user info
       updateIntake({
         userLoggedIn: true,
         name: formData.email.split('@')[0]
@@ -197,10 +215,25 @@ const LogUserIn: React.FC = () => {
 
       setIsSuccess(true);
 
-      // Navigate after success animation
+      // Post-login destination preference (most specific wins):
+      //   1. explicit redirectAfterLogin set elsewhere (e.g. RouteProtection)
+      //   2. /intake/visual if intake isn't done yet
+      //   3. /dashboard
       setTimeout(() => {
-        const redirectTo = getRedirectAfterLogin();
-        navigate(redirectTo);
+        const explicit = getRedirectAfterLogin();
+        if (explicit && explicit !== '/dashboard') {
+          navigate(explicit);
+          return;
+        }
+        try {
+          const raw = localStorage.getItem('userInfo');
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (parsed && parsed.intakeCompleted === false) {
+            navigate('/intake/visual');
+            return;
+          }
+        } catch { /* fall through */ }
+        navigate(explicit || '/dashboard');
       }, 1500);
 
     } catch (error: any) {
