@@ -244,7 +244,7 @@ const ResetPasswordPage: React.FC = () => {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.4, delay: 0.1 }}
                 >
-                  <div className="glass-card-enhanced p-4 rounded-xl">
+                  <div className="glass-card-enhanced flex items-center justify-center p-4 rounded-xl">
                     <div className="flex items-center space-x-3">
                       <span className="text-2xl">🆕</span>
                       <div className="flex-1">
@@ -254,7 +254,7 @@ const ResetPasswordPage: React.FC = () => {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className={`
-                              w-full p-3 bg-white/10 border-2 rounded-lg text-white placeholder-white/50
+                              w-lg sm:max-w-lg p-3 bg-white/10 border-2 rounded-lg text-white placeholder-white/50
                               focus:outline-none focus:border-white/40 transition-all duration-300
                               ${password && !allCriteriaMet ? 'border-yellow-400' :
                                 password && allCriteriaMet ? 'border-green-400' : 'border-white/20'}
@@ -310,7 +310,7 @@ const ResetPasswordPage: React.FC = () => {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.4, delay: 0.2 }}
                 >
-                  <div className="glass-card-enhanced p-4 rounded-xl">
+                  <div className="glass-card-enhanced flex items-center justify-center p-4 rounded-xl">
                     <div className="flex items-center space-x-3">
                       <span className="text-2xl">🔑</span>
                       <div className="flex-1">
