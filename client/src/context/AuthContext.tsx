@@ -401,16 +401,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       const data = await response.json();
+      // Persist a richer userInfo blob so other parts of the app (Login
+      // redirect logic, NavBar, etc.) can read the latest hydration state
+      // without re-fetching. Keys are stable — adding fields is safe.
       const userInfo = {
-      	userId: data.user.id,
-      	username: data.user.username,
-      	email: data.user.email,
-      	lastLogin: data.user.lastLogin
-      }
+        userId: data.user.id,
+        username: data.user.username,
+        email: data.user.email,
+        lastLogin: data.user.lastLogin,
+        emailVerified: Boolean(data.user.emailVerified),
+        intakeCompleted: Boolean(data.user.intakeCompleted),
+        subscriptionStatus: data.user.subscriptionStatus || 'free',
+        tier: data.user.tier || 'basic',
+      };
       // Store tokens
       setToken(data.tokens.accessToken);
       setToken(data.tokens.refreshToken, 'refreshToken');
-      setToken(JSON.stringify(userInfo),'userInfo');
+      setToken(JSON.stringify(userInfo), 'userInfo');
       
       // Update state
       dispatch({ 
