@@ -122,40 +122,80 @@ const VerifyEmailBanner: React.FC = () => {
         transition={{ duration: 0.25 }}
         role="status"
         aria-live="polite"
-        className="w-full"
         style={{
-          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(217, 119, 6, 0.10))',
-          borderBottom: '1px solid rgba(245, 158, 11, 0.25)',
-          backdropFilter: 'blur(8px)',
+          position: 'fixed',
+          top: '1rem',
+          left: 0,
+          right: 0,
+          margin: '0 auto',
+          zIndex: 9990,
+          width: 'calc(100vw - 2rem)',
+          maxWidth: '440px',
         }}
       >
-        <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-start sm:items-center gap-3 text-sm text-white/90">
-            <span className="text-xl shrink-0">✉️</span>
-            <div>
-              <p className="font-medium leading-snug">
+        <div
+          className="glass-card-enhanced"
+          style={{
+            borderRadius: 20,
+            padding: '14px 14px 12px 14px',
+            color: '#1a1024',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <div
+              style={{
+                width: 44, height: 44, flexShrink: 0, borderRadius: 12,
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)',
+              }}
+            >
+              <span style={{ fontSize: '1.3rem', filter: 'brightness(10)' }}>✉</span>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.3, margin: 0, color: '#1a1024' }}>
                 Verify your email to unlock all Mirror features.
               </p>
-              <p className="text-white/70 text-xs mt-0.5">
-                We sent a link to <strong className="text-white/90">{user.email}</strong>. It expires in 24 hours.
-                {message && <span className="ml-2 text-emerald-300">{message}</span>}
-                {error && <span className="ml-2 text-red-300">{error}</span>}
+              <p style={{ fontSize: 12, lineHeight: 1.4, margin: '2px 0 0 0', color: 'rgba(26, 16, 36, 0.65)' }}>
+                We sent a link to <strong style={{ color: '#1a1024' }}>{user.email}</strong>. It expires in 24 hours.
+                {message && <span style={{ marginLeft: 8, color: '#15803d' }}>{message}</span>}
+                {error && <span style={{ marginLeft: 8, color: '#b91c1c' }}>{error}</span>}
               </p>
             </div>
+            <button
+              type="button"
+              onClick={handleDismiss}
+              aria-label="Dismiss"
+              style={{
+                flexShrink: 0, background: 'transparent', border: 'none',
+                color: 'rgba(26, 16, 36, 0.4)', fontSize: 22, lineHeight: 1,
+                cursor: 'pointer', padding: '0 2px', marginTop: -2,
+              }}
+            >
+              ×
+            </button>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
             <button
               type="button"
               onClick={handleResend}
               disabled={sending || cooldown > 0}
-              className={`
-                px-3 py-1.5 rounded-lg text-xs font-semibold transition-all
-                border border-white/20 backdrop-blur-sm
-                ${sending || cooldown > 0
-                  ? 'bg-white/5 opacity-60 cursor-not-allowed text-white/60'
-                  : 'bg-white/10 hover:bg-white/20 text-white hover:border-white/40'}
-              `}
+              style={{
+                flex: 1,
+                borderRadius: 999,
+                padding: '9px 18px',
+                fontSize: 13,
+                fontWeight: 600,
+                background: sending || cooldown > 0
+                  ? 'rgba(245, 158, 11, 0.15)'
+                  : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                color: sending || cooldown > 0 ? 'rgba(26, 16, 36, 0.4)' : '#ffffff',
+                border: 'none',
+                cursor: sending || cooldown > 0 ? 'not-allowed' : 'pointer',
+                boxShadow: sending || cooldown > 0 ? 'none' : '0 4px 12px rgba(245, 158, 11, 0.35)',
+                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+              }}
             >
               {sending
                 ? 'Sending…'
@@ -166,10 +206,17 @@ const VerifyEmailBanner: React.FC = () => {
             <button
               type="button"
               onClick={handleDismiss}
-              aria-label="Dismiss for this session"
-              className="px-2 py-1.5 rounded-lg text-xs text-white/60 hover:text-white/90 hover:bg-white/10 transition-colors"
+              style={{
+                borderRadius: 999,
+                padding: '8px 12px',
+                fontSize: 11,
+                color: 'rgba(26, 16, 36, 0.5)',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+              }}
             >
-              ✕
+              {"Don't show again"}
             </button>
           </div>
         </div>
