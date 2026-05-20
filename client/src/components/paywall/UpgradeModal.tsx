@@ -258,26 +258,25 @@ const UpgradeModal: React.FC = () => {
 
   return (
     <div
-      className="fixed inset-0 flex items-start sm:items-center justify-center"
+      className="fixed inset-0 flex items-center justify-center p-4"
       style={{
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
         zIndex: 99999,
-        overscrollBehavior: 'contain',
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) handleClose();
       }}
     >
       <div
-        className="upgrade-modal-panel enhanced-glass-panel relative w-full max-h-[100dvh] sm:max-h-[90vh] rounded-none sm:rounded-2xl overflow-y-auto"
+        className="relative w-full overflow-y-auto"
         style={{
-          maxWidth: 'min(420px, 100vw)',
-          margin: '0 auto',
-          boxShadow: '0 32px 80px rgba(0, 0, 0, 0.5), 0 0 120px rgba(255, 105, 180, 0.1)',
-          overscrollBehavior: 'contain',
-          WebkitOverflowScrolling: 'touch',
+          maxWidth: '400px',
+          maxHeight: '90dvh',
+          background: 'linear-gradient(145deg, rgba(255,255,255,0.95), rgba(253,242,244,0.95))',
+          borderRadius: '24px',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.2)',
           scrollbarWidth: 'none',
         } as React.CSSProperties}
       >
@@ -285,33 +284,32 @@ const UpgradeModal: React.FC = () => {
         {modalState !== 'processing' && (
           <button
             onClick={handleClose}
-            className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full text-white/50 hover:text-white/90 hover:bg-white/10 transition-all"
-            style={{ zIndex: 10 }}
+            className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full transition-all"
+            style={{ zIndex: 10, color: '#8a6070' }}
             aria-label="Close"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         )}
 
         {/* Header */}
-        <div className="px-5 sm:px-8 pt-5 sm:pt-8 pb-3 text-center">
+        <div className="px-6 pt-6 pb-3 text-center">
           <div
-            className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-2xl mb-3"
+            className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3"
             style={{
-              background: 'linear-gradient(135deg, rgba(255, 105, 180, 0.3), rgba(218, 112, 214, 0.3))',
-              border: '1px solid rgba(255, 105, 180, 0.3)',
+              background: 'linear-gradient(135deg, #ff69b4, #c6469b)',
             }}
           >
-            <span className="text-2xl sm:text-3xl">✦</span>
+            <span className="text-2xl" style={{ filter: 'brightness(10)' }}>✦</span>
           </div>
 
-          <h2 className="enhanced-glass-heading text-xl sm:text-2xl mb-1">
+          <h2 style={{ fontFamily: "'Poppins', sans-serif", color: '#3d1428', fontSize: '1.4rem', fontWeight: 700, marginBottom: '4px' }}>
             Upgrade to Premium
           </h2>
 
-          <p className="enhanced-glass-body text-xs sm:text-sm">
+          <p style={{ fontFamily: "'Inter', sans-serif", color: '#6b4050', fontSize: '0.85rem', lineHeight: 1.5 }}>
             {isTrialing()
               ? 'Subscribe now to keep Premium access after your trial ends'
               : status === 'cancelled'
@@ -333,32 +331,25 @@ const UpgradeModal: React.FC = () => {
             >
               ${premiumPlan?.price || '9.99'}
             </span>
-            <span className="enhanced-glass-subtle text-xs sm:text-sm">/month</span>
+            <span style={{ fontFamily: "'Inter', sans-serif", color: '#8a6070', fontSize: '0.85rem' }}>/month</span>
           </div>
 
-          <p
-            className="text-xs mt-1 font-medium"
-            style={{
-              fontFamily: "'Inter', sans-serif",
-              color: 'rgba(255, 105, 180, 0.9)',
-              textShadow: '0 1px 4px rgba(0, 0, 0, 0.2)',
-            }}
-          >
+          <p style={{ fontFamily: "'Inter', sans-serif", color: '#c6469b', fontSize: '0.75rem', fontWeight: 500, marginTop: '2px' }}>
             Start with a 7-day free trial
           </p>
         </div>
 
         {/* Features list */}
-        <div className="px-5 sm:px-8 py-3">
-          <div className="enhanced-glass-card" style={{ padding: '12px 14px' }}>
-            <p className="enhanced-glass-subtle text-xs uppercase tracking-wider mb-2 font-medium">
+        <div className="px-6 py-3">
+          <div style={{ background: 'rgba(198, 70, 155, 0.04)', borderRadius: '16px', padding: '14px 16px', border: '1px solid rgba(198, 70, 155, 0.1)' }}>
+            <p style={{ fontFamily: "'Inter', sans-serif", color: '#8a6070', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', fontWeight: 600 }}>
               Everything in Premium
             </p>
             <div className="grid grid-cols-1 gap-1.5">
               {PREMIUM_FEATURES.map((feat, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="text-sm flex-shrink-0">{feat.icon}</span>
-                  <span className="enhanced-glass-body text-xs sm:text-sm leading-tight">{feat.label}</span>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>{feat.icon}</span>
+                  <span style={{ fontFamily: "'Inter', sans-serif", color: '#2e1018', fontSize: '0.8rem' }}>{feat.label}</span>
                 </div>
               ))}
             </div>
@@ -366,27 +357,29 @@ const UpgradeModal: React.FC = () => {
         </div>
 
         {/* PayPal Button / State Display */}
-        <div className="px-5 sm:px-8 pb-5 sm:pb-8">
+        <div className="px-6 pb-6">
           {/* Email verification required */}
           {!emailVerified && modalState !== 'success' && (
-            <div
-              className="rounded-xl p-4 sm:p-6 text-center mb-4"
-              style={{
-                background: 'rgba(255, 165, 0, 0.1)',
-                border: '1px solid rgba(255, 165, 0, 0.3)',
-              }}
-            >
-              <div className="text-2xl mb-2">✉️</div>
-              <h3 className="enhanced-glass-heading text-base sm:text-lg mb-1">Verify your email first</h3>
-              <p className="enhanced-glass-body text-xs sm:text-sm mb-3">
+            <div style={{ borderRadius: '16px', padding: '20px', textAlign: 'center', marginBottom: '12px', background: 'linear-gradient(145deg, rgba(255,248,230,0.8), rgba(255,243,210,0.8))', border: '1px solid rgba(245,158,11,0.2)' }}>
+              <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
+                <span style={{ fontSize: '1.3rem', filter: 'brightness(10)' }}>✉</span>
+              </div>
+              <h3 style={{ fontFamily: "'Poppins', sans-serif", color: '#92400e', fontSize: '1rem', fontWeight: 600, marginBottom: '4px' }}>Verify your email first</h3>
+              <p style={{ fontFamily: "'Inter', sans-serif", color: '#a16207', fontSize: '0.8rem', marginBottom: '14px', lineHeight: 1.5 }}>
                 Email verification is required before subscribing or starting a trial.
               </p>
               <button
                 onClick={() => closeUpgradeModal()}
-                className="px-5 py-2 rounded-full text-xs sm:text-sm font-medium text-white"
                 style={{
+                  padding: '10px 24px',
+                  borderRadius: '9999px',
+                  border: 'none',
                   fontFamily: "'Inter', sans-serif",
-                  background: 'linear-gradient(135deg, #ff69b4, #ff1493)',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  color: '#fff',
+                  background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  cursor: 'pointer',
                 }}
               >
                 Go to Dashboard
@@ -396,51 +389,39 @@ const UpgradeModal: React.FC = () => {
 
           {/* Success state */}
           {modalState === 'success' && (
-            <div className="text-center py-4 sm:py-6">
-              <div className="text-4xl sm:text-5xl mb-2">🎉</div>
-              <h3 className="enhanced-glass-heading text-lg sm:text-xl mb-1">Welcome to Premium!</h3>
-              <p className="enhanced-glass-body text-xs sm:text-sm">Your subscription is now active.</p>
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🎉</div>
+              <h3 style={{ fontFamily: "'Poppins', sans-serif", color: '#3d1428', fontSize: '1.2rem', fontWeight: 600 }}>Welcome to Premium!</h3>
+              <p style={{ fontFamily: "'Inter', sans-serif", color: '#6b4050', fontSize: '0.85rem' }}>Your subscription is now active.</p>
             </div>
           )}
 
           {/* Error state */}
           {modalState === 'error' && (
-            <div className="mb-3">
-              <div
-                className="rounded-xl p-3 text-center"
-                style={{
-                  background: 'rgba(239, 68, 68, 0.1)',
-                  border: '1px solid rgba(239, 68, 68, 0.2)',
-                }}
+            <div style={{ borderRadius: '12px', padding: '12px', textAlign: 'center', marginBottom: '12px', background: 'rgba(239, 68, 68, 0.06)', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
+              <p style={{ fontFamily: "'Inter', sans-serif", color: '#b91c1c', fontSize: '0.8rem' }}>{errorMessage}</p>
+              <button
+                onClick={() => { setModalState('ready'); setErrorMessage(''); }}
+                style={{ fontFamily: "'Inter', sans-serif", color: '#dc2626', fontSize: '0.75rem', marginTop: '4px', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}
               >
-                <p className="text-red-300 text-xs sm:text-sm" style={{ fontFamily: "'Inter', sans-serif" }}>{errorMessage}</p>
-                <button
-                  onClick={() => {
-                    setModalState('ready');
-                    setErrorMessage('');
-                  }}
-                  className="text-red-400 text-xs mt-1 underline hover:text-red-300"
-                  style={{ fontFamily: "'Inter', sans-serif" }}
-                >
-                  Try again
-                </button>
-              </div>
+                Try again
+              </button>
             </div>
           )}
 
           {/* Loading SDK */}
           {modalState === 'loading_sdk' && (
-            <div className="flex items-center justify-center py-6">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-pink-400"></div>
-              <span className="enhanced-glass-subtle ml-3 text-xs sm:text-sm">Loading payment options...</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 0' }}>
+              <div className="animate-spin" style={{ width: '20px', height: '20px', border: '2px solid #e8c4d0', borderTopColor: '#c6469b', borderRadius: '50%' }}></div>
+              <span style={{ fontFamily: "'Inter', sans-serif", color: '#8a6070', fontSize: '0.8rem', marginLeft: '10px' }}>Loading payment options...</span>
             </div>
           )}
 
           {/* Processing */}
           {modalState === 'processing' && (
-            <div className="flex items-center justify-center py-6">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-pink-400"></div>
-              <span className="enhanced-glass-subtle ml-3 text-xs sm:text-sm">Processing your subscription...</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 0' }}>
+              <div className="animate-spin" style={{ width: '20px', height: '20px', border: '2px solid #e8c4d0', borderTopColor: '#c6469b', borderRadius: '50%' }}></div>
+              <span style={{ fontFamily: "'Inter', sans-serif", color: '#8a6070', fontSize: '0.8rem', marginLeft: '10px' }}>Processing your subscription...</span>
             </div>
           )}
 
@@ -452,14 +433,7 @@ const UpgradeModal: React.FC = () => {
 
           {/* Terms */}
           {modalState !== 'success' && (
-            <p
-              className="text-center mt-3 leading-relaxed"
-              style={{
-                fontSize: '10px',
-                color: 'rgba(255, 255, 255, 0.3)',
-                fontFamily: "'Inter', sans-serif",
-              }}
-            >
+            <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '0.65rem', color: '#8a6070', fontFamily: "'Inter', sans-serif", lineHeight: 1.5 }}>
               By subscribing, you agree to our Terms of Service. Your 7-day free trial begins
               immediately. You won't be charged until the trial ends. Cancel anytime.
             </p>
