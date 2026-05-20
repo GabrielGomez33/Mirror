@@ -157,8 +157,7 @@ const ResetPasswordPage: React.FC = () => {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="max-w-md w-full"
-          style={{ minWidth: '65vw', maxWidth: '75vw' }}
+          className="w-full max-w-md mx-auto"
         >
           <GlassCard enhanced gradient className="space-y-4 rounded-[20px]">
             <motion.div
@@ -238,103 +237,105 @@ const ResetPasswordPage: React.FC = () => {
             {/* --------- Form (ready / submitting) ---------- */}
             {(status === 'ready' || status === 'submitting') && (
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* New password */}
+                {/* New password — input centered + half width inside card. */}
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.4, delay: 0.1 }}
                 >
-                  <div className="glass-card-enhanced flex items-center justify-center p-4 rounded-xl">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-2xl">🆕</span>
-                      <div className="flex-1">
-                        <div className="relative">
-                          <input
-                            type={showPassword ? 'text' : 'password'}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className={`
-                              w-lg sm:max-w-lg p-3 bg-white/10 border-2 rounded-lg text-white placeholder-white/50
-                              focus:outline-none focus:border-white/40 transition-all duration-300
-                              ${password && !allCriteriaMet ? 'border-yellow-400' :
-                                password && allCriteriaMet ? 'border-green-400' : 'border-white/20'}
-                            `}
-                            placeholder="New password"
-                            autoComplete="new-password"
-                            disabled={status === 'submitting'}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white"
-                            tabIndex={-1}
-                          >
-                            {showPassword ? '🙈' : '👁️'}
-                          </button>
-                        </div>
+                  <div className="glass-card-enhanced p-4 rounded-xl">
+                    <div className="flex flex-col items-center space-y-2 w-full">
+                      <span className="text-2xl" aria-hidden="true">🆕</span>
 
-                        {password && (
-                          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-3">
-                            <div className="flex justify-between items-center mb-1">
-                              <span className="text-white/70 text-xs">Strength</span>
-                              <span className={`text-xs font-medium bg-gradient-to-r ${strengthColor} bg-clip-text text-transparent`}>
-                                {strengthLabel}
-                              </span>
-                            </div>
-                            <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden mb-2">
-                              <motion.div
-                                initial={{ width: 0 }}
-                                animate={{ width: `${(strength / PASSWORD_RULES.length) * 100}%` }}
-                                transition={{ duration: 0.4 }}
-                                className={`h-full bg-gradient-to-r ${strengthColor} rounded-full`}
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-1 text-xs">
-                              {passwordCriteria.map(c => (
-                                <div key={c.id} className={`flex items-center space-x-1 ${c.met ? 'text-green-400' : 'text-white/40'}`}>
-                                  <span>{c.met ? '✓' : '○'}</span>
-                                  <span>{c.label}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </motion.div>
-                        )}
+                      <div className="relative w-full max-w-[16rem]">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className={`
+                            w-full p-3 pr-10 bg-white/10 border-2 rounded-lg text-white placeholder-white/50
+                            text-center focus:outline-none focus:border-white/40 transition-all duration-300
+                            ${password && !allCriteriaMet ? 'border-yellow-400' :
+                              password && allCriteriaMet ? 'border-green-400' : 'border-white/20'}
+                          `}
+                          placeholder="New password"
+                          autoComplete="new-password"
+                          disabled={status === 'submitting'}
+                          aria-label="New password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white"
+                          tabIndex={-1}
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showPassword ? '🙈' : '👁️'}
+                        </button>
                       </div>
+
+                      {password && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full max-w-[18rem] mt-1">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-white/70 text-xs">Strength</span>
+                            <span className={`text-xs font-medium bg-gradient-to-r ${strengthColor} bg-clip-text text-transparent`}>
+                              {strengthLabel}
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden mb-2">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${(strength / PASSWORD_RULES.length) * 100}%` }}
+                              transition={{ duration: 0.4 }}
+                              className={`h-full bg-gradient-to-r ${strengthColor} rounded-full`}
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                            {passwordCriteria.map(c => (
+                              <div key={c.id} className={`flex items-center space-x-1 ${c.met ? 'text-green-400' : 'text-white/40'}`}>
+                                <span>{c.met ? '✓' : '○'}</span>
+                                <span>{c.label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
                     </div>
                   </div>
                 </motion.div>
 
-                {/* Confirm */}
+                {/* Confirm — same half-width centered pattern. */}
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.4, delay: 0.2 }}
                 >
-                  <div className="glass-card-enhanced flex items-center justify-center p-4 rounded-xl">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-2xl">🔑</span>
-                      <div className="flex-1">
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          value={confirm}
-                          onChange={(e) => setConfirm(e.target.value)}
-                          className={`
-                            w-full p-3 bg-white/10 border-2 rounded-lg text-white placeholder-white/50
-                            focus:outline-none focus:border-white/40 transition-all duration-300
-                            ${confirm && password !== confirm ? 'border-red-400' :
-                              confirm && passwordsMatch ? 'border-green-400' : 'border-white/20'}
-                          `}
-                          placeholder="Confirm new password"
-                          autoComplete="new-password"
-                          disabled={status === 'submitting'}
-                        />
-                        {confirm && (
-                          <p className={`text-sm mt-2 flex items-center space-x-1 ${passwordsMatch ? 'text-green-400' : 'text-red-400'}`}>
-                            <span>{passwordsMatch ? '✓' : '✗'}</span>
-                            <span>{passwordsMatch ? 'Passwords match' : 'Passwords do not match'}</span>
-                          </p>
-                        )}
-                      </div>
+                  <div className="glass-card-enhanced p-4 rounded-xl">
+                    <div className="flex flex-col items-center space-y-2 w-full">
+                      <span className="text-2xl" aria-hidden="true">🔑</span>
+
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={confirm}
+                        onChange={(e) => setConfirm(e.target.value)}
+                        className={`
+                          w-full max-w-[16rem] p-3 bg-white/10 border-2 rounded-lg text-white placeholder-white/50
+                          text-center focus:outline-none focus:border-white/40 transition-all duration-300
+                          ${confirm && password !== confirm ? 'border-red-400' :
+                            confirm && passwordsMatch ? 'border-green-400' : 'border-white/20'}
+                        `}
+                        placeholder="Confirm new password"
+                        autoComplete="new-password"
+                        disabled={status === 'submitting'}
+                        aria-label="Confirm new password"
+                      />
+
+                      {confirm && (
+                        <p className={`text-xs flex items-center justify-center space-x-1 ${passwordsMatch ? 'text-green-400' : 'text-red-400'}`}>
+                          <span>{passwordsMatch ? '✓' : '✗'}</span>
+                          <span>{passwordsMatch ? 'Passwords match' : 'Passwords do not match'}</span>
+                        </p>
+                      )}
                     </div>
                   </div>
                 </motion.div>

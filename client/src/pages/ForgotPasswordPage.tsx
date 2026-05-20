@@ -111,8 +111,7 @@ const ForgotPasswordPage: React.FC = () => {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="max-w-md w-full"
-          style={{ minWidth: '65vw', maxWidth: '75vw' }}
+          className="w-full max-w-md mx-auto"
         >
           <GlassCard enhanced gradient className="space-y-4 rounded-[20px]">
             {/* Header */}
@@ -153,48 +152,47 @@ const ForgotPasswordPage: React.FC = () => {
                   onSubmit={handleSubmit}
                   className="space-y-4"
                 >
-                  {/* Email field */}
+                  {/* Email field — half-width, centered inside its card. */}
                   <motion.div
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.4, delay: 0.1 }}
                   >
-                    <div className="glass-card-enhanced flex items-center justify-center p-4 rounded-xl">
-                      <div className="flex items-center space-x-3">
-                        <div className="flex-1">
-                          <span className="text-sm shrink-0 opacity-70">📧</span>
-                          <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => {
-                              setEmail(e.target.value);
-                              if (emailError) setEmailError(null);
-                            }}
-                            className={`
-                              w-lg sm:max-w-lg p-3 bg-white/10 border-2 rounded-lg text-white placeholder-white/50
-                              focus:outline-none focus:border-white/40 transition-all duration-300
-                              ${emailError ? 'border-red-400' :
-                                email && !emailError ? 'border-green-400' : 'border-white/20'}
-                            `}
-                            placeholder="Enter your email address"
-                            autoComplete="email"
-                            disabled={submitting}
-                            maxLength={254}
-                          />
+                    <div className="glass-card-enhanced p-4 rounded-xl">
+                      <div className="flex flex-col items-center space-y-2 w-full">
+                        <span className="text-sm opacity-70" aria-hidden="true">📧</span>
+                        <input
+                          type="email"
+                          value={email}
+                          onChange={(e) => {
+                            setEmail(e.target.value);
+                            if (emailError) setEmailError(null);
+                          }}
+                          className={`
+                            w-full max-w-[16rem] p-3 bg-white/10 border-2 rounded-lg text-white placeholder-white/50
+                            text-center focus:outline-none focus:border-white/40 transition-all duration-300
+                            ${emailError ? 'border-red-400' :
+                              email && !emailError ? 'border-green-400' : 'border-white/20'}
+                          `}
+                          placeholder="you@example.com"
+                          autoComplete="email"
+                          disabled={submitting}
+                          maxLength={254}
+                          aria-label="Email address"
+                        />
 
-                          <AnimatePresence>
-                            {emailError && (
-                              <motion.p
-                                initial={{ opacity: 0, y: -10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -10 }}
-                                className="text-red-400 text-sm mt-2"
-                              >
-                                {emailError}
-                              </motion.p>
-                            )}
-                          </AnimatePresence>
-                        </div>
+                        <AnimatePresence>
+                          {emailError && (
+                            <motion.p
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              className="text-red-400 text-xs text-center"
+                            >
+                              {emailError}
+                            </motion.p>
+                          )}
+                        </AnimatePresence>
                       </div>
                     </div>
                   </motion.div>

@@ -343,77 +343,82 @@ const RegistrationStep = () => {
                       className="space-y-3"
                     >
                       <div className="glass-card-enhanced p-4 rounded-xl">
-                        <div className="flex items-center space-x-3 mb-3">
-                          <span className="text-2xl">{field.icon}</span>
-                          <div className="flex-1">
-                            <div className="relative">
-                              <input
-                                type={field.type}
-                                placeholder={field.placeholder}
-                                value={field.value}
-                                onChange={(e) => field.setter(e.target.value)}
-                                className={`
-                                  w-full p-3 bg-white/10 border-2 rounded-lg text-white placeholder-white/50 
-                                  focus:outline-none focus:border-white/40 transition-all duration-300
-                                  ${validationErrors[field.id] ? 'border-red-400' : 
-                                    field.value && !validationErrors[field.id] ? 'border-green-400' : 'border-white/20'}
-                                `}
-                                required
-                                autoComplete="off"
-                              />
-                              
-                              {/* Password visibility toggle */}
-                              {field.id === 'password' && (
-                                <button
-                                  type="button"
-                                  onClick={() => setShowPassword(!showPassword)}
-                                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white"
-                                >
-                                  {showPassword ? '🙈' : '👁️'}
-                                </button>
-                              )}
-                            </div>
-                            
-                            {/* Validation Error */}
-                            <AnimatePresence>
-                              {validationErrors[field.id] && (
-                                <motion.p
-                                  initial={{ opacity: 0, y: -10 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  exit={{ opacity: 0, y: -10 }}
-                                  className="text-red-400 text-sm mt-2"
-                                >
-                                  {validationErrors[field.id]}
-                                </motion.p>
-                              )}
-                            </AnimatePresence>
-                            
-                            {/* Success Indicator */}
-                            {field.value && !validationErrors[field.id] && (
-                              <motion.p
-                                initial={{ opacity: 0, scale: 0.8 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className="text-green-400 text-sm mt-2 flex items-center space-x-1"
+                        {/* Field is half-width and centered inside its card.
+                            Icon stacks above so the input itself doesn't get
+                            pushed off-axis. Validation, success and
+                            requirements live below — all center-aligned. */}
+                        <div className="flex flex-col items-center space-y-2 w-full">
+                          <span className="text-2xl" aria-hidden="true">{field.icon}</span>
+
+                          <div className="relative w-full max-w-[16rem]">
+                            <input
+                              type={field.type}
+                              placeholder={field.placeholder}
+                              value={field.value}
+                              onChange={(e) => field.setter(e.target.value)}
+                              className={`
+                                w-full p-3 ${field.id === 'password' ? 'pr-10' : ''} bg-white/10 border-2 rounded-lg
+                                text-white placeholder-white/50 text-center
+                                focus:outline-none focus:border-white/40 transition-all duration-300
+                                ${validationErrors[field.id] ? 'border-red-400' :
+                                  field.value && !validationErrors[field.id] ? 'border-green-400' : 'border-white/20'}
+                              `}
+                              required
+                              autoComplete="off"
+                              aria-label={field.id}
+                            />
+
+                            {/* Password visibility toggle */}
+                            {field.id === 'password' && (
+                              <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white"
+                                tabIndex={-1}
+                                aria-label={showPassword ? 'Hide password' : 'Show password'}
                               >
-                                <span>✓</span>
-                                <span>Looks good!</span>
-                              </motion.p>
+                                {showPassword ? '🙈' : '👁️'}
+                              </button>
                             )}
                           </div>
+
+                          <AnimatePresence>
+                            {validationErrors[field.id] && (
+                              <motion.p
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                className="text-red-400 text-xs text-center"
+                              >
+                                {validationErrors[field.id]}
+                              </motion.p>
+                            )}
+                          </AnimatePresence>
+
+                          {field.value && !validationErrors[field.id] && (
+                            <motion.p
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              className="text-green-400 text-xs flex items-center justify-center space-x-1"
+                            >
+                              <span>✓</span>
+                              <span>Looks good!</span>
+                            </motion.p>
+                          )}
                         </div>
-                        
-                        {/* Field Requirements */}
+
+                        {/* Field requirements — full card width but text-centered. */}
                         {field.requirements && currentStep === index && (
                           <motion.div
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
                             transition={{ delay: 0.2 }}
-                            className="mt-3 p-3 bg-white/5 rounded-lg"
+                            className="mt-3 p-3 bg-white/5 rounded-lg mx-auto max-w-[18rem]"
                           >
-                            <p className="text-white/70 text-xs mb-2">Requirements:</p>
+                            <p className="text-white/70 text-xs mb-2 text-center">Requirements</p>
                             <ul className="space-y-1">
                               {field.requirements.map((req, i) => (
-                                <li key={i} className="text-white/60 text-xs flex items-center space-x-2">
+                                <li key={i} className="text-white/60 text-xs flex items-center justify-center space-x-2">
                                   <span className="w-1 h-1 bg-white/40 rounded-full"></span>
                                   <span>{req}</span>
                                 </li>
@@ -427,31 +432,33 @@ const RegistrationStep = () => {
                 ))}
               </AnimatePresence>
 
-              {/* Password Strength Indicator */}
+              {/* Password Strength Indicator — visually aligned with the
+                  half-width inputs above. */}
               {currentStep >= 2 && password && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="glass-card-enhanced p-4 rounded-xl"
                 >
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-white/80 text-sm">Password Strength</span>
-                    <span className={`text-sm font-medium bg-gradient-to-r ${getPasswordStrengthColor()} bg-clip-text text-transparent`}>
-                      {getPasswordStrengthText()}
-                    </span>
-                  </div>
-                  
-                  <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden mb-3">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(passwordStrength / 5) * 100}%` }}
-                      transition={{ duration: 0.5 }}
-                      className={`h-full bg-gradient-to-r ${getPasswordStrengthColor()} rounded-full`}
-                    />
-                  </div>
-                  
-                  {/* Password Criteria */}
-                  <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="mx-auto w-full max-w-[18rem]">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-white/80 text-sm">Password Strength</span>
+                      <span className={`text-sm font-medium bg-gradient-to-r ${getPasswordStrengthColor()} bg-clip-text text-transparent`}>
+                        {getPasswordStrengthText()}
+                      </span>
+                    </div>
+
+                    <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden mb-3">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(passwordStrength / 5) * 100}%` }}
+                        transition={{ duration: 0.5 }}
+                        className={`h-full bg-gradient-to-r ${getPasswordStrengthColor()} rounded-full`}
+                      />
+                    </div>
+
+                    {/* Password Criteria */}
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                     {Object.entries(passwordCriteria).map(([key, met]) => (
                       <div key={key} className={`flex items-center space-x-2 ${met ? 'text-green-400' : 'text-white/40'}`}>
                         <span>{met ? '✓' : '○'}</span>
@@ -460,11 +467,12 @@ const RegistrationStep = () => {
                         </span>
                       </div>
                     ))}
+                    </div>
                   </div>
                 </motion.div>
               )}
 
-              {/* Confirm Password */}
+              {/* Confirm Password — matches the half-width centered pattern. */}
               {currentStep >= 3 && (
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
@@ -472,47 +480,48 @@ const RegistrationStep = () => {
                   transition={{ duration: 0.4 }}
                   className="glass-card-enhanced p-4 rounded-xl"
                 >
-                  <div className="flex items-center space-x-3">
-                    <span className="text-2xl">🔑</span>
-                    <div className="flex-1">
-                      <div className="relative">
-                        <input
-                          type={showConfirmPassword ? 'text' : 'password'}
-                          placeholder="Confirm your password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          className={`
-                            w-full p-3 bg-white/10 border-2 rounded-lg text-white placeholder-white/50 
-                            focus:outline-none focus:border-white/40 transition-all duration-300
-                            ${confirmPassword && password !== confirmPassword ? 'border-red-400' : 
-                              confirmPassword && password === confirmPassword ? 'border-green-400' : 'border-white/20'}
-                          `}
-                          required
-                        />
-                        
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white"
-                        >
-                          {showConfirmPassword ? '🙈' : '👁️'}
-                        </button>
-                      </div>
-                      
-                      {/* Password Match Indicator */}
-                      {confirmPassword && (
-                        <motion.p
-                          initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className={`text-sm mt-2 flex items-center space-x-1 ${
-                            password === confirmPassword ? 'text-green-400' : 'text-red-400'
-                          }`}
-                        >
-                          <span>{password === confirmPassword ? '✓' : '✗'}</span>
-                          <span>{password === confirmPassword ? 'Passwords match' : 'Passwords do not match'}</span>
-                        </motion.p>
-                      )}
+                  <div className="flex flex-col items-center space-y-2 w-full">
+                    <span className="text-2xl" aria-hidden="true">🔑</span>
+
+                    <div className="relative w-full max-w-[16rem]">
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        placeholder="Confirm your password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className={`
+                          w-full p-3 pr-10 bg-white/10 border-2 rounded-lg text-white placeholder-white/50
+                          text-center focus:outline-none focus:border-white/40 transition-all duration-300
+                          ${confirmPassword && password !== confirmPassword ? 'border-red-400' :
+                            confirmPassword && password === confirmPassword ? 'border-green-400' : 'border-white/20'}
+                        `}
+                        required
+                        aria-label="Confirm password"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white"
+                        tabIndex={-1}
+                        aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showConfirmPassword ? '🙈' : '👁️'}
+                      </button>
                     </div>
+
+                    {confirmPassword && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`text-xs flex items-center justify-center space-x-1 ${
+                          password === confirmPassword ? 'text-green-400' : 'text-red-400'
+                        }`}
+                      >
+                        <span>{password === confirmPassword ? '✓' : '✗'}</span>
+                        <span>{password === confirmPassword ? 'Passwords match' : 'Passwords do not match'}</span>
+                      </motion.p>
+                    )}
                   </div>
                 </motion.div>
               )}
