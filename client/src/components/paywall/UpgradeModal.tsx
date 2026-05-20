@@ -258,187 +258,138 @@ const UpgradeModal: React.FC = () => {
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center p-4"
       style={{
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
-        zIndex: 99999,
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) handleClose();
+        position: 'fixed',
+        bottom: '1rem',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 9999,
+        width: 'calc(100vw - 2rem)',
+        maxWidth: '440px',
+        paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
       <div
-        className="relative w-full overflow-y-auto"
+        className="glass-card-enhanced"
         style={{
-          maxWidth: '400px',
-          maxHeight: '90dvh',
-          background: 'linear-gradient(145deg, rgba(255,255,255,0.95), rgba(253,242,244,0.95))',
-          borderRadius: '24px',
-          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.2)',
+          borderRadius: 20,
+          padding: '16px',
+          color: '#1a1024',
+          maxHeight: '80dvh',
+          overflowY: 'auto',
           scrollbarWidth: 'none',
         } as React.CSSProperties}
       >
-        {/* Close button */}
-        {modalState !== 'processing' && (
-          <button
-            onClick={handleClose}
-            className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full transition-all"
-            style={{ zIndex: 10, color: '#8a6070' }}
-            aria-label="Close"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        )}
-
-        {/* Header */}
-        <div className="px-6 pt-6 pb-3 text-center">
+        {/* Top row: icon + text + close */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <div
-            className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3"
             style={{
+              width: 44, height: 44, flexShrink: 0, borderRadius: 12,
               background: 'linear-gradient(135deg, #ff69b4, #c6469b)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(198, 70, 155, 0.3)',
             }}
           >
-            <span className="text-2xl" style={{ filter: 'brightness(10)' }}>✦</span>
+            <span style={{ fontSize: '1.3rem', filter: 'brightness(10)' }}>✦</span>
           </div>
-
-          <h2 style={{ fontFamily: "'Poppins', sans-serif", color: '#3d1428', fontSize: '1.4rem', fontWeight: 700, marginBottom: '4px' }}>
-            Upgrade to Premium
-          </h2>
-
-          <p style={{ fontFamily: "'Inter', sans-serif", color: '#6b4050', fontSize: '0.85rem', lineHeight: 1.5 }}>
-            {isTrialing()
-              ? 'Subscribe now to keep Premium access after your trial ends'
-              : status === 'cancelled'
-                ? 'Welcome back — resubscribe to restore Premium access'
-                : getFeatureMessage(upgradeModalFeature)}
-          </p>
-
-          {/* Price */}
-          <div className="mt-3 flex items-baseline justify-center gap-1">
-            <span
-              className="text-3xl sm:text-4xl font-bold"
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.3, margin: 0, color: '#1a1024' }}>
+              Upgrade to Premium — ${premiumPlan?.price || '9.99'}/mo
+            </p>
+            <p style={{ fontSize: 12, lineHeight: 1.4, margin: '2px 0 0 0', color: 'rgba(26, 16, 36, 0.65)' }}>
+              {isTrialing()
+                ? 'Subscribe now to keep Premium access after your trial ends.'
+                : status === 'cancelled'
+                  ? 'Welcome back — resubscribe to restore Premium access.'
+                  : getFeatureMessage(upgradeModalFeature)}
+            </p>
+          </div>
+          {modalState !== 'processing' && (
+            <button
+              type="button"
+              onClick={handleClose}
+              aria-label="Dismiss"
               style={{
-                fontFamily: "'Poppins', sans-serif",
-                background: 'linear-gradient(135deg, #ff69b4, #ff1493, #da70d6)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
+                flexShrink: 0, background: 'transparent', border: 'none',
+                color: 'rgba(26, 16, 36, 0.4)', fontSize: 22, lineHeight: 1,
+                cursor: 'pointer', padding: '0 2px', marginTop: -2,
               }}
             >
-              ${premiumPlan?.price || '9.99'}
-            </span>
-            <span style={{ fontFamily: "'Inter', sans-serif", color: '#8a6070', fontSize: '0.85rem' }}>/month</span>
-          </div>
-
-          <p style={{ fontFamily: "'Inter', sans-serif", color: '#c6469b', fontSize: '0.75rem', fontWeight: 500, marginTop: '2px' }}>
-            Start with a 7-day free trial
-          </p>
+              ×
+            </button>
+          )}
         </div>
 
         {/* Features list */}
-        <div className="px-6 py-3">
-          <div style={{ background: 'rgba(198, 70, 155, 0.04)', borderRadius: '16px', padding: '14px 16px', border: '1px solid rgba(198, 70, 155, 0.1)' }}>
-            <p style={{ fontFamily: "'Inter', sans-serif", color: '#8a6070', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', fontWeight: 600 }}>
-              Everything in Premium
+        <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: '4px 10px', padding: '0 2px' }}>
+          {PREMIUM_FEATURES.map((feat, i) => (
+            <span key={i} style={{ fontSize: 11, color: 'rgba(26, 16, 36, 0.55)', whiteSpace: 'nowrap' }}>
+              {feat.icon} {feat.label}
+            </span>
+          ))}
+        </div>
+
+        {/* Email verification gate */}
+        {!emailVerified && modalState !== 'success' && (
+          <div style={{ marginTop: 12, borderRadius: 14, padding: '12px 14px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.15)' }}>
+            <p style={{ fontSize: 12, color: '#92400e', margin: 0, fontWeight: 500 }}>
+              ✉️ Verify your email before subscribing or starting a trial.
             </p>
-            <div className="grid grid-cols-1 gap-1.5">
-              {PREMIUM_FEATURES.map((feat, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>{feat.icon}</span>
-                  <span style={{ fontFamily: "'Inter', sans-serif", color: '#2e1018', fontSize: '0.8rem' }}>{feat.label}</span>
-                </div>
-              ))}
-            </div>
+            <button
+              onClick={() => closeUpgradeModal()}
+              style={{
+                marginTop: 8, borderRadius: 999, padding: '7px 16px', fontSize: 12, fontWeight: 600,
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff',
+                border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)',
+              }}
+            >
+              Go to Dashboard
+            </button>
           </div>
-        </div>
+        )}
 
-        {/* PayPal Button / State Display */}
-        <div className="px-6 pb-6">
-          {/* Email verification required */}
-          {!emailVerified && modalState !== 'success' && (
-            <div style={{ borderRadius: '16px', padding: '20px', textAlign: 'center', marginBottom: '12px', background: 'linear-gradient(145deg, rgba(255,248,230,0.8), rgba(255,243,210,0.8))', border: '1px solid rgba(245,158,11,0.2)' }}>
-              <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
-                <span style={{ fontSize: '1.3rem', filter: 'brightness(10)' }}>✉</span>
-              </div>
-              <h3 style={{ fontFamily: "'Poppins', sans-serif", color: '#92400e', fontSize: '1rem', fontWeight: 600, marginBottom: '4px' }}>Verify your email first</h3>
-              <p style={{ fontFamily: "'Inter', sans-serif", color: '#a16207', fontSize: '0.8rem', marginBottom: '14px', lineHeight: 1.5 }}>
-                Email verification is required before subscribing or starting a trial.
-              </p>
-              <button
-                onClick={() => closeUpgradeModal()}
-                style={{
-                  padding: '10px 24px',
-                  borderRadius: '9999px',
-                  border: 'none',
-                  fontFamily: "'Inter', sans-serif",
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  color: '#fff',
-                  background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                  cursor: 'pointer',
-                }}
-              >
-                Go to Dashboard
-              </button>
-            </div>
-          )}
+        {/* Success */}
+        {modalState === 'success' && (
+          <div style={{ textAlign: 'center', padding: '16px 0' }}>
+            <span style={{ fontSize: '2rem' }}>🎉</span>
+            <p style={{ fontWeight: 600, fontSize: 14, color: '#1a1024', margin: '4px 0 0 0' }}>Welcome to Premium!</p>
+          </div>
+        )}
 
-          {/* Success state */}
-          {modalState === 'success' && (
-            <div style={{ textAlign: 'center', padding: '20px 0' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🎉</div>
-              <h3 style={{ fontFamily: "'Poppins', sans-serif", color: '#3d1428', fontSize: '1.2rem', fontWeight: 600 }}>Welcome to Premium!</h3>
-              <p style={{ fontFamily: "'Inter', sans-serif", color: '#6b4050', fontSize: '0.85rem' }}>Your subscription is now active.</p>
-            </div>
-          )}
+        {/* Error */}
+        {modalState === 'error' && (
+          <div style={{ marginTop: 10, borderRadius: 12, padding: 10, background: 'rgba(239, 68, 68, 0.06)', border: '1px solid rgba(239, 68, 68, 0.12)', textAlign: 'center' }}>
+            <p style={{ fontSize: 12, color: '#b91c1c', margin: 0 }}>{errorMessage}</p>
+            <button onClick={() => { setModalState('ready'); setErrorMessage(''); }}
+              style={{ fontSize: 11, color: '#dc2626', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer', marginTop: 4 }}>
+              Try again
+            </button>
+          </div>
+        )}
 
-          {/* Error state */}
-          {modalState === 'error' && (
-            <div style={{ borderRadius: '12px', padding: '12px', textAlign: 'center', marginBottom: '12px', background: 'rgba(239, 68, 68, 0.06)', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
-              <p style={{ fontFamily: "'Inter', sans-serif", color: '#b91c1c', fontSize: '0.8rem' }}>{errorMessage}</p>
-              <button
-                onClick={() => { setModalState('ready'); setErrorMessage(''); }}
-                style={{ fontFamily: "'Inter', sans-serif", color: '#dc2626', fontSize: '0.75rem', marginTop: '4px', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}
-              >
-                Try again
-              </button>
-            </div>
-          )}
+        {/* Loading / Processing */}
+        {(modalState === 'loading_sdk' || modalState === 'processing') && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px 0', gap: 8 }}>
+            <div className="animate-spin" style={{ width: 18, height: 18, border: '2px solid rgba(244, 114, 182, 0.3)', borderTopColor: '#f472b6', borderRadius: '50%' }} />
+            <span style={{ fontSize: 12, color: 'rgba(26, 16, 36, 0.5)' }}>
+              {modalState === 'loading_sdk' ? 'Loading payment options...' : 'Processing...'}
+            </span>
+          </div>
+        )}
 
-          {/* Loading SDK */}
-          {modalState === 'loading_sdk' && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 0' }}>
-              <div className="animate-spin" style={{ width: '20px', height: '20px', border: '2px solid #e8c4d0', borderTopColor: '#c6469b', borderRadius: '50%' }}></div>
-              <span style={{ fontFamily: "'Inter', sans-serif", color: '#8a6070', fontSize: '0.8rem', marginLeft: '10px' }}>Loading payment options...</span>
-            </div>
-          )}
+        {/* PayPal button container */}
+        <div
+          ref={paypalContainerRef}
+          style={{ marginTop: emailVerified && modalState !== 'success' ? 12 : 0 }}
+          className={modalState === 'processing' || modalState === 'success' || !emailVerified ? 'hidden' : ''}
+        />
 
-          {/* Processing */}
-          {modalState === 'processing' && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 0' }}>
-              <div className="animate-spin" style={{ width: '20px', height: '20px', border: '2px solid #e8c4d0', borderTopColor: '#c6469b', borderRadius: '50%' }}></div>
-              <span style={{ fontFamily: "'Inter', sans-serif", color: '#8a6070', fontSize: '0.8rem', marginLeft: '10px' }}>Processing your subscription...</span>
-            </div>
-          )}
-
-          {/* PayPal button container */}
-          <div
-            ref={paypalContainerRef}
-            className={modalState === 'processing' || modalState === 'success' ? 'hidden' : ''}
-          />
-
-          {/* Terms */}
-          {modalState !== 'success' && (
-            <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '0.65rem', color: '#8a6070', fontFamily: "'Inter', sans-serif", lineHeight: 1.5 }}>
-              By subscribing, you agree to our Terms of Service. Your 7-day free trial begins
-              immediately. You won't be charged until the trial ends. Cancel anytime.
-            </p>
-          )}
-        </div>
+        {/* Terms */}
+        {modalState !== 'success' && emailVerified && (
+          <p style={{ textAlign: 'center', marginTop: 8, fontSize: 10, color: 'rgba(26, 16, 36, 0.35)', lineHeight: 1.5 }}>
+            7-day free trial. Cancel anytime. You won't be charged until the trial ends.
+          </p>
+        )}
       </div>
     </div>
   );

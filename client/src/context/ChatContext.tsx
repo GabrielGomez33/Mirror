@@ -1146,7 +1146,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     // Sort: Dina responses sort by their PARENT message's time + 1ms
     // This places each Dina response immediately after the query it answers
     return all.sort((a, b) => {
-       const aParent = a.metadata?.replyPreview?.messageId || (a.metadata?.custom as any)?.replyPreview?.messageId;
+      const aParent = a.metadata?.replyPreview?.messageId || (a.metadata?.custom as any)?.replyPreview?.messageId;
       const bParent = b.metadata?.replyPreview?.messageId || (b.metadata?.custom as any)?.replyPreview?.messageId;
       const aTime = aParent && timeMap.has(aParent)
         ? timeMap.get(aParent)! + 1
@@ -1246,6 +1246,20 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         }
       }
 
+      // Helper: check if message is a usage limit from Dina and trigger upgrade modal
+      const checkForUsageLimit = (msg: any) => {
+        const customMeta = msg.metadata?.custom || (msg.metadata as any)?.custom;
+        if (customMeta?.type === 'usage_limit' && customMeta?.isDinaResponse) {
+          import('../services/paywallInterceptor').then(({ dispatchPaywallEvent }) => {
+            dispatchPaywallEvent({
+              code: 'USAGE_LIMIT',
+              feature: 'dina_queries_per_day',
+              error: typeof msg.content === 'string' ? msg.content : 'Daily @Dina query limit reached.',
+            });
+          }).catch(() => {});
+        }
+      };
+
       // Use broadcast content directly if available (avoids extra REST fetch)
       if (payload.content) {
         const message: ChatMessage = {
@@ -1267,6 +1281,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
           reactions: [],
         };
         dispatch({ type: 'ADD_MESSAGE', payload: message });
+        checkForUsageLimit(message);
         return;
       }
 
@@ -1275,6 +1290,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         const response = await getMessage(payload.groupId, payload.id);
         if (response.success && response.data) {
           dispatch({ type: 'ADD_MESSAGE', payload: response.data.message });
+          checkForUsageLimit(response.data.message);
         }
       } catch (error) {
         console.error('Failed to fetch message:', error);

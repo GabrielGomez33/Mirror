@@ -286,70 +286,63 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
           </div>
         )}
 
-        {/* Group Info */}
-        <div className="flex items-start gap-6">
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-400/30 to-pink-400/30 backdrop-blur-sm flex items-center justify-center text-4xl">
+        {/* Group Info — compact for mobile */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg, rgba(167,139,250,0.3), rgba(244,114,182,0.3))', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', flexShrink: 0 }}>
             {getGroupTypeIcon(currentGroup.type)}
           </div>
 
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="enhanced-glass-heading text-2xl" style={{ color: '#784552' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <h1 style={{ color: '#784552', fontSize: '1.1rem', fontWeight: 700, margin: 0, fontFamily: "'Poppins', sans-serif", lineHeight: 1.2 }}>
                 {currentGroup.name}
               </h1>
               <span
-                className={`px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${privacyBadge.color} backdrop-blur-sm`}
+                className={`px-2 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r ${privacyBadge.color} backdrop-blur-sm`}
               >
                 <span className="text-white/90">{privacyBadge.label}</span>
               </span>
             </div>
-
-            <p className="enhanced-glass-body mb-4" style={{ color: '#7e4151' }}>
-              {currentGroup.description || 'No description provided'}
-            </p>
-
-            <div className="flex items-center gap-6 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-white/50">👥</span>
-                <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
-                  {currentGroup.memberCount} / {currentGroup.maxMembers} members
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-white/50">🕐</span>
-                <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
-                  Active {formatRelativeTime(currentGroup.lastActivity)}
-                </span>
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, fontSize: '0.75rem', color: '#6a1f33' }}>
+              <span>👥 {currentMembers.length}/{currentGroup.maxMembers} members</span>
+              <span>🕐 {currentGroup.lastActivity ? formatRelativeTime(currentGroup.lastActivity) : 'Recently'}</span>
             </div>
           </div>
         </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-4 gap-4 mt-6">
-          <div className="enhanced-stat-container">
-            <div className="enhanced-stat-number text-2xl">{currentMembers.length}</div>
-            <div className="enhanced-stat-label text-xs">Members</div>
-          </div>
-          <div className="enhanced-stat-container">
-            <div className="enhanced-stat-number text-2xl">
-              {currentMembers.filter((m: GroupMember) => m.hasSharedData).length}
-            </div>
-            <div className="enhanced-stat-label text-xs">Sharing</div>
-          </div>
-          <div className="enhanced-stat-container">
-            <div className="enhanced-stat-number text-2xl">{activeVotes.length}</div>
-            <div className="enhanced-stat-label text-xs">Active Votes</div>
-          </div>
-          <div className="enhanced-stat-container">
-            <div className="enhanced-stat-number text-2xl">
-              {currentInsights?.llmSynthesis?.qualityScore
-                ? Math.round(currentInsights.llmSynthesis.qualityScore * 100)
-                : '--'}
-              %
-            </div>
-            <div className="enhanced-stat-label text-xs">Insight Score</div>
-          </div>
+        {/* Stats Row — compact circular badges */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 16, flexWrap: 'wrap' }}>
+          {[
+            { value: currentMembers.length, label: 'Members', color: '#f472b6', max: currentGroup.maxMembers || 50 },
+            { value: currentMembers.filter((m: GroupMember) => m.hasSharedData).length, label: 'Sharing', color: '#60a5fa', max: currentMembers.length || 1 },
+            { value: activeVotes.length, label: 'Votes', color: '#a78bfa', max: 10 },
+            { value: currentInsights?.llmSynthesis?.qualityScore ? Math.round(currentInsights.llmSynthesis.qualityScore * 100) : 0, label: 'Insight', color: '#34d399', max: 100, suffix: '%' },
+          ].map((stat, i) => {
+            const size = 56;
+            const sw = 4;
+            const r = (size - sw * 2) / 2;
+            const circ = 2 * Math.PI * r;
+            const pct = stat.max > 0 ? Math.min(stat.value / stat.max, 1) : 0;
+            const offset = circ - pct * circ;
+            return (
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                <div style={{ width: size, height: size, position: 'relative' }}>
+                  <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+                    <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={sw} />
+                    <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={stat.color} strokeWidth={sw} strokeLinecap="round"
+                      strokeDasharray={circ} strokeDashoffset={offset}
+                      style={{ filter: `drop-shadow(0 0 4px ${stat.color}44)`, transition: 'stroke-dashoffset 0.8s ease' }} />
+                  </svg>
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: stat.color }}>
+                      {stat.value != null ? stat.value : '--'}{stat.suffix || ''}
+                    </span>
+                  </div>
+                </div>
+                <span style={{ fontSize: 9, fontWeight: 600, color: '#6a1f33', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{stat.label}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -659,38 +652,22 @@ function OverviewTab({ group, members, insights, onAnalyze, isAnalyzing, canInvi
         <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#784552' }}>
           Group Settings
         </h3>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
-              Type:
-            </span>
-            <span className="enhanced-glass-body ml-2 capitalize" style={{ color: '#7e4151' }}>
-              {group.type}
-            </span>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px 16px', fontSize: '0.8rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ color: '#6a1f33', fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Type</span>
+            <span style={{ color: '#7e4151', textTransform: 'capitalize' }}>{group.type}</span>
           </div>
-          <div>
-            <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
-              Privacy:
-            </span>
-            <span className="enhanced-glass-body ml-2 capitalize" style={{ color: '#7e4151' }}>
-              {group.privacy}
-            </span>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ color: '#6a1f33', fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Privacy</span>
+            <span style={{ color: '#7e4151', textTransform: 'capitalize' }}>{group.privacy}</span>
           </div>
-          <div>
-            <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
-              Created:
-            </span>
-            <span className="enhanced-glass-body ml-2" style={{ color: '#7e4151' }}>
-              {new Date(group.createdAt).toLocaleDateString()}
-            </span>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ color: '#6a1f33', fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Created</span>
+            <span style={{ color: '#7e4151' }}>{group.createdAt ? new Date(group.createdAt).toLocaleDateString() : 'N/A'}</span>
           </div>
-          <div>
-            <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
-              Max Members:
-            </span>
-            <span className="enhanced-glass-body ml-2" style={{ color: '#7e4151' }}>
-              {group.maxMembers}
-            </span>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ color: '#6a1f33', fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Max Members</span>
+            <span style={{ color: '#7e4151' }}>{group.maxMembers}</span>
           </div>
         </div>
       </div>
