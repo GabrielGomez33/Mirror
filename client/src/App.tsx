@@ -45,6 +45,7 @@ import MirrorGroupsPage from './pages/MirrorGroupsPage';
 import TruthStreamPage from './pages/TruthStreamPage';
 import MyJournalPage from './pages/MyJournalPage';
 import MyMirrorPage from './pages/MyMirrorPage';
+import DevPage from './pages/DevPage';
 
 // -----------------------------------------------------------------------------
 // Config: prefer same-origin; honor VITE_API_URL if explicitly set
@@ -364,6 +365,20 @@ const App: React.FC = () => {
                   redirectTo="/login"
                 >
                   <MirrorGroupsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Developer documentation — authenticated, no intake required. */}
+            <Route
+              path="/dev"
+              element={
+                <ProtectedRoute
+                  accessLevel={AccessLevel.AUTHENTICATED}
+                  securityLevel={SecurityLevel.BASIC}
+                  redirectTo="/login"
+                >
+                  <DevPage />
                 </ProtectedRoute>
               }
             />
