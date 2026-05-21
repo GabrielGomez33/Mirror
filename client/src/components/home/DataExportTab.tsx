@@ -39,6 +39,16 @@ export default function DataExportTab() {
       const res = await fetch('/mirror/api/user/export', {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (res.status === 403) {
+        const errorData = await res.json().catch(() => ({}));
+        if (errorData.code === 'USAGE_LIMIT' || errorData.code === 'UPGRADE_REQUIRED') {
+          import('../../services/paywallInterceptor').then(({ dispatchPaywallEvent }) => {
+            dispatchPaywallEvent({ code: errorData.code, feature: 'data_export', error: errorData.error || 'Data export is a Premium feature.' });
+          });
+          setLoading(false);
+          return;
+        }
+      }
       if (!res.ok) throw new Error(`Export failed: ${res.status}`);
       const data = await res.json();
       setExportData(data);
