@@ -192,7 +192,20 @@ const DevPage: React.FC = () => {
             <DevSearch onMatchedSections={handleMatchedSections} />
           </div>
 
-          {/* Back-to-app affordance. */}
+          {/* Cross-page links. */}
+          <a
+            href="/map"
+            className="hidden whitespace-nowrap text-[12px] sm:inline-block"
+            style={{
+              color: 'var(--dt-fg-muted)',
+              border: '1px solid var(--dt-border-hi)',
+              padding: '0.25rem 0.6rem',
+              borderRadius: '3px',
+              borderBottom: '1px solid var(--dt-border-hi)',
+            }}
+          >
+            /map
+          </a>
           <a
             href="/dashboard"
             className="hidden whitespace-nowrap text-[12px] md:inline-block"
