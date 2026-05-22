@@ -6,11 +6,13 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../context/NotificationContext';
 import { useGroups } from '../../context/GroupContext';
-import { getUserInfo } from '../../utils/token';
+import { useAuth } from '../../context/AuthContext';
+import { getUserInfo, clearToken } from '../../utils/token';
 import { isWebSocketConnected } from '../../services/groupsWebSocket';
 import SubscriptionManager from '../paywall/SubscriptionManager';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { getPersonalIntelligenceApi } from '../../services/mirrorDashboard';
+import { deleteAccountApi } from '../../services/authApi';
 import { buildStorageRetrieveUrl } from '../../utils/storageUrl';
 import type { Notification } from '../../types/notifications';
 // Push notification opt-in / status panel (Phase 5). Embedded inside the
@@ -654,6 +656,340 @@ function NItem({ notification, onAccept, onDecline, onDismiss, onNavigate, onMar
 }
 
 // ============================================================================
+// ACCOUNT SETTINGS — destructive actions (Phase 2a)
+// ============================================================================
+//
+// Two-step delete flow:
+//   Step 1: click "Delete Account" -> open confirmation card in place
+//   Step 2: type "DELETE" + current password + click "Permanently delete"
+// On success we wipe local storage, clear AuthContext state, and route to
+// /login. On error we surface the server's message and let the user retry
+// without losing what they already typed.
+// ============================================================================
+
+interface AccountSettingsProps {
+  onDeleted: () => void;
+}
+
+function AccountSettings({ onDeleted }: AccountSettingsProps) {
+  const [stage, setStage] = useState<'idle' | 'confirming' | 'deleting' | 'done'>('idle');
+  const [confirmation, setConfirmation] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [serverMessage, setServerMessage] = useState<string | null>(null);
+  const confirmInputRef = useRef<HTMLInputElement>(null);
+
+  const reset = useCallback(() => {
+    setStage('idle');
+    setConfirmation('');
+    setPassword('');
+    setShowPassword(false);
+    setError(null);
+    setServerMessage(null);
+  }, []);
+
+  const beginConfirm = useCallback(() => {
+    setStage('confirming');
+    setError(null);
+    setServerMessage(null);
+    // Focus the confirmation input next paint
+    setTimeout(() => confirmInputRef.current?.focus(), 30);
+  }, []);
+
+  const canSubmit = stage === 'confirming'
+    && confirmation.trim().toUpperCase() === 'DELETE'
+    && password.length >= 1;
+
+  const submit = useCallback(async () => {
+    if (!canSubmit) return;
+    setStage('deleting');
+    setError(null);
+    try {
+      const result = await deleteAccountApi(password, confirmation.trim().toUpperCase());
+      setServerMessage(result?.message || 'Account deleted.');
+      setStage('done');
+      // Brief acknowledgement, then bubble up to the parent so it can route
+      // away from the dashboard and back to /login.
+      setTimeout(() => onDeleted(), 800);
+    } catch (err: any) {
+      const msg = err?.message || 'Account deletion failed. Please try again.';
+      setError(msg);
+      // Re-arm the form so the user can fix and retry without losing the
+      // already-typed confirmation string.
+      setStage('confirming');
+      setPassword('');
+    }
+  }, [canSubmit, password, confirmation, onDeleted]);
+
+  // Trigger button — the resting state
+  if (stage === 'idle') {
+    return (
+      <div className="space-y-2">
+        <p style={{
+          color: C.muted,
+          fontSize: '0.7rem',
+          fontFamily: "'Inter', sans-serif",
+          margin: 0,
+          lineHeight: 1.45,
+        }}>
+          Permanently delete your account and every piece of data tied to it. This action cannot be undone.
+        </p>
+        <button
+          type="button"
+          onClick={beginConfirm}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            background: 'rgba(220, 38, 38, 0.12)',
+            color: '#b91c1c',
+            border: '1px solid rgba(220, 38, 38, 0.3)',
+            fontSize: '0.72rem',
+            fontWeight: 600,
+            padding: '6px 12px',
+            borderRadius: 8,
+            cursor: 'pointer',
+            fontFamily: "'Inter', sans-serif",
+            WebkitTapHighlightColor: 'transparent',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.18)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.12)'; }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+            <path d="M10 11v6M14 11v6"></path>
+            <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"></path>
+          </svg>
+          Delete Account
+        </button>
+      </div>
+    );
+  }
+
+  // Success state — brief acknowledgement; parent will redirect shortly.
+  if (stage === 'done') {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        style={{
+          background: 'rgba(34, 197, 94, 0.12)',
+          border: '1px solid rgba(34, 197, 94, 0.3)',
+          borderRadius: 10,
+          padding: '10px 12px',
+        }}
+      >
+        <p style={{
+          color: '#166534',
+          fontSize: '0.75rem',
+          fontWeight: 600,
+          margin: 0,
+          fontFamily: "'Inter', sans-serif",
+        }}>
+          {serverMessage || 'Account deleted.'} Redirecting…
+        </p>
+      </div>
+    );
+  }
+
+  // Confirmation card — stages 'confirming' and 'deleting'
+  const busy = stage === 'deleting';
+
+  return (
+    <div
+      style={{
+        background: 'rgba(220, 38, 38, 0.07)',
+        border: '1px solid rgba(220, 38, 38, 0.25)',
+        borderRadius: 12,
+        padding: '12px 12px 14px',
+      }}
+    >
+      <p style={{
+        color: '#7f1d1d',
+        fontSize: '0.78rem',
+        fontWeight: 700,
+        margin: '0 0 4px',
+        fontFamily: "'Poppins', sans-serif",
+      }}>
+        Are you sure?
+      </p>
+      <p style={{
+        color: '#991b1b',
+        fontSize: '0.7rem',
+        margin: '0 0 10px',
+        fontFamily: "'Inter', sans-serif",
+        lineHeight: 1.4,
+      }}>
+        This action cannot be undone. Every photo, voice sample, journal entry,
+        analysis, and notification tied to your account will be permanently
+        removed.
+      </p>
+
+      <label style={{ display: 'block', marginBottom: 8 }}>
+        <span style={{
+          display: 'block',
+          color: C.body,
+          fontSize: '0.65rem',
+          fontWeight: 600,
+          marginBottom: 4,
+          fontFamily: "'Inter', sans-serif",
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+        }}>
+          Type <span style={{ fontFamily: 'monospace', color: '#7f1d1d' }}>DELETE</span> to confirm
+        </span>
+        <input
+          ref={confirmInputRef}
+          type="text"
+          value={confirmation}
+          onChange={(e) => setConfirmation(e.target.value)}
+          disabled={busy}
+          autoComplete="off"
+          autoCapitalize="characters"
+          spellCheck={false}
+          style={{
+            width: '100%',
+            padding: '7px 10px',
+            borderRadius: 8,
+            border: '1px solid rgba(61, 20, 40, 0.18)',
+            background: 'rgba(255,255,255,0.85)',
+            fontFamily: 'monospace',
+            fontSize: '0.78rem',
+            color: C.heading,
+            outline: 'none',
+          }}
+        />
+      </label>
+
+      <label style={{ display: 'block', marginBottom: 10 }}>
+        <span style={{
+          display: 'block',
+          color: C.body,
+          fontSize: '0.65rem',
+          fontWeight: 600,
+          marginBottom: 4,
+          fontFamily: "'Inter', sans-serif",
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+        }}>
+          Current password
+        </span>
+        <div style={{ position: 'relative' }}>
+          <input
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={busy}
+            autoComplete="current-password"
+            style={{
+              width: '100%',
+              padding: '7px 32px 7px 10px',
+              borderRadius: 8,
+              border: '1px solid rgba(61, 20, 40, 0.18)',
+              background: 'rgba(255,255,255,0.85)',
+              fontFamily: "'Inter', sans-serif",
+              fontSize: '0.78rem',
+              color: C.heading,
+              outline: 'none',
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((s) => !s)}
+            tabIndex={-1}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            disabled={busy}
+            style={{
+              position: 'absolute',
+              right: 6,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'transparent',
+              border: 'none',
+              color: C.muted,
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              padding: 4,
+              lineHeight: 1,
+            }}
+          >
+            {showPassword ? '🙈' : '👁'}
+          </button>
+        </div>
+      </label>
+
+      {error && (
+        <p
+          role="alert"
+          style={{
+            color: '#b91c1c',
+            fontSize: '0.7rem',
+            margin: '0 0 8px',
+            fontFamily: "'Inter', sans-serif",
+            background: 'rgba(220, 38, 38, 0.08)',
+            border: '1px solid rgba(220, 38, 38, 0.18)',
+            borderRadius: 8,
+            padding: '6px 8px',
+          }}
+        >
+          {error}
+        </p>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={!canSubmit || busy}
+          style={{
+            background: !canSubmit || busy
+              ? 'rgba(220, 38, 38, 0.25)'
+              : 'linear-gradient(135deg, #dc2626, #b91c1c)',
+            color: '#ffffff',
+            border: 'none',
+            fontSize: '0.72rem',
+            fontWeight: 700,
+            padding: '7px 14px',
+            borderRadius: 8,
+            cursor: !canSubmit || busy ? 'not-allowed' : 'pointer',
+            opacity: !canSubmit || busy ? 0.7 : 1,
+            fontFamily: "'Inter', sans-serif",
+            boxShadow: !canSubmit || busy
+              ? 'none'
+              : '0 4px 14px rgba(220, 38, 38, 0.35)',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          {busy ? 'Deleting…' : 'Permanently delete'}
+        </button>
+        <button
+          type="button"
+          onClick={reset}
+          disabled={busy}
+          style={{
+            background: 'rgba(255, 255, 255, 0.55)',
+            color: C.heading,
+            border: '1px solid rgba(61, 20, 40, 0.18)',
+            fontSize: '0.72rem',
+            fontWeight: 600,
+            padding: '7px 12px',
+            borderRadius: 8,
+            cursor: busy ? 'not-allowed' : 'pointer',
+            fontFamily: "'Inter', sans-serif",
+            opacity: busy ? 0.6 : 1,
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
@@ -678,6 +1014,10 @@ export default function GlobalDashboard() {
 
   const { fetchMyGroups } = useGroups();
   const { refreshSubscription } = useSubscription();
+  // logout() clears tokens, wipes AuthContext state, and triggers re-render of
+  // protected routes. After a successful account deletion we still call it to
+  // ensure the in-memory auth tree mirrors the now-wiped localStorage.
+  const { logout } = useAuth();
   const navigate = useNavigate();
   const userInfo = getUserInfo();
   const visible = notifications.filter((n) => !n.dismissed);
@@ -745,6 +1085,30 @@ export default function GlobalDashboard() {
     handleClose();
     navigate('/intake/visual');
   }, [navigate]);
+
+  // Called by AccountSettings after a successful deletion. authApi.deleteAccount
+  // has already wiped localStorage tokens. We still call logout() so any
+  // listeners on AuthContext re-render with the cleared state, and we forcibly
+  // navigate to /login (replace: true) so the user can't hit Back into a
+  // half-authenticated dashboard.
+  const handleAccountDeleted = useCallback(() => {
+    // Belt-and-braces: ensure ALL known auth-related local-storage entries are
+    // cleared on the path back to /login (authApi already does this on
+    // success, but if there is some race we want to be safe).
+    try { clearToken(); } catch { /* non-fatal */ }
+    try { clearToken('refreshToken'); } catch { /* non-fatal */ }
+    try { clearToken('userInfo'); } catch { /* non-fatal */ }
+    try { localStorage.removeItem('rememberedEmail'); } catch { /* non-fatal */ }
+    try { localStorage.removeItem('loginAttempts'); } catch { /* non-fatal */ }
+
+    // Drop the dashboard chrome before navigating so the slide-out animation
+    // plays nicely instead of being torn out mid-frame.
+    handleClose();
+    // logout() is best-effort — the API call may 401 because the user row
+    // is gone. We swallow that.
+    logout(false).catch(() => { /* expected */ });
+    navigate('/login', { replace: true });
+  }, [logout, navigate]);
 
   // Cancel in-flight face fetch on unmount.
   useEffect(() => {
@@ -932,6 +1296,11 @@ export default function GlobalDashboard() {
                 {/* Subscription */}
                 <Section title="Subscription" icon="✦" onToggle={(isOpen) => { if (isOpen) refreshSubscription(); }}>
                   <SubscriptionManager />
+                </Section>
+
+                {/* Account Settings — destructive actions live here (Phase 2a) */}
+                <Section title="Account Settings" icon="⚙️">
+                  <AccountSettings onDeleted={handleAccountDeleted} />
                 </Section>
 
                 {/* System */}
