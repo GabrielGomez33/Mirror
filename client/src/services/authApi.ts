@@ -479,6 +479,20 @@ class AuthApiClient {
       return response;
     } catch (error) {
       console.error('Account deletion failed:', error);
+      // makeRequest throws ApiError ({ error, code, details }). The
+      // confirmation modal reads err.message, so promote any server-supplied
+      // `detail` (added in Phase 2a) into a proper Error instance so the
+      // underlying cause makes it to the UI when something goes wrong.
+      const apiErr = error as any;
+      if (apiErr && typeof apiErr === 'object' && !(apiErr instanceof Error)) {
+        const userMsg = apiErr.error || 'Account deletion failed.';
+        const debugDetail = apiErr.details?.detail || apiErr.detail;
+        const composed = debugDetail ? `${userMsg} — ${debugDetail}` : userMsg;
+        const promoted = new Error(composed);
+        (promoted as any).code = apiErr.code;
+        (promoted as any).details = apiErr.details;
+        throw promoted;
+      }
       throw error;
     }
   }
