@@ -2,7 +2,7 @@
 // System-wide dashboard with real user data, notifications, connection status,
 // and subscription management. Uses MyMirror's dark-on-light color scheme.
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../context/NotificationContext';
 import { useGroups } from '../../context/GroupContext';
@@ -10,6 +10,8 @@ import { getUserInfo } from '../../utils/token';
 import { isWebSocketConnected } from '../../services/groupsWebSocket';
 import SubscriptionManager from '../paywall/SubscriptionManager';
 import { useSubscription } from '../../context/SubscriptionContext';
+import { getPersonalIntelligenceApi } from '../../services/mirrorDashboard';
+import { buildStorageRetrieveUrl } from '../../utils/storageUrl';
 import type { Notification } from '../../types/notifications';
 // Push notification opt-in / status panel (Phase 5). Embedded inside the
 // "Notifications" section below so users can enable / manage push from the
@@ -45,18 +47,48 @@ const GLASS_CARD: React.CSSProperties = {
 // USER AVATAR COMPONENT
 // ============================================================================
 
-function UserAvatar({ username, showStatus, isOnline }: { username: string; showStatus?: boolean; isOnline?: boolean }) {
+function UserAvatar({
+  username,
+  showStatus,
+  isOnline,
+  onClick,
+  isOpen,
+}: {
+  username: string;
+  showStatus?: boolean;
+  isOnline?: boolean;
+  onClick?: () => void;
+  isOpen?: boolean;
+}) {
   const initials = username.split(/[\s_-]/).map((w) => w[0]?.toUpperCase() || '').slice(0, 2).join('');
+  const isInteractive = typeof onClick === 'function';
 
   return (
-    <div className="relative">
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!isInteractive}
+      aria-label={isInteractive ? `Open profile for ${username}` : `${username}'s avatar`}
+      aria-expanded={isInteractive ? !!isOpen : undefined}
+      className="relative p-0"
+      style={{
+        background: 'transparent',
+        border: 'none',
+        cursor: isInteractive ? 'pointer' : 'default',
+        outline: 'none',
+        WebkitTapHighlightColor: 'transparent',
+      }}
+    >
       <div
-        className="w-11 h-11 rounded-full flex items-center justify-center font-semibold text-white relative overflow-hidden"
+        className="w-11 h-11 rounded-full flex items-center justify-center font-semibold text-white relative overflow-hidden transition-transform"
         style={{
           background: 'linear-gradient(135deg, #ff69b4, #da70d6, #ff1493)',
-          boxShadow: '0 4px 16px rgba(255, 105, 180, 0.35)',
+          boxShadow: isOpen
+            ? '0 6px 22px rgba(255, 105, 180, 0.55), 0 0 0 2px rgba(255,255,255,0.7)'
+            : '0 4px 16px rgba(255, 105, 180, 0.35)',
           border: '2px solid rgba(255, 255, 255, 0.5)',
           fontSize: '0.85rem',
+          transform: isOpen ? 'scale(1.04)' : 'scale(1)',
         }}
       >
         <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.3) 0%, transparent 50%)' }} />
@@ -68,6 +100,396 @@ function UserAvatar({ username, showStatus, isOnline }: { username: string; show
           boxShadow: isOnline ? '0 0 6px rgba(34, 197, 94, 0.6)' : 'none',
           border: '2px solid rgba(255, 255, 255, 0.7)',
         }} />
+      )}
+      {isInteractive && (
+        <div
+          aria-hidden
+          className="absolute flex items-center justify-center rounded-full"
+          style={{
+            // ~3x larger than the previous 16px indicator, positioned bottom-right
+            // so it sits outside the status dot on the bottom-left.
+            width: 22,
+            height: 22,
+            right: -6,
+            bottom: -6,
+            background: 'rgba(255,255,255,0.95)',
+            border: '1.5px solid rgba(61, 20, 40, 0.2)',
+            boxShadow: '0 3px 10px rgba(0,0,0,0.18)',
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
+            style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.25s ease' }}>
+            <path d="M3 5l4 4 4-4" stroke={C.accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+      )}
+    </button>
+  );
+}
+
+// ============================================================================
+// FACIAL ANALYSIS COLOR WHEELS  — matches VisualStep + MyMirrorPanel styling
+// Emotion palette intentionally identical to VisualStep's EXPRESSION_META.
+// ============================================================================
+
+type ExpressionKey = 'neutral' | 'happy' | 'sad' | 'angry' | 'fearful' | 'disgusted' | 'surprised';
+
+const EXPRESSION_META: Record<ExpressionKey, { label: string; color: string; glow: string }> = {
+  neutral:   { label: 'Neutral',   color: '#94a3b8', glow: 'rgba(148,163,184,0.45)' },
+  happy:     { label: 'Happy',     color: '#4ade80', glow: 'rgba(74,222,128,0.45)' },
+  sad:       { label: 'Sad',       color: '#60a5fa', glow: 'rgba(96,165,250,0.45)' },
+  angry:     { label: 'Angry',     color: '#f87171', glow: 'rgba(248,113,113,0.45)' },
+  fearful:   { label: 'Fearful',   color: '#c084fc', glow: 'rgba(192,132,252,0.45)' },
+  disgusted: { label: 'Disgusted', color: '#fb923c', glow: 'rgba(251,146,60,0.45)' },
+  surprised: { label: 'Surprised', color: '#facc15', glow: 'rgba(250,204,21,0.45)' },
+};
+
+function ColorWheelRing({
+  value,
+  color,
+  glow,
+  label,
+  size = 56,
+  strokeWidth = 5,
+}: {
+  value: number;
+  color: string;
+  glow: string;
+  label: string;
+  size?: number;
+  strokeWidth?: number;
+}) {
+  const pct = Math.max(0, Math.min(100, Math.round(value)));
+  const radius = (size - strokeWidth * 2) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (pct / 100) * circumference;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: size }}>
+      <div style={{ width: size, height: size, position: 'relative', flexShrink: 0 }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)', display: 'block' }}>
+          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(61,20,40,0.08)" strokeWidth={strokeWidth} />
+          <circle
+            cx={size / 2} cy={size / 2} r={radius}
+            fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            style={{ filter: pct > 4 ? `drop-shadow(0 0 5px ${glow})` : 'none', transition: 'stroke-dashoffset 0.7s ease' }}
+          />
+        </svg>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{
+            fontSize: size * 0.26,
+            fontFamily: 'monospace',
+            fontWeight: 700,
+            color,
+            textShadow: '0 1px 2px rgba(255,255,255,0.5)',
+          }}>
+            {pct}
+          </span>
+        </div>
+      </div>
+      <span style={{
+        fontSize: '0.65rem',
+        fontWeight: 600,
+        color: C.body,
+        fontFamily: "'Inter', sans-serif",
+        textAlign: 'center',
+        lineHeight: 1.2,
+      }}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+interface FacialAnalysis {
+  available: boolean;
+  expressions: Partial<Record<ExpressionKey, number>>;
+  dominant: { emotion: string; confidence: number } | null;
+  detectionConfidence: number;
+  photoUrl: string | null;
+}
+
+function normalizeFacialAnalysis(emotional: any, userId: number | string | undefined): FacialAnalysis | null {
+  if (!emotional) return null;
+  if (emotional.available === false) {
+    return { available: false, expressions: {}, dominant: null, detectionConfidence: 0, photoUrl: null };
+  }
+
+  const rawExpressions = emotional.expressions || {};
+  const expressions: Partial<Record<ExpressionKey, number>> = {};
+  for (const key of Object.keys(rawExpressions)) {
+    if (key in EXPRESSION_META) {
+      const raw = Number(rawExpressions[key]);
+      if (!Number.isFinite(raw)) continue;
+      const v = raw > 1 ? raw : raw * 100;
+      expressions[key as ExpressionKey] = Math.max(0, Math.min(100, v));
+    }
+  }
+
+  const dom = emotional.dominantEmotion;
+  const domConf = Number(dom?.confidence);
+  const dominant = dom && Number.isFinite(domConf)
+    ? { emotion: String(dom.emotion || ''), confidence: domConf > 1 ? domConf : domConf * 100 }
+    : null;
+
+  const dRaw = Number(emotional.detection?.confidence);
+  const detectionConfidence = Number.isFinite(dRaw)
+    ? Math.max(0, Math.min(100, dRaw > 1 ? dRaw : dRaw * 100))
+    : 0;
+
+  // photoFileRef is { filename, tier, size, mimetype, uploadedAt, originalname }
+  // Build a secure JWT-tokenized retrieve URL. The util refuses absolute paths,
+  // path traversal, and cross-origin URLs.
+  const photoRef = emotional.photoFileRef;
+  let photoUrl: string | null = null;
+  if (photoRef && photoRef.filename && userId !== undefined && userId !== null) {
+    const tier = (photoRef.tier === 'tier1' || photoRef.tier === 'tier2' || photoRef.tier === 'tier3')
+      ? photoRef.tier
+      : undefined;
+    photoUrl = buildStorageRetrieveUrl(String(photoRef.filename), userId, tier);
+  }
+
+  return { available: true, expressions, dominant, detectionConfidence, photoUrl };
+}
+
+function FacialAnalysisDropdown({
+  open,
+  loading,
+  error,
+  data,
+  onRetry,
+  onCompleteIntake,
+}: {
+  open: boolean;
+  loading: boolean;
+  error: string | null;
+  data: FacialAnalysis | null;
+  onRetry: () => void;
+  onCompleteIntake: () => void;
+}) {
+  if (!open) return null;
+
+  const wrapperStyle: React.CSSProperties = {
+    ...GLASS_CARD,
+    marginTop: 10,
+    padding: '14px 14px 12px',
+    background: 'rgba(255, 255, 255, 0.5)',
+    borderColor: 'rgba(255, 255, 255, 0.55)',
+    animation: 'avatarDropIn 0.25s ease-out',
+  };
+
+  const headingStyle: React.CSSProperties = {
+    fontFamily: "'Poppins', sans-serif",
+    fontWeight: 600,
+    fontSize: '0.8rem',
+    color: C.heading,
+    margin: 0,
+  };
+  const subtleStyle: React.CSSProperties = {
+    fontSize: '0.65rem',
+    color: C.muted,
+    fontFamily: "'Inter', sans-serif",
+    margin: 0,
+  };
+
+  if (loading) {
+    return (
+      <div style={wrapperStyle} role="status" aria-live="polite">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="w-5 h-5 border-2 rounded-full animate-spin"
+            style={{ borderColor: 'rgba(198, 70, 155, 0.2)', borderTopColor: C.accent }} />
+          <span style={subtleStyle}>Loading your facial analysis…</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={wrapperStyle}>
+        <p style={{ ...subtleStyle, color: '#b91c1c', marginBottom: 8 }}>{error}</p>
+        <button
+          type="button"
+          onClick={onRetry}
+          style={{
+            background: 'rgba(198, 70, 155, 0.12)',
+            color: C.accent,
+            border: '1px solid rgba(198, 70, 155, 0.25)',
+            fontSize: '0.7rem',
+            fontWeight: 600,
+            padding: '4px 10px',
+            borderRadius: 8,
+            cursor: 'pointer',
+          }}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (!data || data.available === false) {
+    return (
+      <div style={wrapperStyle}>
+        <p style={{ ...headingStyle, marginBottom: 4 }}>No facial analysis yet</p>
+        <p style={{ ...subtleStyle, marginBottom: 10 }}>
+          Complete the visual step of your intake to unlock emotional insights.
+        </p>
+        <button
+          type="button"
+          onClick={onCompleteIntake}
+          style={{
+            background: 'rgba(198, 70, 155, 0.15)',
+            color: C.accent,
+            border: '1px solid rgba(198, 70, 155, 0.25)',
+            fontSize: '0.7rem',
+            fontWeight: 600,
+            padding: '5px 12px',
+            borderRadius: 8,
+            cursor: 'pointer',
+          }}
+        >
+          Complete visual intake
+        </button>
+      </div>
+    );
+  }
+
+  const dominantKey = (data.dominant?.emotion || '').toLowerCase();
+  const dominantMeta = (dominantKey in EXPRESSION_META)
+    ? EXPRESSION_META[dominantKey as ExpressionKey]
+    : null;
+
+  const entries = (Object.keys(EXPRESSION_META) as ExpressionKey[])
+    .map((k) => [k, data.expressions[k] ?? 0] as const)
+    .filter(([, v]) => Number.isFinite(v))
+    .sort((a, b) => b[1] - a[1]);
+
+  const qualityColor = data.detectionConfidence >= 80 ? '#16a34a'
+    : data.detectionConfidence >= 60 ? '#ca8a04'
+    : data.detectionConfidence >= 40 ? '#ea580c'
+    : '#dc2626';
+  const qualityGlow = data.detectionConfidence >= 80 ? 'rgba(22,163,74,0.45)'
+    : data.detectionConfidence >= 60 ? 'rgba(202,138,4,0.45)'
+    : data.detectionConfidence >= 40 ? 'rgba(234,88,12,0.45)'
+    : 'rgba(220,38,38,0.45)';
+
+  return (
+    <div style={wrapperStyle}>
+      {data.photoUrl && (
+        <div style={{
+          position: 'relative',
+          margin: '0 auto 12px',
+          width: '100%',
+          maxWidth: 180,
+          aspectRatio: '1 / 1',
+          borderRadius: 14,
+          overflow: 'hidden',
+          background: 'rgba(61, 20, 40, 0.06)',
+          border: '1px solid rgba(255, 255, 255, 0.55)',
+          boxShadow: '0 4px 16px rgba(61, 20, 40, 0.15), inset 0 1px 0 rgba(255,255,255,0.4)',
+        }}>
+          <img
+            src={data.photoUrl}
+            alt="Your intake photo"
+            referrerPolicy="no-referrer"
+            draggable={false}
+            onError={(e) => {
+              // If the retrieve URL fails (expired token, deleted file), drop
+              // the broken image silently — the wheels still convey the data.
+              (e.currentTarget as HTMLImageElement).style.display = 'none';
+            }}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              display: 'block',
+            }}
+          />
+          {dominantMeta && (
+            <div style={{
+              position: 'absolute',
+              left: 8,
+              bottom: 8,
+              padding: '3px 8px',
+              borderRadius: 8,
+              borderLeft: `3px solid ${dominantMeta.color}`,
+              background: 'rgba(255,255,255,0.85)',
+              fontSize: '0.65rem',
+              fontWeight: 700,
+              color: C.heading,
+              fontFamily: "'Inter', sans-serif",
+              backdropFilter: 'blur(6px)',
+              WebkitBackdropFilter: 'blur(6px)',
+            }}>
+              {dominantMeta.label} {data.dominant ? `${Math.round(data.dominant.confidence)}%` : ''}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+        <ColorWheelRing
+          value={data.detectionConfidence}
+          color={qualityColor}
+          glow={qualityGlow}
+          label="Quality"
+          size={56}
+          strokeWidth={5}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={headingStyle}>Facial Analysis</p>
+          <p style={subtleStyle}>
+            {dominantMeta && data.dominant
+              ? `Dominant: ${dominantMeta.label} (${Math.round(data.dominant.confidence)}%)`
+              : 'Emotional spectrum'}
+          </p>
+        </div>
+        {dominantMeta && !data.photoUrl && (
+          <div style={{
+            padding: '4px 9px',
+            borderRadius: 10,
+            borderLeft: `3px solid ${dominantMeta.color}`,
+            background: 'rgba(255,255,255,0.45)',
+            fontSize: '0.65rem',
+            fontWeight: 600,
+            color: C.heading,
+            fontFamily: "'Inter', sans-serif",
+            flexShrink: 0,
+          }}>
+            {dominantMeta.label}
+          </div>
+        )}
+      </div>
+
+      {entries.length > 0 ? (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: 8,
+          }}
+          className="gd-emotion-grid"
+        >
+          {entries.map(([key, value]) => {
+            const meta = EXPRESSION_META[key];
+            return (
+              <ColorWheelRing
+                key={key}
+                value={value}
+                color={meta.color}
+                glow={meta.glow}
+                label={meta.label}
+                size={48}
+                strokeWidth={4}
+              />
+            );
+          })}
+        </div>
+      ) : (
+        <p style={subtleStyle}>No emotion data available.</p>
       )}
     </div>
   );
@@ -242,6 +664,14 @@ export default function GlobalDashboard() {
   const [wsConnected, setWsConnected] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Avatar dropdown (Phase 1a) — facial analysis from completed intake.
+  const [avatarOpen, setAvatarOpen] = useState(false);
+  const [faceLoading, setFaceLoading] = useState(false);
+  const [faceError, setFaceError] = useState<string | null>(null);
+  const [faceData, setFaceData] = useState<FacialAnalysis | null>(null);
+  const faceFetchedRef = useRef(false);
+  const faceAbortRef = useRef<AbortController | null>(null);
+
   const {
     notifications, unreadCount, isConnected: notifConnected,
     acceptInvite, declineInvite, dismiss, markRead, markAllRead, clearAll,
@@ -259,7 +689,12 @@ export default function GlobalDashboard() {
   const handleClose = () => {
     if (isClosing) return;
     setIsClosing(true);
-    setTimeout(() => { setShowDashboard(false); setIsClosing(false); document.body.classList.remove('dashboard-open'); }, 300);
+    setTimeout(() => {
+      setShowDashboard(false);
+      setIsClosing(false);
+      setAvatarOpen(false);
+      document.body.classList.remove('dashboard-open');
+    }, 300);
   };
   const handleOpen = () => {
     setShowDashboard(true);
@@ -267,6 +702,59 @@ export default function GlobalDashboard() {
     document.body.classList.add('dashboard-open');
     refreshSubscription(); // Fetch latest subscription + usage data
   };
+
+  const fetchFaceAnalysis = useCallback(async () => {
+    // Avoid overlapping requests; if a fetch is mid-flight, cancel it.
+    if (faceAbortRef.current) {
+      try { faceAbortRef.current.abort(); } catch { /* noop */ }
+    }
+    const ctrl = new AbortController();
+    faceAbortRef.current = ctrl;
+
+    setFaceLoading(true);
+    setFaceError(null);
+    try {
+      const data = await getPersonalIntelligenceApi();
+      if (ctrl.signal.aborted) return;
+      // Read userInfo at fetch-time (not closure-time) so the userId reflects
+      // whoever is currently signed in, not whoever was signed in when the
+      // useCallback was first created.
+      const currentUserId = getUserInfo()?.userId;
+      const normalized = normalizeFacialAnalysis(data?.completeEmotionalData, currentUserId);
+      setFaceData(normalized);
+      faceFetchedRef.current = true;
+    } catch (err: any) {
+      if (ctrl.signal.aborted) return;
+      const msg = err?.message || 'Could not load facial analysis.';
+      setFaceError(msg);
+    } finally {
+      if (!ctrl.signal.aborted) setFaceLoading(false);
+    }
+  }, []);
+
+  const handleAvatarToggle = useCallback(() => {
+    setAvatarOpen((prev) => {
+      const next = !prev;
+      if (next && !faceFetchedRef.current && !faceLoading) {
+        fetchFaceAnalysis();
+      }
+      return next;
+    });
+  }, [faceLoading, fetchFaceAnalysis]);
+
+  const handleGoToVisualIntake = useCallback(() => {
+    handleClose();
+    navigate('/intake/visual');
+  }, [navigate]);
+
+  // Cancel in-flight face fetch on unmount.
+  useEffect(() => {
+    return () => {
+      if (faceAbortRef.current) {
+        try { faceAbortRef.current.abort(); } catch { /* noop */ }
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!showDashboard) return;
@@ -334,27 +822,49 @@ export default function GlobalDashboard() {
                 background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), rgba(255, 182, 193, 0.5), transparent)' }} />
 
               {/* Header */}
-              <div className="flex justify-between items-center p-4 pb-3" style={{ borderBottom: `1px solid rgba(61, 20, 40, 0.1)` }}>
-                <div className="flex items-center gap-3">
-                  {userInfo && <UserAvatar username={userInfo.username} showStatus isOnline={wsConnected} />}
-                  <div>
-                    <h2 style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700, fontSize: '1.1rem', color: C.heading,
-                      textShadow: '0 1px 3px rgba(255, 255, 255, 0.3)' }}>
-                      {userInfo?.username || 'Guest'}
-                    </h2>
-                    <p style={{ fontFamily: "'Inter', sans-serif", fontSize: '0.7rem', color: C.subtle }} className="truncate max-w-[150px]">
-                      {userInfo?.email || 'Not logged in'}
-                    </p>
+              <div className="p-4 pb-3" style={{ borderBottom: `1px solid rgba(61, 20, 40, 0.1)` }}>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    {userInfo && (
+                      <UserAvatar
+                        username={userInfo.username}
+                        showStatus
+                        isOnline={wsConnected}
+                        onClick={handleAvatarToggle}
+                        isOpen={avatarOpen}
+                      />
+                    )}
+                    <div>
+                      <h2 style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700, fontSize: '1.1rem', color: C.heading,
+                        textShadow: '0 1px 3px rgba(255, 255, 255, 0.3)' }}>
+                        {userInfo?.username || 'Guest'}
+                      </h2>
+                      <p style={{ fontFamily: "'Inter', sans-serif", fontSize: '0.7rem', color: C.subtle }} className="truncate max-w-[150px]">
+                        {userInfo?.email || 'Not logged in'}
+                      </p>
+                    </div>
                   </div>
+                  <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-full transition-colors"
+                    style={{ background: 'rgba(61, 20, 40, 0.06)', border: '1px solid rgba(61, 20, 40, 0.1)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(61, 20, 40, 0.12)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(61, 20, 40, 0.06)'; }}>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M9 3L3 9M3 3l6 6" stroke={C.heading} strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                  </button>
                 </div>
-                <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-full transition-colors"
-                  style={{ background: 'rgba(61, 20, 40, 0.06)', border: '1px solid rgba(61, 20, 40, 0.1)' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(61, 20, 40, 0.12)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(61, 20, 40, 0.06)'; }}>
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                    <path d="M9 3L3 9M3 3l6 6" stroke={C.heading} strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
-                </button>
+
+                {/* Avatar dropdown — facial analysis (Phase 1a) */}
+                {userInfo && (
+                  <FacialAnalysisDropdown
+                    open={avatarOpen}
+                    loading={faceLoading}
+                    error={faceError}
+                    data={faceData}
+                    onRetry={fetchFaceAnalysis}
+                    onCompleteIntake={handleGoToVisualIntake}
+                  />
+                )}
               </div>
 
               {/* Scrollable content */}
@@ -453,6 +963,13 @@ export default function GlobalDashboard() {
         @keyframes slideIn {
           from { transform: translateX(-100%); opacity: 0; }
           to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes avatarDropIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @media (max-width: 360px) {
+          .gd-emotion-grid { grid-template-columns: repeat(3, 1fr) !important; }
         }
         .gd-scroll { scrollbar-width: thin; scrollbar-color: rgba(61, 20, 40, 0.15) transparent; }
         .gd-scroll::-webkit-scrollbar { width: 3px; }
