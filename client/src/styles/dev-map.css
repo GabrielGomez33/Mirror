@@ -1,0 +1,317 @@
+/* ──────────────────────────────────────────────────────────────────────
+   /map — site-tree styles (terminal-themed, scoped under .dev-terminal)
+   ──────────────────────────────────────────────────────────────────────
+   The /map page reuses the .dev-terminal palette and typography from
+   dev-terminal.css. These rules add the tree visualization layer:
+   pure-CSS connectors between nodes plus mobile reflow to an indented
+   ASCII list. There is no JavaScript for layout — the connectors are
+   borders on pseudo-elements, so the tree resizes gracefully without
+   any reflow JS, and prints cleanly.
+   ────────────────────────────────────────────────────────────────────── */
+
+/* ── Root container ─────────────────────────────────────────────────── */
+.dt-tree {
+  /* The tree expands as wide as needed; allow horizontal scroll for
+     dense trees on small screens. The mobile media query below switches
+     to a vertical list instead so this scroll only kicks in for the
+     desktop layout. */
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 1rem 0.5rem 2rem;
+  --dt-tree-line: var(--dt-border-hi);
+  --dt-tree-gap-v: 1.75rem;
+  --dt-tree-gap-h: 1.5rem;
+}
+
+/* ── Node card ──────────────────────────────────────────────────────── */
+.dt-node {
+  /* Each node is an inline-block "card" rendered with a terminal-style
+     border. We use a CSS variable for the accent so MapNode.tsx can
+     drive the color from the category. */
+  --dt-node-accent: var(--dt-cyan);
+  --dt-node-accent-dim: var(--dt-cyan-dim);
+
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-width: 9rem;
+  max-width: 14rem;
+  padding: 0.55rem 0.7rem;
+  background: var(--dt-bg-elevated);
+  border: 1px solid var(--dt-border);
+  border-left: 3px solid var(--dt-node-accent);
+  border-radius: 3px;
+  text-align: left;
+  color: var(--dt-fg);
+  font-family: inherit;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.dt-node:hover,
+.dt-node:focus-visible {
+  background: var(--dt-bg-soft);
+  border-color: var(--dt-node-accent);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.dt-node:focus-visible {
+  box-shadow: 0 0 0 2px var(--dt-node-accent-dim);
+}
+
+/* When the node is rendered as a Router <Link> (anchor element), the
+   global .dev-terminal a hover rule in dev-terminal.css has higher
+   specificity than .dt-node:hover and would otherwise replace only the
+   bottom border color — making cards look like they have an underline
+   on hover. These rules match on a.dt-node so source order (dev-map.css
+   is loaded after dev-terminal.css) wins on the specificity tie. */
+.dev-terminal a.dt-node {
+  border-bottom-color: var(--dt-border);
+  text-decoration: none;
+}
+.dev-terminal a.dt-node:hover,
+.dev-terminal a.dt-node:focus-visible {
+  border-bottom-color: var(--dt-node-accent);
+}
+
+.dt-node .dt-node-title {
+  color: var(--dt-fg-strong);
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.dt-node .dt-node-path {
+  color: var(--dt-node-accent);
+  font-size: 0.7rem;
+  letter-spacing: 0.01em;
+}
+
+.dt-node .dt-node-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.dt-node .dt-node-glyph {
+  color: var(--dt-node-accent);
+  margin-right: 0.4rem;
+}
+
+/* Planned status — gentle dashed border + slight transparency. */
+.dt-node[data-status='planned'] {
+  border-style: dashed;
+  opacity: 0.92;
+}
+.dt-node[data-status='planned']::after {
+  content: 'planned';
+  position: absolute;
+  /* placeholder; reserved if you ever want to overlay a corner ribbon */
+}
+
+/* Dev-only status — desaturate slightly to background the node. */
+.dt-node[data-status='dev-only'] {
+  opacity: 0.7;
+}
+
+/* Category root nodes — slightly larger, accent fill in the path. */
+.dt-node[data-category-root='true'] {
+  background: linear-gradient(
+    180deg,
+    var(--dt-node-accent-dim) 0%,
+    var(--dt-bg-elevated) 100%
+  );
+  font-size: 0.84rem;
+}
+
+/* ── Desktop tree layout ────────────────────────────────────────────── */
+/* The tree uses nested <ul>/<li>. Children sit side-by-side and connect
+   to their parent with three line segments:
+     1) parent → midpoint (vertical from parent bottom)
+     2) midpoint → horizontal rail across the row of children
+     3) horizontal rail → each child top (vertical drop)
+   Each segment is drawn with a pseudo-element border on the right
+   <li> / <ul>, so the whole tree is GPU-friendly and prints cleanly. */
+
+@media (min-width: 768px) {
+  .dt-tree ul.dt-tree-row {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: var(--dt-tree-gap-h);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    position: relative;
+  }
+
+  .dt-tree ul.dt-tree-row > li {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    padding-top: var(--dt-tree-gap-v);
+    /* The connector lines below sit inside this padding band. */
+  }
+
+  /* Drop line from this li up to the parent's horizontal rail (segment 3). */
+  .dt-tree ul.dt-tree-row > li::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 0;
+    height: var(--dt-tree-gap-v);
+    border-left: 1px dashed var(--dt-tree-line);
+  }
+
+  /* Horizontal rail across the row of children (segment 2). Drawn on
+     each li as a half-rail (left half on most, right half on the last
+     child, both halves on middle children) — simulated by drawing a
+     left-going and right-going rail from the top of each li. */
+  .dt-tree ul.dt-tree-row > li::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 0;
+    border-top: 1px dashed var(--dt-tree-line);
+  }
+
+  /* First and last children only need a half-rail towards the center. */
+  .dt-tree ul.dt-tree-row > li:first-child::after {
+    left: 50%;
+  }
+  .dt-tree ul.dt-tree-row > li:last-child::after {
+    right: 50%;
+  }
+  /* If there is only one child, no rail is needed; the drop line is enough. */
+  .dt-tree ul.dt-tree-row > li:only-child::after {
+    display: none;
+  }
+
+  /* Vertical line from the parent's bottom edge into the rail (segment 1).
+     Implemented on the wrapping .dt-branch (declared on parent node). */
+  .dt-tree .dt-branch::after {
+    content: '';
+    display: block;
+    width: 0;
+    height: var(--dt-tree-gap-v);
+    margin: 0 auto;
+    border-left: 1px dashed var(--dt-tree-line);
+  }
+  .dt-tree .dt-branch.dt-branch-leaf::after {
+    display: none;
+  }
+}
+
+/* ── Mobile fallback (under 768px) ──────────────────────────────────── */
+/* Switch to a vertical ASCII tree. Each level indents and prepends a
+   tree glyph generated by an ::before pseudo-element. This is the same
+   look as the file-tree sidebar on /dev. */
+
+@media (max-width: 767.98px) {
+  .dt-tree ul.dt-tree-row {
+    display: block;
+    list-style: none;
+    margin: 0;
+    padding-left: 1.1rem;
+    position: relative;
+  }
+
+  /* Vertical trunk down the left edge. */
+  .dt-tree ul.dt-tree-row::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 1rem;
+    left: 0.5rem;
+    border-left: 1px dashed var(--dt-tree-line);
+  }
+
+  .dt-tree ul.dt-tree-row > li {
+    position: relative;
+    padding: 0.4rem 0 0.4rem 1rem;
+  }
+
+  /* Horizontal connector glyph. */
+  .dt-tree ul.dt-tree-row > li::before {
+    content: '';
+    position: absolute;
+    top: 1.1rem;
+    left: -0.6rem;
+    width: 1rem;
+    border-top: 1px dashed var(--dt-tree-line);
+  }
+
+  /* Trim the trunk at the last child so it doesn't visually overshoot. */
+  .dt-tree ul.dt-tree-row > li:last-child::after {
+    content: '';
+    position: absolute;
+    top: 1.2rem;
+    bottom: 0;
+    left: -1.1rem;
+    width: 0;
+    border-left: 1px solid var(--dt-bg);
+  }
+
+  /* Cards stretch wider on mobile for legibility. */
+  .dt-node {
+    max-width: none;
+    width: 100%;
+  }
+}
+
+/* ── Status pill (planned / dev-only / live) ────────────────────────── */
+.dt-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0 0.35rem;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+}
+
+.dt-status[data-status='live'] {
+  color: var(--dt-green);
+}
+.dt-status[data-status='planned'] {
+  color: var(--dt-amber);
+}
+.dt-status[data-status='dev-only'] {
+  color: var(--dt-fg-dim);
+}
+
+/* ── Legend ─────────────────────────────────────────────────────────── */
+.dt-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.1rem;
+  font-size: 0.72rem;
+  color: var(--dt-fg-muted);
+}
+.dt-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.dt-legend-swatch {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 1px solid var(--dt-border-hi);
+  border-left-width: 3px;
+  border-left-style: solid;
+  border-radius: 2px;
+  background: var(--dt-bg-elevated);
+}

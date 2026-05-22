@@ -46,6 +46,7 @@ import TruthStreamPage from './pages/TruthStreamPage';
 import MyJournalPage from './pages/MyJournalPage';
 import MyMirrorPage from './pages/MyMirrorPage';
 import DevPage from './pages/DevPage';
+import MapPage from './pages/MapPage';
 
 // -----------------------------------------------------------------------------
 // Config: prefer same-origin; honor VITE_API_URL if explicitly set
@@ -379,6 +380,20 @@ const App: React.FC = () => {
                   redirectTo="/login"
                 >
                   <DevPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Site map — authenticated, no intake required. */}
+            <Route
+              path="/map"
+              element={
+                <ProtectedRoute
+                  accessLevel={AccessLevel.AUTHENTICATED}
+                  securityLevel={SecurityLevel.BASIC}
+                  redirectTo="/login"
+                >
+                  <MapPage />
                 </ProtectedRoute>
               }
             />
