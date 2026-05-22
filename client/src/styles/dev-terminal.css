@@ -1,0 +1,224 @@
+/* ──────────────────────────────────────────────────────────────────────
+   /dev — terminal-themed documentation styles
+   ──────────────────────────────────────────────────────────────────────
+   The /dev route renders as a developer terminal: monospace everywhere,
+   solid dark background, ASCII rules, line-numbered code. These rules
+   are scoped to .dev-terminal to avoid bleeding into the rest of Mirror.
+   ────────────────────────────────────────────────────────────────────── */
+
+/* JetBrains Mono is loaded for that authentic dev-terminal feel.
+   Fonts gracefully degrade through a strong system-mono stack so the
+   page is fully readable before (or without) the network font. */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+.dev-terminal {
+  /* Color tokens — drawn from common terminal palettes (GitHub Dark + Tokyo Night).
+     Exposed as CSS vars so future themes can swap without touching components. */
+  --dt-bg:           #0a0e14;
+  --dt-bg-elevated: #0d1117;
+  --dt-bg-soft:     #11161d;
+  --dt-bg-code:     #06080c;
+
+  --dt-fg:          #c9d1d9;
+  --dt-fg-strong:   #f0f6fc;
+  --dt-fg-muted:    #8b949e;
+  --dt-fg-dim:      #6e7681;
+
+  --dt-border:      #21262d;
+  --dt-border-soft: #161b22;
+  --dt-border-hi:   #30363d;
+
+  --dt-green:       #3fb950;
+  --dt-green-dim:   #1f6feb33;
+  --dt-cyan:        #79c0ff;
+  --dt-cyan-dim:    #388bfd33;
+  --dt-amber:       #d29922;
+  --dt-amber-dim:   #bb800940;
+  --dt-magenta:     #bc8cff;
+  --dt-magenta-dim: #8957e533;
+  --dt-red:         #f85149;
+  --dt-red-dim:     #f8514933;
+
+  /* Type system — monospace top to bottom. */
+  --dt-font-mono:
+    'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono',
+    Menlo, Consolas, 'Liberation Mono', 'Roboto Mono', monospace;
+
+  font-family: var(--dt-font-mono);
+  font-variant-ligatures: contextual;
+  color: var(--dt-fg);
+  background: var(--dt-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Tighten letter spacing slightly — mono fonts read better packed. */
+  letter-spacing: -0.005em;
+}
+
+/* Selection — terminal-blue. */
+.dev-terminal ::selection {
+  background: var(--dt-cyan);
+  color: var(--dt-bg);
+}
+
+/* Custom scrollbar inside .dev-terminal — slim and quiet. */
+.dev-terminal *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.dev-terminal *::-webkit-scrollbar-track {
+  background: var(--dt-bg-soft);
+}
+.dev-terminal *::-webkit-scrollbar-thumb {
+  background: var(--dt-border-hi);
+  border-radius: 4px;
+  border: 2px solid var(--dt-bg-soft);
+}
+.dev-terminal *::-webkit-scrollbar-thumb:hover {
+  background: var(--dt-fg-dim);
+}
+
+/* Inline code inside paragraphs. */
+.dev-terminal p code,
+.dev-terminal li code,
+.dev-terminal dd code {
+  font-family: var(--dt-font-mono);
+  font-size: 0.92em;
+  background: var(--dt-bg-elevated);
+  border: 1px solid var(--dt-border-soft);
+  border-radius: 3px;
+  padding: 0.05em 0.32em;
+  color: var(--dt-cyan);
+}
+
+/* Strong emphasis — amber instead of plain bold for that terminal feel. */
+.dev-terminal p strong,
+.dev-terminal li strong {
+  color: var(--dt-amber);
+  font-weight: 600;
+}
+
+/* Em — magenta italic, used sparingly. */
+.dev-terminal p em {
+  color: var(--dt-magenta);
+  font-style: normal;
+}
+
+/* Anchor links — cyan underline-on-hover, no underline by default to keep
+   the page calm. Heading anchors have their own hover behavior. */
+.dev-terminal a {
+  color: var(--dt-cyan);
+  text-decoration: none;
+  border-bottom: 1px dashed transparent;
+  transition: border-color 120ms ease;
+}
+.dev-terminal a:hover {
+  border-bottom-color: var(--dt-cyan);
+}
+.dev-terminal a:focus-visible {
+  outline: 2px solid var(--dt-cyan);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* H1/H2/H3 are styled at the component level. Reset browser defaults so
+   our component class names win. */
+.dev-terminal h1,
+.dev-terminal h2,
+.dev-terminal h3,
+.dev-terminal h4 {
+  font-family: var(--dt-font-mono);
+  margin: 0;
+}
+
+/* Lists — square markers, tight spacing. */
+.dev-terminal ul,
+.dev-terminal ol {
+  list-style: none;
+  padding-left: 0;
+}
+.dev-terminal ul.dt-bullets > li {
+  position: relative;
+  padding-left: 1.4rem;
+}
+.dev-terminal ul.dt-bullets > li::before {
+  content: '▸';
+  position: absolute;
+  left: 0.2rem;
+  color: var(--dt-cyan);
+}
+.dev-terminal ol.dt-numbered {
+  counter-reset: dt-counter;
+}
+.dev-terminal ol.dt-numbered > li {
+  counter-increment: dt-counter;
+  position: relative;
+  padding-left: 2.4rem;
+}
+.dev-terminal ol.dt-numbered > li::before {
+  content: counter(dt-counter, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  color: var(--dt-fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Keyboard hint chip. */
+.dev-terminal kbd.dt-kbd {
+  font-family: var(--dt-font-mono);
+  font-size: 0.75rem;
+  padding: 0.05rem 0.35rem;
+  border: 1px solid var(--dt-border-hi);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  background: var(--dt-bg-elevated);
+  color: var(--dt-fg);
+}
+
+/* The "blinking cursor" used in the page hero. */
+.dev-terminal .dt-cursor {
+  display: inline-block;
+  width: 0.55em;
+  height: 1em;
+  vertical-align: text-bottom;
+  background: var(--dt-green);
+  animation: dt-blink 1.05s steps(2, end) infinite;
+  margin-left: 0.15em;
+}
+@keyframes dt-blink {
+  to { background: transparent; }
+}
+
+/* Reduced-motion users get a steady cursor — no flashing. */
+@media (prefers-reduced-motion: reduce) {
+  .dev-terminal .dt-cursor { animation: none; }
+}
+
+/* Status bar at the bottom of the page. */
+.dev-terminal .dt-statusbar {
+  background: var(--dt-bg-elevated);
+  border-top: 1px solid var(--dt-border);
+  color: var(--dt-fg-muted);
+  font-size: 0.72rem;
+}
+
+/* On very narrow screens, increase touch target hit-areas for sidebar links. */
+@media (max-width: 640px) {
+  .dev-terminal .dt-tree-link {
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+  }
+}
+
+/* Print — drop the dark theme. Useful for offline reading of long sections. */
+@media print {
+  .dev-terminal {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .dev-terminal .dt-sidebar,
+  .dev-terminal .dt-toc,
+  .dev-terminal .dt-statusbar,
+  .dev-terminal .dt-search,
+  .dev-terminal .dt-header { display: none !important; }
+  .dev-terminal a { color: #000 !important; text-decoration: underline; }
+}

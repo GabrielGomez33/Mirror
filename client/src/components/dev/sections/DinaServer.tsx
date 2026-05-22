@@ -41,7 +41,7 @@ const DinaServer: React.FC = () => {
           is the central router that owns module initialization order and
           the four-priority queue processor.
         </p>
-        <ol className="ml-6 list-decimal space-y-1 text-white/85">
+        <ol className="dt-numbered space-y-1.5">
           <li>Validate SSL certificates from <code>TUGRRPRIV</code> / <code>TUGRRCERT</code> / <code>TUGRRINTERCERT</code>.</li>
           <li>Construct Express, apply middleware, set 10 MB body limit (for Mirror submissions).</li>
           <li>DinaCore initializes modules in order: Database → LLM → DIGIM → Mirror.</li>

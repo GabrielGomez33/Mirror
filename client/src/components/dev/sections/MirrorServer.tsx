@@ -33,7 +33,7 @@ const MirrorServer: React.FC = () => {
           <code>index.ts</code> is ~36 KB of orchestration. Initialization is
           ordered because later phases depend on earlier ones:
         </p>
-        <ol className="ml-6 list-decimal space-y-1 text-white/85">
+        <ol className="dt-numbered space-y-1.5">
           <li>Load and validate <code>.env</code> (required: <code>TUGRRPRIV</code>, <code>TUGRRCERT</code>, <code>TUGRRINTERCERT</code>, <code>MIRRORPORT</code>, <code>MIRRORSTORAGE</code>, <code>JWT_KEY</code>, <code>REDIS_PASSWORD</code>, <code>SYSTEM_MASTER_KEY</code>).</li>
           <li>Load <code>.payenv</code>; initialize paywall config, tier definitions, gates, free-limits.</li>
           <li>Express app + middleware: Helmet → CORS → JSON (100 KB) → URL-encoded (50 KB) → structured logger.</li>

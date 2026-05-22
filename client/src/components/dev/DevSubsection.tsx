@@ -6,29 +6,36 @@ export interface DevSubsectionProps {
   children: React.ReactNode;
 }
 
+/**
+ * Subsection anchor inside a DevSection. Header renders as a terminal
+ * "## subsection" marker.
+ */
 const DevSubsection: React.FC<DevSubsectionProps> = ({ id, title, children }) => {
   return (
     <section
       id={id}
       aria-labelledby={`${id}-heading`}
-      className="scroll-mt-28 pt-6"
       data-dev-subsection={id}
+      className="dt-subsection scroll-mt-24 pt-7"
     >
       <h3
         id={`${id}-heading`}
-        className="mb-3 text-xl font-semibold tracking-tight text-white/95"
-        style={{ fontFamily: 'Poppins, Inter, sans-serif' }}
+        className="mb-3 text-lg font-semibold tracking-tight sm:text-xl"
+        style={{ color: 'var(--dt-fg-strong)' }}
       >
         <a
           href={`#${id}`}
-          className="group inline-flex items-center gap-2 hover:text-fuchsia-200"
+          className="group inline-flex items-baseline gap-2"
+          style={{ color: 'inherit', borderBottom: 'none' }}
         >
-          {title}
+          <span style={{ color: 'var(--dt-cyan)' }}>##</span>
+          <span>{title}</span>
           <span
             aria-hidden="true"
-            className="text-white/20 opacity-0 transition-opacity group-hover:opacity-100"
+            className="opacity-0 transition-opacity group-hover:opacity-100"
+            style={{ color: 'var(--dt-fg-dim)' }}
           >
-            #
+            ¶
           </span>
         </a>
       </h3>

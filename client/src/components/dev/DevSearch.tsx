@@ -2,21 +2,23 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { buildSearchIndex, type SearchEntry } from './manifest';
 
 export interface DevSearchProps {
-  /** Notifies parent which section ids match the current query, for sidebar filtering. */
   onMatchedSections?: (sectionIds: Set<string> | null) => void;
 }
 
 /**
- * Lightweight client-side search across the manifest. Matches against the
- * section/subsection title plus a short keyword blob. Returns a dropdown of
- * direct jump targets, and (via onMatchedSections) feeds the sidebar so it
- * can filter to matching sections only.
+ * Terminal-style search prompt:
+ *
+ *   $ grep -i <query>
+ *
+ * Matches all whitespace-separated terms (AND) against title + summary +
+ * keyword blob. Returns a dropdown of direct jump targets and feeds the
+ * sidebar so it can filter to matching sections.
  *
  * Keyboard:
- *   /        — focuses the input from anywhere on the page
- *   Escape   — closes the dropdown and clears the query
- *   ↑/↓      — moves the highlight
- *   Enter    — jumps to the highlighted result
+ *   /       — focuses from anywhere on the page (unless already typing)
+ *   Esc     — closes and clears
+ *   ↑/↓     — moves highlight
+ *   Enter   — jumps to highlighted result
  */
 const DevSearch: React.FC<DevSearchProps> = ({ onMatchedSections }) => {
   const [query, setQuery] = useState('');
@@ -29,8 +31,6 @@ const DevSearch: React.FC<DevSearchProps> = ({ onMatchedSections }) => {
   const results = useMemo<SearchEntry[]>(() => {
     const q = query.trim().toLowerCase();
     if (q.length === 0) return [];
-    // Split into terms and require all of them to appear in the blob (AND).
-    // Short circuit at 12 results for keyboard usability.
     const terms = q.split(/\s+/).filter(Boolean);
     const out: SearchEntry[] = [];
     for (const entry of index) {
@@ -47,30 +47,19 @@ const DevSearch: React.FC<DevSearchProps> = ({ onMatchedSections }) => {
     return out;
   }, [query, index]);
 
-  // Push matched section ids upstream for sidebar filtering.
   useEffect(() => {
     if (!onMatchedSections) return;
-    if (query.trim().length === 0) {
-      onMatchedSections(null);
-    } else {
-      onMatchedSections(new Set(results.map((r) => r.sectionId)));
-    }
+    if (query.trim().length === 0) onMatchedSections(null);
+    else onMatchedSections(new Set(results.map((r) => r.sectionId)));
   }, [results, query, onMatchedSections]);
 
-  // Reset active index whenever results change.
-  useEffect(() => {
-    setActiveIdx(0);
-  }, [results]);
+  useEffect(() => setActiveIdx(0), [results]);
 
-  // Global "/" shortcut to focus.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== '/') return;
-      // Don't hijack if the user is already typing somewhere.
       const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
-        return;
-      }
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       e.preventDefault();
       inputRef.current?.focus();
     };
@@ -80,14 +69,10 @@ const DevSearch: React.FC<DevSearchProps> = ({ onMatchedSections }) => {
 
   const jumpTo = useCallback((entry: SearchEntry) => {
     const id = entry.subsectionId || entry.sectionId;
-    // Update hash; the section/subsection has scroll-mt that respects the sticky nav.
     if (typeof window !== 'undefined') {
       window.location.hash = id;
-      // hashchange doesn't trigger smooth scroll cross-browser, so do it manually.
       const el = document.getElementById(id);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     setOpen(false);
     setQuery('');
@@ -115,18 +100,21 @@ const DevSearch: React.FC<DevSearchProps> = ({ onMatchedSections }) => {
   };
 
   return (
-    <div className="relative">
+    <div className="dt-search relative w-full">
       <label htmlFor="dev-search" className="sr-only">
         Search documentation
       </label>
-      <div className="relative">
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/40"
-        >
-          {/* magnifying glass glyph, no external icon dep */}
-          ⌕
-        </span>
+      <div
+        className="flex items-center gap-2"
+        style={{
+          background: 'var(--dt-bg-elevated)',
+          border: '1px solid var(--dt-border-hi)',
+          borderRadius: '4px',
+          padding: '0.35rem 0.7rem',
+        }}
+      >
+        <span aria-hidden="true" style={{ color: 'var(--dt-green)' }}>$</span>
+        <span aria-hidden="true" style={{ color: 'var(--dt-fg-muted)' }}>grep -i</span>
         <input
           ref={inputRef}
           id="dev-search"
@@ -139,17 +127,19 @@ const DevSearch: React.FC<DevSearchProps> = ({ onMatchedSections }) => {
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          onBlur={() => {
-            // Delay so click on result registers before close.
-            window.setTimeout(() => setOpen(false), 120);
-          }}
+          onBlur={() => window.setTimeout(() => setOpen(false), 120)}
           onKeyDown={onKeyDown}
-          placeholder="Search docs — press / to focus"
-          className="w-full rounded-lg border border-white/10 bg-white/5 py-2 pl-9 pr-16 text-sm text-white placeholder:text-white/40 backdrop-blur-md focus:border-fuchsia-300/40 focus:outline-none focus:ring-2 focus:ring-fuchsia-300/30"
+          placeholder="search docs..."
+          className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+          style={{
+            color: 'var(--dt-fg-strong)',
+            fontFamily: 'inherit',
+            border: 'none',
+          }}
         />
         <kbd
           aria-hidden="true"
-          className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-white/15 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-white/55 sm:inline-block"
+          className="dt-kbd hidden sm:inline-block"
         >
           /
         </kbd>
@@ -159,14 +149,21 @@ const DevSearch: React.FC<DevSearchProps> = ({ onMatchedSections }) => {
         <div
           role="listbox"
           aria-label="Search results"
-          className="absolute left-0 right-0 top-full z-30 mt-2 max-h-[60vh] overflow-y-auto rounded-xl border border-white/10 bg-[#0c0a1e]/95 p-2 shadow-[0_24px_80px_rgba(0,0,0,0.6)] backdrop-blur-xl"
+          className="absolute left-0 right-0 z-30 mt-2 max-h-[60vh] overflow-y-auto"
+          style={{
+            background: 'var(--dt-bg-elevated)',
+            border: '1px solid var(--dt-border-hi)',
+            borderRadius: '4px',
+            boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+          }}
         >
           {results.length === 0 ? (
-            <div className="px-3 py-4 text-sm text-white/50">
-              No matches for <span className="font-mono text-white/80">{query}</span>.
+            <div className="px-3 py-3 text-sm" style={{ color: 'var(--dt-fg-muted)' }}>
+              <span style={{ color: 'var(--dt-red)' }}>!</span> no matches for{' '}
+              <span style={{ color: 'var(--dt-fg-strong)' }}>{query}</span>
             </div>
           ) : (
-            <ul className="space-y-0.5">
+            <ul>
               {results.map((r, idx) => {
                 const active = idx === activeIdx;
                 return (
@@ -177,21 +174,24 @@ const DevSearch: React.FC<DevSearchProps> = ({ onMatchedSections }) => {
                       aria-selected={active}
                       onMouseEnter={() => setActiveIdx(idx)}
                       onMouseDown={(e) => {
-                        // mousedown beats input blur, so we can jump cleanly.
                         e.preventDefault();
                         jumpTo(r);
                       }}
-                      className={
-                        'flex w-full items-start gap-3 rounded-md px-3 py-2 text-left text-sm ' +
-                        (active ? 'bg-fuchsia-500/15 text-white' : 'text-white/85 hover:bg-white/5')
-                      }
+                      className="flex w-full items-start gap-3 px-3 py-2 text-left text-[13px] transition-colors"
+                      style={{
+                        background: active ? 'var(--dt-cyan-dim)' : 'transparent',
+                        color: active ? 'var(--dt-fg-strong)' : 'var(--dt-fg)',
+                        border: 'none',
+                        cursor: 'pointer',
+                      }}
                     >
-                      <span className="font-mono text-[10px] uppercase tracking-widest text-white/45">
+                      <span
+                        style={{ color: 'var(--dt-fg-dim)', width: '5ch' }}
+                        className="shrink-0 text-[10px] uppercase tracking-widest"
+                      >
                         {r.category}
                       </span>
-                      <span className="min-w-0 flex-1">
-                        <div className="truncate">{r.label}</div>
-                      </span>
+                      <span className="min-w-0 flex-1 truncate">{r.label}</span>
                     </button>
                   </li>
                 );

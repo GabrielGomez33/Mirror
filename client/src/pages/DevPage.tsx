@@ -1,7 +1,12 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+// Side-effect import: pulls the terminal theme into the bundle only when the
+// /dev route is reached. Avoids the PostCSS @import-after-@tailwind problem
+// that silently drops stylesheets when chained from index.css.
+import '../styles/dev-terminal.css';
 import DevSidebar from '../components/dev/DevSidebar';
 import DevTOC from '../components/dev/DevTOC';
 import DevSearch from '../components/dev/DevSearch';
+import { DEV_SECTIONS } from '../components/dev/manifest';
 
 import Introduction from '../components/dev/sections/Introduction';
 import Architecture from '../components/dev/sections/Architecture';
@@ -21,37 +26,43 @@ import Glossary from '../components/dev/sections/Glossary';
 /**
  * /dev — Mirror developer documentation.
  *
- * Single-page, hash-anchored docs styled to match Mirror's glass aesthetic.
- * Authentication is enforced by the ProtectedRoute wrapper in App.tsx, so
- * this component assumes the user is logged in. It does NOT pull from any
- * Mirror context (auth, intake, groups, etc.) — keeping it isolated means
- * a broken context elsewhere can never break the documentation page.
+ * Layout:
+ *
+ *   ┌───────────────────────────────────────────────────────┐
+ *   │  header: prompt + search + nav                        │ <- sticky
+ *   ├──────────┬────────────────────────────┬───────────────┤
+ *   │ sidebar  │     content                │  on-this-page │
+ *   │ (tree)   │     (sections)             │  (line nums)  │
+ *   │          │                            │               │
+ *   ├──────────┴────────────────────────────┴───────────────┤
+ *   │  vim-style status bar                                 │ <- sticky
+ *   └───────────────────────────────────────────────────────┘
+ *
+ * The page is fully scoped under `.dev-terminal`, which provides the
+ * dark background, mono font, and accent CSS variables. Because this
+ * wrapper has its own min-h-screen and solid background, the App-level
+ * purple gradient does not bleed through.
  */
 const DevPage: React.FC = () => {
   const [matchedSectionIds, setMatchedSectionIds] = useState<Set<string> | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [currentSectionId, setCurrentSectionId] = useState<string | null>(null);
+  const [scrollPct, setScrollPct] = useState(0);
 
-  // On first paint with a hash in the URL, scroll into view smoothly.
-  // Browsers usually do this automatically, but we want the smooth behavior
-  // and the scroll-mt margin defined on sections to be respected.
+  // First-paint deep link: respect URL hash with smooth scroll.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!window.location.hash) return;
+    if (typeof window === 'undefined' || !window.location.hash) return;
     const id = decodeURIComponent(window.location.hash.slice(1));
     const el = document.getElementById(id);
     if (el) {
-      // requestAnimationFrame so layout (sticky nav, etc.) settles first.
       window.requestAnimationFrame(() => {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
     }
   }, []);
 
-  // Listen for `hashchange` so sidebar/search jumps also feel native.
-  // The browser's default behavior on hashchange jumps without respecting
-  // scroll-mt; this re-applies smooth scroll with proper offset.
+  // Hash changes (sidebar / search jumps) — smooth scroll with sticky offset.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
     const onHashChange = () => {
       const id = decodeURIComponent(window.location.hash.slice(1));
       if (!id) return;
@@ -62,73 +73,143 @@ const DevPage: React.FC = () => {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
+  // Track scroll progress for the status bar.
+  useEffect(() => {
+    const onScroll = () => {
+      const doc = document.documentElement;
+      const scrollTop = window.scrollY || doc.scrollTop;
+      const max = (doc.scrollHeight - doc.clientHeight) || 1;
+      setScrollPct(Math.round((scrollTop / max) * 100));
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Track current section for the status bar.
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof IntersectionObserver === 'undefined') return;
+    const sections = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-dev-section]')
+    );
+    if (sections.length === 0) return;
+    const visible = new Map<string, number>();
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          const id = e.target.getAttribute('data-dev-section');
+          if (!id) continue;
+          if (e.isIntersecting) visible.set(id, e.intersectionRatio);
+          else visible.delete(id);
+        }
+        if (visible.size === 0) return;
+        let best: string | null = null;
+        let bestRatio = -1;
+        for (const [id, r] of visible) {
+          if (r > bestRatio) {
+            best = id;
+            bestRatio = r;
+          }
+        }
+        setCurrentSectionId(best);
+      },
+      { rootMargin: '-120px 0px -50% 0px', threshold: [0, 0.25, 0.5, 0.75, 1] }
+    );
+    sections.forEach((s) => obs.observe(s));
+    return () => obs.disconnect();
+  }, []);
+
   const handleMatchedSections = useCallback(
     (ids: Set<string> | null) => setMatchedSectionIds(ids),
     []
   );
 
-  return (
-    <div className="relative min-h-screen text-white">
-      {/* Dev page uses a darker, calmer overlay than the rest of the app so
-          long-form reading is comfortable on the same purple→indigo body. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(120,80,200,0.18),transparent_60%),radial-gradient(ellipse_at_bottom_right,rgba(70,40,140,0.18),transparent_60%)]"
-      />
+  const currentSection = useMemo(
+    () =>
+      DEV_SECTIONS.find((s) => s.id === currentSectionId) || DEV_SECTIONS[0],
+    [currentSectionId]
+  );
 
-      {/* Top bar — sticky. Includes title, search, and a mobile nav toggle. */}
+  return (
+    <div
+      className="dev-terminal min-h-screen"
+      style={{
+        // CSS var consumed by the sticky offsets in sidebar/TOC.
+        // The header height is fixed: 1 row top bar + (mobile) 1 row search.
+        // We override per-breakpoint in the markup below by inline style.
+        ['--dt-header-h' as never]: '6.5rem',
+      }}
+    >
+      {/* ─── Sticky terminal header ──────────────────────────────────── */}
       <header
-        className="sticky top-0 z-20 border-b border-white/10 bg-[#0c0a1e]/70 backdrop-blur-xl"
         role="banner"
+        className="dt-header sticky top-0 z-20"
+        style={{
+          background: 'var(--dt-bg-elevated)',
+          borderBottom: '1px solid var(--dt-border)',
+        }}
       >
-        <div className="mx-auto flex max-w-[1400px] items-center gap-3 px-4 py-3 sm:px-6">
-          <a
-            href="/"
-            className="flex shrink-0 items-center gap-2 text-white/90 hover:text-white"
-            aria-label="Mirror — back to dashboard"
+        {/* Row 1: prompt / nav. Always visible. */}
+        <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-3 py-2 sm:px-5">
+          {/* Mobile nav toggle. */}
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen((v) => !v)}
+            className="shrink-0 lg:hidden"
+            aria-label={mobileNavOpen ? 'Close navigation' : 'Open navigation'}
+            aria-expanded={mobileNavOpen}
+            style={{
+              color: 'var(--dt-fg)',
+              border: '1px solid var(--dt-border-hi)',
+              borderRadius: '3px',
+              padding: '0.25rem 0.5rem',
+              background: 'transparent',
+              cursor: 'pointer',
+            }}
           >
-            <span
-              aria-hidden="true"
-              className="inline-block h-7 w-7 rounded-md bg-gradient-to-br from-fuchsia-400/80 to-indigo-400/80 shadow-[0_4px_16px_rgba(180,120,255,0.4)]"
-            />
-            <span
-              className="text-base font-semibold tracking-tight"
-              style={{ fontFamily: 'Poppins, Inter, sans-serif' }}
-            >
-              Mirror
+            <span aria-hidden="true" className="font-mono">
+              {mobileNavOpen ? '×' : '≡'}
             </span>
-            <span className="hidden text-white/40 sm:inline">/</span>
-            <span className="hidden font-mono text-sm text-white/60 sm:inline">dev</span>
+          </button>
+
+          {/* Prompt + logo. */}
+          <a
+            href="/dashboard"
+            className="flex shrink-0 items-baseline gap-1.5 text-[13px] sm:text-sm"
+            aria-label="Mirror — back to dashboard"
+            style={{ borderBottom: 'none' }}
+          >
+            <span style={{ color: 'var(--dt-magenta)' }}>mirror</span>
+            <span style={{ color: 'var(--dt-fg-dim)' }}>@</span>
+            <span style={{ color: 'var(--dt-cyan)' }}>dev</span>
+            <span style={{ color: 'var(--dt-fg-dim)' }}>:</span>
+            <span style={{ color: 'var(--dt-amber)' }}>~/docs</span>
+            <span style={{ color: 'var(--dt-green)' }}>$</span>
           </a>
 
-          <div className="ml-auto flex flex-1 items-center justify-end gap-2 sm:gap-4">
-            <div className="hidden flex-1 sm:block sm:max-w-md">
-              <DevSearch onMatchedSections={handleMatchedSections} />
-            </div>
-            <a
-              href="/dashboard"
-              className="hidden whitespace-nowrap rounded-md border border-white/12 bg-white/5 px-3 py-1.5 text-sm text-white/85 transition-colors hover:bg-white/10 md:inline-block"
-            >
-              ← Dashboard
-            </a>
-            <button
-              type="button"
-              onClick={() => setMobileNavOpen((v) => !v)}
-              className="rounded-md border border-white/15 bg-white/5 p-2 text-white lg:hidden"
-              aria-label={mobileNavOpen ? 'Close navigation' : 'Open navigation'}
-              aria-expanded={mobileNavOpen}
-            >
-              <span aria-hidden="true">{mobileNavOpen ? '×' : '☰'}</span>
-            </button>
+          {/* Search expands to fill remaining space. */}
+          <div className="ml-1 flex-1 sm:ml-3">
+            <DevSearch onMatchedSections={handleMatchedSections} />
           </div>
-        </div>
-        {/* Mobile-only second row holds the search bar. */}
-        <div className="border-t border-white/8 px-4 py-2 sm:hidden">
-          <DevSearch onMatchedSections={handleMatchedSections} />
+
+          {/* Back-to-app affordance. */}
+          <a
+            href="/dashboard"
+            className="hidden whitespace-nowrap text-[12px] md:inline-block"
+            style={{
+              color: 'var(--dt-fg-muted)',
+              border: '1px solid var(--dt-border-hi)',
+              padding: '0.25rem 0.6rem',
+              borderRadius: '3px',
+              borderBottom: '1px solid var(--dt-border-hi)',
+            }}
+          >
+            ← dashboard
+          </a>
         </div>
       </header>
 
-      {/* Mobile nav drawer — slides in from the left. */}
+      {/* ─── Mobile drawer ─────────────────────────────────────────── */}
       {mobileNavOpen && (
         <div
           className="fixed inset-0 z-30 lg:hidden"
@@ -137,18 +218,36 @@ const DevPage: React.FC = () => {
           aria-label="Documentation navigation"
         >
           <div
-            className="absolute inset-0 bg-black/60"
+            className="absolute inset-0"
+            style={{ background: 'rgba(0,0,0,0.7)' }}
             onClick={() => setMobileNavOpen(false)}
             aria-hidden="true"
           />
-          <div className="absolute left-0 top-0 h-full w-[85%] max-w-[340px] border-r border-white/10 bg-[#0c0a1e]/95 backdrop-blur-xl">
-            <div className="flex items-center justify-between border-b border-white/8 p-3">
-              <span className="font-semibold">Navigation</span>
+          <div
+            className="absolute left-0 top-0 h-full w-[86%] max-w-[360px] overflow-y-auto"
+            style={{
+              background: 'var(--dt-bg)',
+              borderRight: '1px solid var(--dt-border-hi)',
+            }}
+          >
+            <div
+              className="flex items-center justify-between px-3 py-3"
+              style={{
+                borderBottom: '1px solid var(--dt-border)',
+              }}
+            >
+              <span style={{ color: 'var(--dt-fg-strong)' }}>navigation</span>
               <button
                 type="button"
                 onClick={() => setMobileNavOpen(false)}
-                className="rounded p-1 text-white/70 hover:bg-white/5"
                 aria-label="Close navigation"
+                style={{
+                  color: 'var(--dt-fg)',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '1.2rem',
+                }}
               >
                 ×
               </button>
@@ -162,73 +261,133 @@ const DevPage: React.FC = () => {
         </div>
       )}
 
-      <div className="mx-auto grid max-w-[1400px] gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[240px_1fr] xl:grid-cols-[240px_1fr_220px]">
-        {/* Desktop sidebar. */}
-        <div className="hidden lg:block">
-          <DevSidebar filteredSectionIds={matchedSectionIds || undefined} />
-        </div>
+      {/* ─── Main layout grid ──────────────────────────────────────── */}
+      <div className="mx-auto max-w-[1440px] px-3 sm:px-5">
+        <div className="grid gap-6 py-6 lg:grid-cols-[240px_1fr] xl:grid-cols-[240px_1fr_240px] xl:gap-8">
+          {/* Sidebar (desktop). */}
+          <div className="hidden lg:block">
+            <DevSidebar filteredSectionIds={matchedSectionIds || undefined} />
+          </div>
 
-        {/* Main content. */}
-        <main
-          id="dev-content"
-          role="main"
-          aria-label="Documentation"
-          className="min-w-0"
-        >
-          {/* Hero — page title + intro card. */}
-          <header className="mb-2">
-            <p className="mb-2 font-mono text-[11px] uppercase tracking-widest text-fuchsia-300/80">
-              Developer documentation
-            </p>
-            <h1
-              className="text-4xl font-semibold tracking-tight text-white sm:text-5xl"
-              style={{ fontFamily: 'Poppins, Inter, sans-serif' }}
+          {/* Main content. */}
+          <main
+            id="dev-content"
+            role="main"
+            aria-label="Documentation"
+            className="min-w-0"
+          >
+            {/* Hero — terminal banner. */}
+            <header className="mb-8">
+              <pre
+                aria-hidden="true"
+                className="mb-4 overflow-x-auto text-[10px] leading-tight sm:text-xs"
+                style={{ color: 'var(--dt-magenta)' }}
+              >{`
+ __  __ _                       _                                  _
+|  \\/  (_)_ __ _ __ ___  _ __  | |_ ___ _ __ _ __ ___ (_)_ __  __ _| |
+| |\\/| | | '__| '__/ _ \\| '__| | __/ _ \\ '__| '_ \` _ \\| | '_ \\/ _\` | |
+| |  | | | |  | | | (_) | |    | ||  __/ |  | | | | | | | | | (_| | |
+|_|  |_|_|_|  |_|  \\___/|_|     \\__\\___|_|  |_| |_| |_|_|_| |_\\__,_|_|
+                  developer documentation · v1`}</pre>
+
+              <div
+                className="text-[11px] uppercase tracking-widest"
+                style={{ color: 'var(--dt-fg-dim)' }}
+              >
+                $ man <span style={{ color: 'var(--dt-amber)' }}>mirror</span>
+              </div>
+              <h1
+                className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl"
+                style={{ color: 'var(--dt-fg-strong)' }}
+              >
+                The Mirror manual
+                <span className="dt-cursor" aria-hidden="true" />
+              </h1>
+              <p
+                className="mt-3 max-w-2xl text-sm leading-relaxed"
+                style={{ color: 'var(--dt-fg-muted)' }}
+              >
+                A complete, A-to-Z reference for the Mirror platform: the
+                React client, the <span style={{ color: 'var(--dt-cyan)' }}>mirror-server</span>{' '}
+                application, and the{' '}
+                <span style={{ color: 'var(--dt-cyan)' }}>dina-server</span>{' '}
+                intelligence layer. Every page, every endpoint, every event,
+                every guarantee, every edge case. Press{' '}
+                <kbd className="dt-kbd">/</kbd> to search.
+              </p>
+            </header>
+
+            <Introduction />
+            <Architecture />
+
+            <Frontend />
+            <Intake />
+
+            <MirrorServer />
+            <DinaServer />
+
+            <Integration />
+            <DumpProtocol />
+            <Websocket />
+            <ApiReference />
+
+            <Security />
+
+            <Deployment />
+            <Paywall />
+            <Glossary />
+
+            {/* Footer — quiet. */}
+            <footer
+              className="mt-16 pt-6 text-sm"
+              style={{
+                color: 'var(--dt-fg-muted)',
+                borderTop: '1px solid var(--dt-border)',
+              }}
             >
-              The Mirror manual
-            </h1>
-            <p className="mt-3 max-w-2xl text-base leading-relaxed text-white/75">
-              A complete A-to-Z reference for the Mirror platform: the React
-              client, the mirror-server application, and the dina-server
-              intelligence layer. Every page, every endpoint, every event,
-              every guarantee.
-            </p>
-          </header>
+              <p>
+                <span style={{ color: 'var(--dt-green)' }}>$</span>{' '}
+                These docs live with the code at{' '}
+                <code>client/src/components/dev/sections/</code> — one React
+                file per section, source of truth is the manifest.
+              </p>
+            </footer>
+          </main>
 
-          {/* Sections, in render order. */}
-          <Introduction />
-          <Architecture />
+          {/* TOC (xl+). */}
+          <DevTOC />
+        </div>
+      </div>
 
-          <Frontend />
-          <Intake />
-
-          <MirrorServer />
-          <DinaServer />
-
-          <Integration />
-          <DumpProtocol />
-          <Websocket />
-          <ApiReference />
-
-          <Security />
-
-          <Deployment />
-          <Paywall />
-          <Glossary />
-
-          {/* Footer — quiet, useful. */}
-          <footer className="mt-16 border-t border-white/10 pt-6 text-sm text-white/55">
-            <p>
-              Found something out of date? These docs live with the code at{' '}
-              <code className="rounded bg-white/8 px-1 py-0.5 font-mono text-[0.9em]">
-                client/src/components/dev/sections
-              </code>{' '}
-              — each section is a single React file, easy to edit.
-            </p>
-          </footer>
-        </main>
-
-        {/* On-this-page TOC (xl+ only). */}
-        <DevTOC />
+      {/* ─── Sticky bottom status bar (vim/tmux feel) ──────────────── */}
+      <div
+        className="dt-statusbar sticky bottom-0 z-10 flex items-center gap-3 px-3 py-1 text-[11px]"
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            background: 'var(--dt-green)',
+            color: 'var(--dt-bg)',
+            padding: '0 0.4rem',
+            borderRadius: '2px',
+            fontWeight: 600,
+          }}
+        >
+          NORMAL
+        </span>
+        <span style={{ color: 'var(--dt-fg)' }}>
+          {currentSection ? `${currentSection.id}.md` : 'docs.md'}
+        </span>
+        <span style={{ color: 'var(--dt-fg-dim)' }}>·</span>
+        <span style={{ color: 'var(--dt-fg-muted)' }}>
+          {currentSection ? currentSection.title : ''}
+        </span>
+        <span className="ml-auto flex items-center gap-3">
+          <span className="hidden sm:inline" style={{ color: 'var(--dt-fg-dim)' }}>
+            <kbd className="dt-kbd">/</kbd> search
+          </span>
+          <span style={{ color: 'var(--dt-fg-muted)' }}>{scrollPct}%</span>
+        </span>
       </div>
     </div>
   );

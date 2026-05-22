@@ -8,6 +8,12 @@
    reduced-motion, print sanity. Loaded before component CSS so
    components can override. */
 @import './styles/pwa-shell.css';
+/* Enhanced Glass Effects for Authentication */
+@import './styles/auth-glass.css';
+/* NOTE: dev-terminal.css is intentionally NOT imported here.
+   Tailwind's @tailwind directives count as "statements" to PostCSS, so any
+   @import after them is dropped. The /dev page imports its own stylesheet
+   directly in DevPage.tsx, which also keeps the CSS lazy-loaded. */
 /* Ensure backdrop-filter works everywhere */
 * {
   -webkit-font-smoothing: antialiased;
@@ -33,5 +39,3 @@
   background: rgba(255, 255, 255, 0.3);
 }
 
-/* Enhanced Glass Effects for Authentication */
-@import './styles/auth-glass.css';

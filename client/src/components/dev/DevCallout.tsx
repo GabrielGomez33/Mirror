@@ -3,63 +3,21 @@ import React from 'react';
 type CalloutKind = 'info' | 'success' | 'warning' | 'danger' | 'tip' | 'security';
 
 interface KindStyle {
-  icon: string;
   label: string;
-  bg: string;
-  border: string;
-  text: string;
-  accent: string;
+  /** CSS variable name for the accent color (defined in dev-terminal.css). */
+  accentVar: string;
+  accentDimVar: string;
+  /** Single-character glyph rendered before the title. */
+  glyph: string;
 }
 
 const KIND_STYLES: Record<CalloutKind, KindStyle> = {
-  info: {
-    icon: 'i',
-    label: 'Note',
-    bg: 'bg-sky-500/8',
-    border: 'border-sky-300/30',
-    text: 'text-sky-100',
-    accent: 'bg-sky-300/80 text-sky-950',
-  },
-  success: {
-    icon: '✓',
-    label: 'Confirmed',
-    bg: 'bg-emerald-500/8',
-    border: 'border-emerald-300/30',
-    text: 'text-emerald-100',
-    accent: 'bg-emerald-300/80 text-emerald-950',
-  },
-  warning: {
-    icon: '!',
-    label: 'Caution',
-    bg: 'bg-amber-500/8',
-    border: 'border-amber-300/30',
-    text: 'text-amber-100',
-    accent: 'bg-amber-300/80 text-amber-950',
-  },
-  danger: {
-    icon: '×',
-    label: 'Danger',
-    bg: 'bg-rose-500/8',
-    border: 'border-rose-300/30',
-    text: 'text-rose-100',
-    accent: 'bg-rose-300/80 text-rose-950',
-  },
-  tip: {
-    icon: '★',
-    label: 'Tip',
-    bg: 'bg-violet-500/8',
-    border: 'border-violet-300/30',
-    text: 'text-violet-100',
-    accent: 'bg-violet-300/80 text-violet-950',
-  },
-  security: {
-    icon: '⚑',
-    label: 'Security',
-    bg: 'bg-fuchsia-500/8',
-    border: 'border-fuchsia-300/30',
-    text: 'text-fuchsia-100',
-    accent: 'bg-fuchsia-300/80 text-fuchsia-950',
-  },
+  info:     { label: 'NOTE',     glyph: 'i', accentVar: 'var(--dt-cyan)',    accentDimVar: 'var(--dt-cyan-dim)' },
+  success:  { label: 'OK',       glyph: '✓', accentVar: 'var(--dt-green)',   accentDimVar: 'var(--dt-green-dim)' },
+  warning:  { label: 'WARN',     glyph: '!', accentVar: 'var(--dt-amber)',   accentDimVar: 'var(--dt-amber-dim)' },
+  danger:   { label: 'DANGER',   glyph: 'x', accentVar: 'var(--dt-red)',     accentDimVar: 'var(--dt-red-dim)' },
+  tip:      { label: 'TIP',      glyph: '*', accentVar: 'var(--dt-magenta)', accentDimVar: 'var(--dt-magenta-dim)' },
+  security: { label: 'SECURITY', glyph: '#', accentVar: 'var(--dt-magenta)', accentDimVar: 'var(--dt-magenta-dim)' },
 };
 
 export interface DevCalloutProps {
@@ -68,39 +26,52 @@ export interface DevCalloutProps {
   children: React.ReactNode;
 }
 
+/**
+ * DevCallout — terminal-style boxed note. Uses a left-rule + label-tag
+ * pattern that reads cleanly even when callouts stack. Stays within
+ * standard semantic <aside> for accessibility.
+ */
 const DevCallout: React.FC<DevCalloutProps> = ({ kind = 'info', title, children }) => {
   const style = KIND_STYLES[kind];
   return (
     <aside
       role="note"
       aria-label={title || style.label}
-      className={
-        'my-5 rounded-xl border ' +
-        style.bg +
-        ' ' +
-        style.border +
-        ' ' +
-        style.text +
-        ' backdrop-blur-md'
-      }
+      className="dt-callout my-5"
+      style={{
+        background: 'var(--dt-bg-elevated)',
+        borderLeft: `3px solid ${style.accentVar}`,
+        borderTop: '1px solid var(--dt-border)',
+        borderRight: '1px solid var(--dt-border)',
+        borderBottom: '1px solid var(--dt-border)',
+        borderRadius: '0 4px 4px 0',
+      }}
     >
-      <div className="flex items-start gap-3 p-4">
+      <div className="flex items-start gap-3 px-3 py-3 sm:px-4">
         <span
           aria-hidden="true"
-          className={
-            'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-sm font-bold ' +
-            style.accent
-          }
+          className="mt-0.5 inline-flex h-5 shrink-0 items-center justify-center font-bold"
+          style={{
+            color: style.accentVar,
+            background: style.accentDimVar,
+            padding: '0 0.5rem',
+            borderRadius: '2px',
+            fontSize: '0.7rem',
+            lineHeight: 1.4,
+          }}
         >
-          {style.icon}
+          {style.glyph} {style.label}
         </span>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 text-sm leading-relaxed">
           {title && (
-            <div className="mb-1 text-sm font-semibold tracking-wide">{title}</div>
+            <div
+              className="mb-1.5 font-semibold"
+              style={{ color: 'var(--dt-fg-strong)' }}
+            >
+              {title}
+            </div>
           )}
-          <div className="text-sm leading-relaxed [&_a]:underline [&_code]:rounded [&_code]:bg-white/8 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em]">
-            {children}
-          </div>
+          <div style={{ color: 'var(--dt-fg)' }}>{children}</div>
         </div>
       </div>
     </aside>

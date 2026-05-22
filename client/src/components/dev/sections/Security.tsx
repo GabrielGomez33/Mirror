@@ -72,7 +72,7 @@ contentSecurityPolicy: {
         <p>
           Cross-origin is explicit, never reflective. Allowed origins:
         </p>
-        <ul className="ml-6 list-disc space-y-1 text-white/85">
+        <ul className="dt-bullets space-y-1">
           <li><code>https://theundergroundrailroad.world</code></li>
           <li><code>https://www.theundergroundrailroad.world</code></li>
           <li>In dev: <code>http://localhost:3000</code>, <code>http://localhost:5173</code>, and 127.0.0.1 equivalents.</li>
@@ -205,7 +205,7 @@ const pt = Buffer.concat([decipher.update(ct), decipher.final()]);
       </DevSubsection>
 
       <DevSubsection id="security-input" title="Input validation & sanitization">
-        <ul className="ml-6 list-disc space-y-1 text-white/85">
+        <ul className="dt-bullets space-y-1">
           <li>All MySQL queries use prepared statements with placeholders.</li>
           <li>Route handlers validate UUIDs, integer ranges, and enum membership before any DB call.</li>
           <li>Strings are stripped of control characters and capped at length (10 KB journal content, 500 char group description, 255 char names).</li>
@@ -215,7 +215,7 @@ const pt = Buffer.concat([decipher.update(ct), decipher.final()]);
       </DevSubsection>
 
       <DevSubsection id="security-secrets" title="Secrets & environment hygiene">
-        <ul className="ml-6 list-disc space-y-1 text-white/85">
+        <ul className="dt-bullets space-y-1">
           <li><code>.env</code> and <code>.payenv</code> are <strong>not</strong> committed.</li>
           <li>JWT secret minimum 32 characters; <code>SYSTEM_MASTER_KEY</code> is 64 hex chars (256 bits).</li>
           <li>PayPal client secret is split between <code>.payenv</code> and the provider; webhooks verify signatures before any state transition.</li>
