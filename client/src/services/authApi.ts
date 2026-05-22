@@ -446,18 +446,35 @@ class AuthApiClient {
     }
   }
 
-  async deleteAccount(password: string): Promise<{ message: string }> {
+  async deleteAccount(
+    password: string,
+    confirmation: string = 'DELETE',
+  ): Promise<{ message: string; dinaNotified?: boolean; dinaDetail?: string }> {
     console.log('FUNCTION: deleteAccount');
-    
-    try {
-      const response = await this.makeRequest<{ message: string }>('/delete-account', {
-        method: 'DELETE',
-        body: JSON.stringify({ password })
-      }, true);
 
-      // Clear tokens after account deletion
-      clearToken();
+    try {
+      const response = await this.makeRequest<{
+        message: string;
+        dinaNotified?: boolean;
+        dinaDetail?: string;
+      }>(
+        '/delete-account',
+        {
+          method: 'DELETE',
+          body: JSON.stringify({ password, confirmation }),
+        },
+        true,
+      );
+
+      // Wipe every client-side artefact so a refresh redirects to /login and
+      // no stale "rememberedEmail" / userInfo blob leaks across to the next
+      // user of this device. Each removeItem is wrapped because Safari
+      // private-mode can throw on localStorage writes.
+      clearToken();              // mirror_jwt
       clearToken('refreshToken');
+      clearToken('userInfo');
+      try { localStorage.removeItem('rememberedEmail'); } catch { /* non-fatal */ }
+      try { localStorage.removeItem('loginAttempts'); } catch { /* non-fatal */ }
 
       return response;
     } catch (error) {
@@ -499,8 +516,8 @@ export const getSessionsApi = () =>
   authApi.getSessions();
 export const revokeSessionApi = (sessionId: string) => 
   authApi.revokeSession(sessionId);
-export const deleteAccountApi = (password: string) => 
-  authApi.deleteAccount(password);
+export const deleteAccountApi = (password: string, confirmation: string = 'DELETE') =>
+  authApi.deleteAccount(password, confirmation);
 
 // Export the instance for advanced usage
 export { authApi };
