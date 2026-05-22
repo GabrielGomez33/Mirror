@@ -58,6 +58,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    # Expose the computed release version so the deploy job can re-use it for
+    # the git tag + GitHub Release. This keeps the version baked into the
+    # build artifact identical to the tag pushed on success.
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
     defaults:
       run:
         working-directory: client
@@ -83,11 +89,25 @@ jobs:
       - name: TypeScript type-check
         run: npx tsc -b --noEmit
 
+      - name: Compute release version
+        id: version
+        # Single source of truth for the version string. Matches the format
+        # the deploy job previously generated inline at tag time. Emitting
+        # to GITHUB_OUTPUT lets downstream steps + the deploy job consume it
+        # without recomputing (and risking drift if the date rolls over).
+        run: |
+          VERSION="v$(date -u +'%Y.%m.%d')-${GITHUB_SHA::7}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved release version: $VERSION"
+
       - name: Vite production build
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
           VITE_PAYPAL_CLIENT_ID: ${{ secrets.VITE_PAYPAL_CLIENT_ID }}
           VITE_PAYPAL_PLAN_ID: ${{ secrets.VITE_PAYPAL_PLAN_ID }}
+          # Surfaced to the client as import.meta.env.VITE_APP_VERSION so the
+          # GlobalDashboard's System panel can show the deployed version.
+          VITE_APP_VERSION: ${{ steps.version.outputs.version }}
         run: npm run build
 
       - name: Verify build output
@@ -286,8 +306,11 @@ jobs:
 
       - name: Tag release
         if: success()
+        # Reuses the version computed in the quality job so the tag matches
+        # the VITE_APP_VERSION baked into the build artifact.
+        env:
+          VERSION: ${{ needs.quality.outputs.version }}
         run: |
-          VERSION="v$(date +'%Y.%m.%d')-${GITHUB_SHA::7}"
           git tag "$VERSION"
           git push origin "$VERSION"
           echo "Tagged release: $VERSION"
@@ -295,9 +318,11 @@ jobs:
       - name: Create GitHub Release
         if: success()
         uses: actions/github-script@v7
+        env:
+          VERSION: ${{ needs.quality.outputs.version }}
         with:
           script: |
-            const version = `v${new Date().toISOString().slice(0,10).replace(/-/g,'.')}-${context.sha.slice(0,7)}`;
+            const version = process.env.VERSION;
             const commits = await github.rest.repos.listCommits({
               owner: context.repo.owner,
               repo: context.repo.repo,

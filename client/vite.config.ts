@@ -2,9 +2,52 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import svgr from 'vite-plugin-svgr';
 import { VitePWA } from 'vite-plugin-pwa';
+import { execSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
+
+const CONFIG_DIR = dirname(fileURLToPath(import.meta.url));
+
+// =============================================================================
+// APP VERSION RESOLUTION (Option A — build-time injection)
+// =============================================================================
+// Resolution priority:
+//   1. VITE_APP_VERSION env var (CI sets this from the workflow-computed tag)
+//   2. `git describe --tags --always --dirty` (works in any local clone with
+//      tags fetched — gives a useful identifier for local dev / debug builds)
+//   3. 'dev' fallback so the UI never renders an empty string
+//
+// Surfaced to the client as import.meta.env.VITE_APP_VERSION via Vite's
+// `define`. Using `define` (rather than relying solely on the env-var pickup)
+// guarantees the value is hard-baked at build time even if the env var is
+// stripped from the runtime environment.
+// =============================================================================
+function resolveAppVersion(): string {
+	const fromEnv = process.env.VITE_APP_VERSION;
+	if (fromEnv && fromEnv.trim().length > 0) return fromEnv.trim();
+
+	try {
+		const fromGit = execSync('git describe --tags --always --dirty', {
+			stdio: ['ignore', 'pipe', 'ignore'],
+			cwd: CONFIG_DIR,
+		})
+			.toString()
+			.trim();
+		if (fromGit) return fromGit;
+	} catch {
+		// No git, no tags, or shallow clone — fall through to the default.
+	}
+
+	return 'dev';
+}
+
+const APP_VERSION = resolveAppVersion();
 
 export default defineConfig({
 	base: '/Mirror',
+	define: {
+		'import.meta.env.VITE_APP_VERSION': JSON.stringify(APP_VERSION),
+	},
 	plugins: [
 		react(),
 		svgr(),
