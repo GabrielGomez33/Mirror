@@ -78,7 +78,7 @@ PAYWALL_FREE_LIMITS={
       </DevSubsection>
 
       <DevSubsection id="paywall-paypal" title="PayPal flow">
-        <ol className="ml-6 list-decimal space-y-1 text-white/85">
+        <ol className="dt-numbered space-y-1.5">
           <li>Client posts to <code>/mirror/api/subscription/create</code> with a planId.</li>
           <li>Server calls PayPal <code>POST /v1/billing/subscriptions</code>; PayPal returns an approval URL.</li>
           <li>Server responds with the approval URL; client redirects.</li>

@@ -1,27 +1,23 @@
 import React from 'react';
-import DevBadge from './DevBadge';
+import DevBadge, { type BadgeTone } from './DevBadge';
 
 export interface EndpointRow {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'WS' | 'QUEUE';
   path: string;
-  /** Plain-text description. Keep to a single line where possible. */
   description: string;
   /** Optional auth/access tag, e.g. "Public", "JWT", "Premium", "Admin". */
   access?: string;
-  /** Optional notes column (rate limits, gates, etc.). */
   notes?: string;
 }
 
 export interface DevEndpointTableProps {
   rows: EndpointRow[];
-  /** Hide the Access column entirely (e.g. for internal queue tables). */
   hideAccess?: boolean;
-  /** Hide the Notes column entirely. */
   hideNotes?: boolean;
   caption?: string;
 }
 
-const METHOD_TONE: Record<EndpointRow['method'], React.ComponentProps<typeof DevBadge>['tone']> = {
+const METHOD_TONE: Record<EndpointRow['method'], BadgeTone> = {
   GET: 'get',
   POST: 'post',
   PUT: 'put',
@@ -31,24 +27,24 @@ const METHOD_TONE: Record<EndpointRow['method'], React.ComponentProps<typeof Dev
   QUEUE: 'queue',
 };
 
-const accessTone = (
-  access?: string
-): React.ComponentProps<typeof DevBadge>['tone'] => {
+const accessTone = (access?: string): BadgeTone => {
   if (!access) return 'neutral';
   const a = access.toLowerCase();
   if (a.includes('public')) return 'public';
   if (a.includes('admin')) return 'admin';
   if (a.includes('premium')) return 'premium';
-  if (a.includes('jwt') || a.includes('auth')) return 'auth';
+  if (a.includes('jwt') || a.includes('auth') || a.includes('token') || a.includes('service'))
+    return 'auth';
   return 'neutral';
 };
 
 /**
- * DevEndpointTable — semantic table for API endpoints, WS events, and queue jobs.
+ * DevEndpointTable — terminal-styled, horizontally-scrollable endpoint
+ * table. Renders as a semantic <table> for assistive tech.
  *
- * Always horizontally scrollable on narrow screens. The path column is the
- * widest column and uses font-mono. Method/access cells use DevBadge for
- * visual scanning.
+ * On screens narrower than `sm`, the table is still scrollable rather
+ * than reflowing into cards. Stacked card layouts hide the column
+ * relationship which is the whole point of an endpoint catalog.
  */
 const DevEndpointTable: React.FC<DevEndpointTableProps> = ({
   rows,
@@ -57,24 +53,45 @@ const DevEndpointTable: React.FC<DevEndpointTableProps> = ({
   caption,
 }) => {
   return (
-    <div className="my-5 overflow-hidden rounded-xl border border-white/10 bg-white/4 backdrop-blur-md">
+    <div
+      className="my-5 overflow-hidden"
+      style={{
+        background: 'var(--dt-bg-elevated)',
+        border: '1px solid var(--dt-border)',
+        borderRadius: '4px',
+      }}
+    >
+      {caption && (
+        <div
+          className="px-3 py-2 text-[11px] uppercase tracking-widest"
+          style={{
+            color: 'var(--dt-fg-muted)',
+            background: 'var(--dt-bg-soft)',
+            borderBottom: '1px solid var(--dt-border)',
+          }}
+        >
+          <span style={{ color: 'var(--dt-green)' }}>$</span>{' '}
+          <span style={{ color: 'var(--dt-fg)' }}>{caption}</span>
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left text-sm">
-          {caption && (
-            <caption className="bg-white/5 px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-white/70">
-              {caption}
-            </caption>
-          )}
-          <thead className="bg-white/4 text-[11px] uppercase tracking-wider text-white/55">
-            <tr>
-              <th scope="col" className="w-[90px] px-3 py-2 font-semibold">Method</th>
+          <thead>
+            <tr
+              className="text-[10px] uppercase tracking-widest"
+              style={{
+                color: 'var(--dt-fg-dim)',
+                background: 'var(--dt-bg-soft)',
+              }}
+            >
+              <th scope="col" className="w-[88px] px-3 py-2 font-semibold">Method</th>
               <th scope="col" className="px-3 py-2 font-semibold">Path</th>
               <th scope="col" className="px-3 py-2 font-semibold">Description</th>
               {!hideAccess && (
-                <th scope="col" className="w-[110px] px-3 py-2 font-semibold">Access</th>
+                <th scope="col" className="w-[120px] px-3 py-2 font-semibold">Access</th>
               )}
               {!hideNotes && (
-                <th scope="col" className="w-[160px] px-3 py-2 font-semibold">Notes</th>
+                <th scope="col" className="w-[170px] px-3 py-2 font-semibold">Notes</th>
               )}
             </tr>
           </thead>
@@ -82,29 +99,38 @@ const DevEndpointTable: React.FC<DevEndpointTableProps> = ({
             {rows.map((row, i) => (
               <tr
                 key={`${row.method}-${row.path}-${i}`}
-                className="border-t border-white/6 align-top"
+                className="align-top"
+                style={{ borderTop: '1px solid var(--dt-border-soft)' }}
               >
                 <td className="px-3 py-2">
                   <DevBadge tone={METHOD_TONE[row.method]} ariaLabel={`HTTP ${row.method}`}>
                     {row.method}
                   </DevBadge>
                 </td>
-                <td className="px-3 py-2 font-mono text-[12.5px] text-white/90 break-all">
+                <td
+                  className="px-3 py-2 break-all"
+                  style={{ color: 'var(--dt-fg-strong)' }}
+                >
                   {row.path}
                 </td>
-                <td className="px-3 py-2 text-white/80">{row.description}</td>
+                <td className="px-3 py-2" style={{ color: 'var(--dt-fg)' }}>
+                  {row.description}
+                </td>
                 {!hideAccess && (
                   <td className="px-3 py-2">
                     {row.access ? (
                       <DevBadge tone={accessTone(row.access)}>{row.access}</DevBadge>
                     ) : (
-                      <span className="text-white/40">—</span>
+                      <span style={{ color: 'var(--dt-fg-dim)' }}>—</span>
                     )}
                   </td>
                 )}
                 {!hideNotes && (
-                  <td className="px-3 py-2 text-xs text-white/65">
-                    {row.notes || <span className="text-white/40">—</span>}
+                  <td
+                    className="px-3 py-2 text-xs"
+                    style={{ color: 'var(--dt-fg-muted)' }}
+                  >
+                    {row.notes || <span style={{ color: 'var(--dt-fg-dim)' }}>—</span>}
                   </td>
                 )}
               </tr>

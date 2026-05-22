@@ -18,7 +18,7 @@ const Integration: React.FC = () => {
           callers of dina-server elsewhere in mirror-server.
         </DevCallout>
         <p>This is enforced by code review and the doc you are reading. There are three reasons:</p>
-        <ol className="ml-6 list-decimal space-y-1 text-white/85">
+        <ol className="dt-numbered space-y-1.5">
           <li>
             <strong>Auditability.</strong> One file holds the contract. A
             grep for that file finds every cross-service call.

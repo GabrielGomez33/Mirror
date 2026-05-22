@@ -50,7 +50,7 @@ const Architecture: React.FC = () => {
 
       <DevSubsection id="architecture-request-paths" title="Request paths">
         <p>Three canonical paths cover ~95% of traffic:</p>
-        <ol className="ml-6 list-decimal space-y-2 text-white/85">
+        <ol className="dt-numbered space-y-2">
           <li>
             <strong>Pure CRUD</strong> — Browser hits <code>mirror-server</code>,
             which reads/writes MySQL and returns. Examples: login, journal
@@ -140,7 +140,7 @@ const Architecture: React.FC = () => {
       </DevSubsection>
 
       <DevSubsection id="architecture-protocols" title="Protocols at a glance">
-        <ul className="ml-6 list-disc space-y-1 text-white/85">
+        <ul className="dt-bullets space-y-1">
           <li>
             <strong>HTTPS</strong> — public, browser ↔ mirror-server, and
             internal, mirror-server ↔ dina-server. Both ends enforce TLS.

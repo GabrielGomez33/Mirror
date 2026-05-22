@@ -37,7 +37,7 @@ const Frontend: React.FC = () => {
           is gated by <code>IntakeGate</code>, which checks the latest intake
           for the current user and redirects to one of three destinations:
         </p>
-        <ul className="ml-6 list-disc space-y-1 text-white/85">
+        <ul className="dt-bullets space-y-1">
           <li>Not authenticated → <code>/login</code></li>
           <li>Authenticated, no intake found → <code>/intake</code></li>
           <li>Authenticated, intake exists → <code>/dashboard</code></li>
@@ -60,7 +60,7 @@ const Frontend: React.FC = () => {
           caption="Authenticated routes"
           rows={[
             { method: 'GET', path: '/dashboard', description: 'Magical-sphere navigation hub.', access: 'JWT' },
-            { method: 'GET', path: '/intake/*', description: 'The multi-step intake flow (Personality → Astrology → IQ → Visual → Vocal → Submit → Results).', access: 'JWT' },
+            { method: 'GET', path: '/intake/*', description: 'The multi-step intake flow (Visual → Vocal → IQ → Astrology → Personality → Submit → Results).', access: 'JWT' },
             { method: 'GET', path: '/journal', description: 'Dedicated journal editor and list.', access: 'JWT' },
             { method: 'GET', path: '/groups', description: 'MirrorGroups directory + chat + voting.', access: 'JWT' },
             { method: 'GET', path: '/dev', description: 'This developer documentation.', access: 'JWT', notes: 'Added in this branch.' },

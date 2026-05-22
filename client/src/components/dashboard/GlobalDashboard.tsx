@@ -44,10 +44,13 @@ const GLASS_CARD: React.CSSProperties = {
 };
 
 // ============================================================================
-// USER AVATAR COMPONENT
+// PROFILE TOGGLE — chevron-only dropdown trigger
+// (Replaces the prior initials avatar; per UX iteration we render the
+// dropdown via a single chevron button. WebSocket-online status is shown as
+// a small dot anchored to the chevron.)
 // ============================================================================
 
-function UserAvatar({
+function ProfileToggle({
   username,
   showStatus,
   isOnline,
@@ -60,7 +63,6 @@ function UserAvatar({
   onClick?: () => void;
   isOpen?: boolean;
 }) {
-  const initials = username.split(/[\s_-]/).map((w) => w[0]?.toUpperCase() || '').slice(0, 2).join('');
   const isInteractive = typeof onClick === 'function';
 
   return (
@@ -68,60 +70,57 @@ function UserAvatar({
       type="button"
       onClick={onClick}
       disabled={!isInteractive}
-      aria-label={isInteractive ? `Open profile for ${username}` : `${username}'s avatar`}
+      aria-label={isInteractive ? `Toggle profile for ${username}` : `${username}'s profile`}
       aria-expanded={isInteractive ? !!isOpen : undefined}
-      className="relative p-0"
+      title={isInteractive ? (isOpen ? 'Hide profile details' : 'Show profile details') : undefined}
+      className="relative flex items-center justify-center rounded-full p-0 transition-transform"
       style={{
-        background: 'transparent',
-        border: 'none',
+        width: 36,
+        height: 36,
+        background: isOpen
+          ? 'linear-gradient(135deg, #ff69b4, #da70d6, #ff1493)'
+          : 'rgba(255, 255, 255, 0.85)',
+        border: isOpen ? '2px solid rgba(255,255,255,0.7)' : '1.5px solid rgba(61, 20, 40, 0.18)',
+        boxShadow: isOpen
+          ? '0 6px 20px rgba(255, 105, 180, 0.55)'
+          : '0 3px 10px rgba(0,0,0,0.15)',
         cursor: isInteractive ? 'pointer' : 'default',
         outline: 'none',
         WebkitTapHighlightColor: 'transparent',
+        transform: isOpen ? 'scale(1.04)' : 'scale(1)',
+        flexShrink: 0,
       }}
     >
-      <div
-        className="w-11 h-11 rounded-full flex items-center justify-center font-semibold text-white relative overflow-hidden transition-transform"
-        style={{
-          background: 'linear-gradient(135deg, #ff69b4, #da70d6, #ff1493)',
-          boxShadow: isOpen
-            ? '0 6px 22px rgba(255, 105, 180, 0.55), 0 0 0 2px rgba(255,255,255,0.7)'
-            : '0 4px 16px rgba(255, 105, 180, 0.35)',
-          border: '2px solid rgba(255, 255, 255, 0.5)',
-          fontSize: '0.85rem',
-          transform: isOpen ? 'scale(1.04)' : 'scale(1)',
-        }}
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 18 18"
+        fill="none"
+        aria-hidden
+        style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.25s ease' }}
       >
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.3) 0%, transparent 50%)' }} />
-        <span className="relative z-10" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}>{initials}</span>
-      </div>
+        <path
+          d="M4 7l5 5 5-5"
+          stroke={isOpen ? '#ffffff' : C.accent}
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
       {showStatus && (
-        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full" style={{
-          background: isOnline ? 'linear-gradient(135deg, #22c55e, #16a34a)' : '#9ca3af',
-          boxShadow: isOnline ? '0 0 6px rgba(34, 197, 94, 0.6)' : 'none',
-          border: '2px solid rgba(255, 255, 255, 0.7)',
-        }} />
-      )}
-      {isInteractive && (
         <div
-          aria-hidden
-          className="absolute flex items-center justify-center rounded-full"
+          aria-label={isOnline ? 'Online' : 'Offline'}
+          className="absolute rounded-full"
           style={{
-            // ~3x larger than the previous 16px indicator, positioned bottom-right
-            // so it sits outside the status dot on the bottom-left.
-            width: 22,
-            height: 22,
-            right: -6,
-            bottom: -6,
-            background: 'rgba(255,255,255,0.95)',
-            border: '1.5px solid rgba(61, 20, 40, 0.2)',
-            boxShadow: '0 3px 10px rgba(0,0,0,0.18)',
+            width: 10,
+            height: 10,
+            right: -2,
+            bottom: -2,
+            background: isOnline ? 'linear-gradient(135deg, #22c55e, #16a34a)' : '#9ca3af',
+            boxShadow: isOnline ? '0 0 6px rgba(34, 197, 94, 0.6)' : 'none',
+            border: '2px solid rgba(255, 255, 255, 0.9)',
           }}
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
-            style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.25s ease' }}>
-            <path d="M3 5l4 4 4-4" stroke={C.accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
+        />
       )}
     </button>
   );
@@ -234,7 +233,7 @@ function normalizeFacialAnalysis(emotional: any, userId: number | string | undef
     ? { emotion: String(dom.emotion || ''), confidence: domConf > 1 ? domConf : domConf * 100 }
     : null;
 
-  const dRaw = Number(emotional.detection?.confidence);
+  const dRaw = Number(emotional.detection?.confidence ?? emotional.detection?._score);
   const detectionConfidence = Number.isFinite(dRaw)
     ? Math.max(0, Math.min(100, dRaw > 1 ? dRaw : dRaw * 100))
     : 0;
@@ -826,7 +825,7 @@ export default function GlobalDashboard() {
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
                     {userInfo && (
-                      <UserAvatar
+                      <ProfileToggle
                         username={userInfo.username}
                         showStatus
                         isOnline={wsConnected}
@@ -938,10 +937,32 @@ export default function GlobalDashboard() {
                 {/* System */}
                 <Section title="System" icon="ℹ️">
                   <div className="space-y-1.5">
-                    {[['Version', '1.0.0'], ['Session', 'Active'], ['Dashboard', 'Online']].map(([l, v]) => (
+                    {[
+                      // Build-time-injected release tag. See vite.config.ts and
+                      // .github/workflows/ci-cd.yml — single source of truth for
+                      // the version. Defaults to 'dev' on local builds.
+                      ['Version', (import.meta.env.VITE_APP_VERSION || 'dev').trim()],
+                      ['Session', 'Active'],
+                      ['Dashboard', 'Online'],
+                    ].map(([l, v]) => (
                       <div key={l} className="flex justify-between">
                         <span style={{ color: C.muted, fontSize: '0.7rem', fontFamily: "'Inter', sans-serif" }}>{l}</span>
-                        <span style={{ color: C.heading, fontSize: '0.7rem', fontWeight: 600, fontFamily: "'Inter', sans-serif" }}>{v}</span>
+                        <span
+                          style={{
+                            color: C.heading,
+                            fontSize: '0.7rem',
+                            fontWeight: 600,
+                            fontFamily: l === 'Version' ? 'monospace' : "'Inter', sans-serif",
+                            maxWidth: '60%',
+                            textAlign: 'right',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                          title={l === 'Version' ? String(v) : undefined}
+                        >
+                          {v}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -951,7 +972,7 @@ export default function GlobalDashboard() {
               {/* Footer */}
               <div style={{ padding: '10px 16px', borderTop: `1px solid rgba(61, 20, 40, 0.08)` }}>
                 <p style={{ color: C.muted, fontSize: '0.6rem', textAlign: 'center', fontFamily: "'Inter', sans-serif" }}>
-                  Mirror v1.0.0
+                  Mirror <span style={{ fontFamily: 'monospace' }}>{(import.meta.env.VITE_APP_VERSION || 'dev').trim()}</span>
                 </p>
               </div>
             </div>

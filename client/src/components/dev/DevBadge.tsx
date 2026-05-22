@@ -1,6 +1,6 @@
 import React from 'react';
 
-type BadgeTone =
+export type BadgeTone =
   | 'neutral'
   | 'public'
   | 'auth'
@@ -15,53 +15,67 @@ type BadgeTone =
   | 'queue'
   | 'danger'
   | 'success'
-  | 'info';
+  | 'info'
+  | 'warning';
 
-const TONE_STYLES: Record<BadgeTone, string> = {
-  neutral:  'bg-white/8 text-white/80 border-white/15',
-  public:   'bg-emerald-400/15 text-emerald-200 border-emerald-300/30',
-  auth:     'bg-sky-400/15 text-sky-200 border-sky-300/30',
-  premium:  'bg-amber-400/15 text-amber-200 border-amber-300/30',
-  admin:    'bg-rose-400/15 text-rose-200 border-rose-300/30',
-  get:      'bg-emerald-400/15 text-emerald-200 border-emerald-300/30',
-  post:     'bg-sky-400/15 text-sky-200 border-sky-300/30',
-  put:      'bg-indigo-400/15 text-indigo-200 border-indigo-300/30',
-  delete:   'bg-rose-400/15 text-rose-200 border-rose-300/30',
-  patch:    'bg-violet-400/15 text-violet-200 border-violet-300/30',
-  ws:       'bg-fuchsia-400/15 text-fuchsia-200 border-fuchsia-300/30',
-  queue:    'bg-amber-400/15 text-amber-200 border-amber-300/30',
-  danger:   'bg-rose-500/20 text-rose-200 border-rose-300/30',
-  success:  'bg-emerald-500/20 text-emerald-200 border-emerald-300/30',
-  info:     'bg-sky-500/20 text-sky-200 border-sky-300/30',
+/** Each tone maps to a single accent variable from dev-terminal.css. */
+const TONE_VAR: Record<BadgeTone, { fg: string; border: string }> = {
+  neutral:  { fg: 'var(--dt-fg-muted)', border: 'var(--dt-border-hi)' },
+  public:   { fg: 'var(--dt-green)',    border: 'var(--dt-green)' },
+  auth:     { fg: 'var(--dt-cyan)',     border: 'var(--dt-cyan)' },
+  premium:  { fg: 'var(--dt-amber)',    border: 'var(--dt-amber)' },
+  admin:    { fg: 'var(--dt-red)',      border: 'var(--dt-red)' },
+  get:      { fg: 'var(--dt-green)',    border: 'var(--dt-green)' },
+  post:     { fg: 'var(--dt-cyan)',     border: 'var(--dt-cyan)' },
+  put:      { fg: 'var(--dt-magenta)',  border: 'var(--dt-magenta)' },
+  delete:   { fg: 'var(--dt-red)',      border: 'var(--dt-red)' },
+  patch:    { fg: 'var(--dt-magenta)',  border: 'var(--dt-magenta)' },
+  ws:       { fg: 'var(--dt-magenta)',  border: 'var(--dt-magenta)' },
+  queue:    { fg: 'var(--dt-amber)',    border: 'var(--dt-amber)' },
+  danger:   { fg: 'var(--dt-red)',      border: 'var(--dt-red)' },
+  success:  { fg: 'var(--dt-green)',    border: 'var(--dt-green)' },
+  info:     { fg: 'var(--dt-cyan)',     border: 'var(--dt-cyan)' },
+  warning:  { fg: 'var(--dt-amber)',    border: 'var(--dt-amber)' },
 };
 
 export interface DevBadgeProps {
   children: React.ReactNode;
   tone?: BadgeTone;
-  /** Optional explicit accessible label when the visible text is an abbreviation (e.g. "GET"). */
+  /** Whether to wrap the label in [brackets] (terminal flag style). Defaults to true. */
+  bracketed?: boolean;
   ariaLabel?: string;
-  className?: string;
 }
 
 /**
- * DevBadge — small, neutral-by-default chip used to tag HTTP methods, auth levels,
- * subscription tiers, queue priorities, etc. Tone is purely visual; it does not
- * encode behavior.
+ * DevBadge — terminal "[FLAG]" tag. Bracket-wrapped by default to read like
+ * a CLI option or HTTP method header. Tone is purely visual.
  */
-const DevBadge: React.FC<DevBadgeProps> = ({ children, tone = 'neutral', ariaLabel, className }) => {
+const DevBadge: React.FC<DevBadgeProps> = ({
+  children,
+  tone = 'neutral',
+  bracketed = true,
+  ariaLabel,
+}) => {
+  const { fg, border } = TONE_VAR[tone];
   return (
     <span
       role="status"
       aria-label={ariaLabel}
-      className={
-        'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 ' +
-        'text-[11px] font-semibold uppercase tracking-wider font-mono ' +
-        'whitespace-nowrap select-none ' +
-        TONE_STYLES[tone] +
-        (className ? ' ' + className : '')
-      }
+      className="inline-flex items-center font-semibold tracking-wider whitespace-nowrap select-none"
+      style={{
+        color: fg,
+        border: `1px solid ${border}`,
+        background: 'transparent',
+        padding: '0 0.45rem',
+        borderRadius: '2px',
+        fontSize: '0.68rem',
+        lineHeight: 1.6,
+        textTransform: 'uppercase',
+      }}
     >
+      {bracketed ? <span aria-hidden="true">[</span> : null}
       {children}
+      {bracketed ? <span aria-hidden="true">]</span> : null}
     </span>
   );
 };

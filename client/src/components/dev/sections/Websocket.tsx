@@ -98,7 +98,7 @@ const Websocket: React.FC = () => {
       </DevSubsection>
 
       <DevSubsection id="websocket-lifecycle" title="Connection lifecycle">
-        <ol className="ml-6 list-decimal space-y-1 text-white/85">
+        <ol className="dt-numbered space-y-1.5">
           <li>Client upgrades over WSS with the JWT in the query string.</li>
           <li>Server validates the token, records the user as online, registers the connection for heartbeat.</li>
           <li>Native ping every 30s. If a pong is not received within 10s, the connection is closed.</li>

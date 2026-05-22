@@ -1,25 +1,33 @@
 import React, { useCallback, useMemo, useState } from 'react';
 
 export interface DevCodeBlockProps {
-  /** Code body. Leading/trailing newlines are trimmed for layout. */
+  /** Code body. Leading/trailing blank lines are trimmed for layout. */
   code: string;
-  /** Display language tag (purely visual — no runtime tokenization). */
+  /** Display language tag (purely visual — no tokenizer is shipped). */
   language?: string;
-  /** Optional caption shown above the block (e.g. file path). */
+  /** Optional caption shown in the title bar (e.g. file path). */
   caption?: string;
-  /** Highlight specific 1-indexed line numbers. */
+  /** Highlight specific 1-indexed lines. */
   highlightLines?: number[];
-  /** Hide line numbers (useful for shell snippets). */
+  /** Hide line numbers (useful for ASCII diagrams and short shell snippets). */
   noLineNumbers?: boolean;
+  /** Render as a terminal "session": each line prefixed with $ unless it
+   *  starts with whitespace or '#'. Implies noLineNumbers. */
+  shellSession?: boolean;
 }
 
 /**
- * DevCodeBlock — read-only code presentation.
+ * DevCodeBlock — read-only, terminal-style code panel.
  *
- * Intentionally does not run a syntax highlighter: pulling a tokenizer would
- * bloat the bundle and the Mirror docs prioritize layout over color accuracy.
- * Copy-to-clipboard fails open if the API is unavailable (HTTP context, older
- * browsers) and surfaces a "Copy unavailable" hint instead of throwing.
+ * Layout:
+ *   ┌─ caption ─────────────────────[ lang ]─[ copy ]─┐
+ *   │  01 │ line of code                              │
+ *   │  02 │ line of code                              │
+ *   └─────┴───────────────────────────────────────────┘
+ *
+ * We deliberately do not bundle a syntax highlighter — the cost outweighs
+ * the benefit on a docs-only page. Clipboard copy falls back to a "Copy
+ * unavailable" hint when the API is missing (HTTP context, older browsers).
  */
 const DevCodeBlock: React.FC<DevCodeBlockProps> = ({
   code,
@@ -27,12 +35,15 @@ const DevCodeBlock: React.FC<DevCodeBlockProps> = ({
   caption,
   highlightLines,
   noLineNumbers,
+  shellSession,
 }) => {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'unavailable'>('idle');
 
   const trimmed = useMemo(() => code.replace(/^\n+|\n+$/g, ''), [code]);
   const lines = useMemo(() => trimmed.split('\n'), [trimmed]);
   const highlightSet = useMemo(() => new Set(highlightLines || []), [highlightLines]);
+  const lineNumberWidth = useMemo(() => String(lines.length).length, [lines.length]);
+  const hideLineNumbers = noLineNumbers || shellSession;
 
   const handleCopy = useCallback(async () => {
     if (typeof navigator === 'undefined' || !navigator.clipboard) {
@@ -51,57 +62,128 @@ const DevCodeBlock: React.FC<DevCodeBlockProps> = ({
   }, [trimmed]);
 
   return (
-    <figure className="my-5 overflow-hidden rounded-xl border border-white/10 bg-[#0c0a1e]/80 shadow-[0_8px_40px_rgba(0,0,0,0.35)] backdrop-blur-md">
-      <header className="flex items-center justify-between border-b border-white/8 bg-white/4 px-4 py-2">
+    <figure
+      className="my-5 overflow-hidden"
+      style={{
+        background: 'var(--dt-bg-code)',
+        border: '1px solid var(--dt-border)',
+        borderRadius: '4px',
+      }}
+    >
+      <header
+        className="flex items-center justify-between gap-2 px-3 py-1.5"
+        style={{
+          background: 'var(--dt-bg-elevated)',
+          borderBottom: '1px solid var(--dt-border)',
+        }}
+      >
         <div className="flex min-w-0 items-center gap-2">
-          {language && (
-            <span className="rounded bg-white/8 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-white/70">
-              {language}
-            </span>
-          )}
+          {/* Three "traffic light" dots — pure visual cue, classic terminal feel. */}
+          <span aria-hidden="true" className="flex items-center gap-1">
+            <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: '#ff5f56' }} />
+            <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: '#ffbd2e' }} />
+            <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: '#27c93f' }} />
+          </span>
           {caption && (
-            <span className="truncate font-mono text-xs text-white/60" title={caption}>
+            <span
+              className="truncate text-xs"
+              style={{ color: 'var(--dt-fg-muted)' }}
+              title={caption}
+            >
               {caption}
             </span>
           )}
         </div>
-        <button
-          type="button"
-          onClick={handleCopy}
-          aria-label="Copy code to clipboard"
-          className="rounded border border-white/12 bg-white/5 px-2 py-1 text-xs text-white/80 transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300/50"
-        >
-          {copyState === 'copied'
-            ? 'Copied'
-            : copyState === 'unavailable'
-              ? 'Copy unavailable'
-              : 'Copy'}
-        </button>
+        <div className="flex items-center gap-2">
+          {language && (
+            <span
+              className="text-[10px] uppercase tracking-wider"
+              style={{ color: 'var(--dt-fg-dim)' }}
+            >
+              {language}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={handleCopy}
+            aria-label="Copy code to clipboard"
+            className="text-[11px] transition-colors"
+            style={{
+              color: copyState === 'copied' ? 'var(--dt-green)' : 'var(--dt-fg-muted)',
+              border: `1px solid var(--dt-border-hi)`,
+              padding: '0.1rem 0.45rem',
+              borderRadius: '3px',
+              background: 'transparent',
+              cursor: 'pointer',
+            }}
+          >
+            {copyState === 'copied'
+              ? '✓ copied'
+              : copyState === 'unavailable'
+                ? 'unavailable'
+                : 'copy'}
+          </button>
+        </div>
       </header>
-      <pre className="m-0 overflow-x-auto p-0 font-mono text-[12.5px] leading-[1.55] text-white/90">
+      <pre
+        className="m-0 overflow-x-auto p-0 text-[12.5px] leading-[1.6]"
+        style={{ color: 'var(--dt-fg)' }}
+      >
         <code className="block">
           {lines.map((ln, idx) => {
             const n = idx + 1;
             const highlighted = highlightSet.has(n);
+            // Heuristic for shell session: lines that don't start with whitespace,
+            // '#', or a redirect/pipe char get a "$ " prefix.
+            const isShellComment = shellSession && /^\s*#/.test(ln);
+            const showPrompt =
+              shellSession &&
+              !isShellComment &&
+              ln.length > 0 &&
+              !/^\s/.test(ln);
             return (
               <span
                 key={n}
-                className={
-                  'flex min-h-[1.55em] items-start px-4 ' +
-                  (highlighted
-                    ? 'bg-fuchsia-300/8 border-l-2 border-fuchsia-300/60 -ml-[2px]'
-                    : '')
-                }
+                className="flex items-start"
+                style={{
+                  background: highlighted ? 'var(--dt-amber-dim)' : 'transparent',
+                  borderLeft: highlighted
+                    ? '2px solid var(--dt-amber)'
+                    : '2px solid transparent',
+                  paddingLeft: '0.75rem',
+                  paddingRight: '0.75rem',
+                  minHeight: '1.6em',
+                }}
               >
-                {!noLineNumbers && (
+                {!hideLineNumbers && (
                   <span
                     aria-hidden="true"
-                    className="mr-4 w-8 select-none text-right text-white/30"
+                    className="select-none text-right"
+                    style={{
+                      width: `${lineNumberWidth + 1}ch`,
+                      color: 'var(--dt-fg-dim)',
+                      marginRight: '1rem',
+                    }}
                   >
-                    {n}
+                    {String(n).padStart(lineNumberWidth, ' ')}
                   </span>
                 )}
-                <span className="whitespace-pre">{ln || ' '}</span>
+                {showPrompt && (
+                  <span
+                    aria-hidden="true"
+                    style={{ color: 'var(--dt-green)', marginRight: '0.5rem' }}
+                  >
+                    $
+                  </span>
+                )}
+                <span
+                  className="whitespace-pre"
+                  style={{
+                    color: isShellComment ? 'var(--dt-fg-dim)' : 'inherit',
+                  }}
+                >
+                  {ln || ' '}
+                </span>
               </span>
             );
           })}
