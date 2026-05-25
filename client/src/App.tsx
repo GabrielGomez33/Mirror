@@ -38,6 +38,7 @@ import RegistrationStep from './components/intake/RegistrationStep';
 import Landing from './pages/Landing';
 import TestPage from './pages/TestPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
+import VerifyEmailChangePage from './pages/VerifyEmailChangePage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import VerifyEmailBanner from './components/auth/VerifyEmailBanner';
@@ -242,6 +243,7 @@ const App: React.FC = () => {
             <Route path="/landing" element={<Landing />} />
             <Route path="/test" element={<TestPage />} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
+            <Route path="/verify-email-change" element={<VerifyEmailChangePage />} />
 
             {/* Forgotten-password flow (public — token is the credential) */}
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />

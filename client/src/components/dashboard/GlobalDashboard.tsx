@@ -2,7 +2,7 @@
 // System-wide dashboard with real user data, notifications, connection status,
 // and subscription management. Uses MyMirror's dark-on-light color scheme.
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../context/NotificationContext';
 import { useGroups } from '../../context/GroupContext';
@@ -12,7 +12,7 @@ import { isWebSocketConnected } from '../../services/groupsWebSocket';
 import SubscriptionManager from '../paywall/SubscriptionManager';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { getPersonalIntelligenceApi } from '../../services/mirrorDashboard';
-import { deleteAccountApi } from '../../services/authApi';
+import { deleteAccountApi, changePasswordApi, changeEmailApi } from '../../services/authApi';
 import { buildStorageRetrieveUrl } from '../../utils/storageUrl';
 import type { Notification } from '../../types/notifications';
 // Push notification opt-in / status panel (Phase 5). Embedded inside the
@@ -656,6 +656,310 @@ function NItem({ notification, onAccept, onDecline, onDismiss, onNavigate, onMar
 }
 
 // ============================================================================
+// CREDENTIAL CHANGES — change password / change email
+// ============================================================================
+// Both are non-destructive self-service flows. Each is a trigger button that
+// expands into an in-place form, mirroring the delete flow's idle->form shape.
+// Server is the authority; client validation only saves a round-trip and gives
+// instant feedback. Password rules below MUST mirror the backend policy.
+// ============================================================================
+
+const PW_POLICY = /(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/;
+const isStrongPw = (p: string) => p.length >= 8 && p.length <= 256 && PW_POLICY.test(p);
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Shared field styles (neutral, non-destructive palette).
+const credLabelSpan: React.CSSProperties = {
+  display: 'block',
+  color: C.body,
+  fontSize: '0.65rem',
+  fontWeight: 600,
+  marginBottom: 4,
+  fontFamily: "'Inter', sans-serif",
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+};
+const credInputBase: React.CSSProperties = {
+  width: '100%',
+  padding: '7px 10px',
+  borderRadius: 8,
+  border: '1px solid rgba(61, 20, 40, 0.18)',
+  background: 'rgba(255,255,255,0.85)',
+  fontFamily: "'Inter', sans-serif",
+  fontSize: '0.78rem',
+  color: C.heading,
+  outline: 'none',
+};
+const credTriggerBtn: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  background: 'rgba(61, 20, 40, 0.06)',
+  color: C.heading,
+  border: '1px solid rgba(61, 20, 40, 0.18)',
+  fontSize: '0.72rem',
+  fontWeight: 600,
+  padding: '6px 12px',
+  borderRadius: 8,
+  cursor: 'pointer',
+  fontFamily: "'Inter', sans-serif",
+  WebkitTapHighlightColor: 'transparent',
+};
+const credPrimaryBtn = (enabled: boolean): React.CSSProperties => ({
+  flex: 1,
+  background: enabled ? 'linear-gradient(135deg, #c6469b, #a03680)' : 'rgba(61,20,40,0.18)',
+  color: '#fff',
+  border: 'none',
+  fontSize: '0.74rem',
+  fontWeight: 700,
+  padding: '8px 12px',
+  borderRadius: 8,
+  cursor: enabled ? 'pointer' : 'not-allowed',
+  fontFamily: "'Inter', sans-serif",
+});
+const credGhostBtn: React.CSSProperties = {
+  background: 'transparent',
+  color: C.subtle,
+  border: '1px solid rgba(61, 20, 40, 0.18)',
+  fontSize: '0.74rem',
+  fontWeight: 600,
+  padding: '8px 12px',
+  borderRadius: 8,
+  cursor: 'pointer',
+  fontFamily: "'Inter', sans-serif",
+};
+const credNote: React.CSSProperties = {
+  color: C.muted,
+  fontSize: '0.7rem',
+  fontFamily: "'Inter', sans-serif",
+  margin: 0,
+  lineHeight: 1.45,
+};
+
+function PasswordField({
+  label, value, onChange, disabled, autoComplete,
+}: {
+  label: string; value: string; onChange: (v: string) => void; disabled?: boolean; autoComplete?: string;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <label style={{ display: 'block', marginBottom: 8 }}>
+      <span style={credLabelSpan}>{label}</span>
+      <div style={{ position: 'relative' }}>
+        <input
+          type={show ? 'text' : 'password'}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          autoComplete={autoComplete}
+          style={{ ...credInputBase, padding: '7px 32px 7px 10px' }}
+        />
+        <button
+          type="button"
+          onClick={() => setShow((s) => !s)}
+          tabIndex={-1}
+          aria-label={show ? 'Hide' : 'Show'}
+          disabled={disabled}
+          style={{
+            position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+            background: 'transparent', border: 'none', color: C.muted, fontSize: '0.85rem',
+            cursor: 'pointer', padding: 4, lineHeight: 1,
+          }}
+        >
+          {show ? '🙈' : '👁'}
+        </button>
+      </div>
+    </label>
+  );
+}
+
+function FormStatus({ error, success }: { error?: string | null; success?: string | null }) {
+  if (success) {
+    return (
+      <p role="status" aria-live="polite" style={{
+        color: '#166534', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)',
+        borderRadius: 8, padding: '7px 10px', fontSize: '0.72rem', margin: '0 0 8px', fontFamily: "'Inter', sans-serif",
+      }}>{success}</p>
+    );
+  }
+  if (error) {
+    return (
+      <p role="alert" style={{
+        color: '#b91c1c', background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.25)',
+        borderRadius: 8, padding: '7px 10px', fontSize: '0.72rem', margin: '0 0 8px', fontFamily: "'Inter', sans-serif",
+      }}>{error}</p>
+    );
+  }
+  return null;
+}
+
+function ChangePasswordForm() {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const reset = useCallback(() => {
+    setOpen(false); setBusy(false); setCurrent(''); setNext(''); setConfirm('');
+    setError(null); setSuccess(null);
+  }, []);
+
+  const newValid = isStrongPw(next);
+  const matches = next.length > 0 && next === confirm;
+  const distinct = next.length === 0 || next !== current;
+  const canSubmit = !busy && current.length > 0 && newValid && matches && distinct;
+
+  const submit = useCallback(async () => {
+    if (!canSubmit) return;
+    setBusy(true); setError(null); setSuccess(null);
+    try {
+      const res = await changePasswordApi(current, next);
+      setSuccess(res?.message || 'Password changed. Other devices have been signed out.');
+      setCurrent(''); setNext(''); setConfirm('');
+      setTimeout(() => { setOpen(false); setSuccess(null); }, 2600);
+    } catch (err: any) {
+      setError(err?.error || err?.message || 'Could not change password. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }, [canSubmit, current, next]);
+
+  if (!open) {
+    return (
+      <div className="space-y-2">
+        <p style={credNote}>Update the password you use to sign in. Changing it signs you out of other devices.</p>
+        <button type="button" onClick={() => { setSuccess(null); setError(null); setOpen(true); }} style={credTriggerBtn}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(61, 20, 40, 0.12)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(61, 20, 40, 0.06)'; }}>
+          Change Password
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: 'rgba(61,20,40,0.04)', border: '1px solid rgba(61,20,40,0.12)', borderRadius: 12, padding: '12px 12px 14px' }}>
+      <FormStatus error={error} success={success} />
+      <PasswordField label="Current password" value={current} onChange={setCurrent} disabled={busy} autoComplete="current-password" />
+      <PasswordField label="New password" value={next} onChange={setNext} disabled={busy} autoComplete="new-password" />
+      {next.length > 0 && !newValid && (
+        <p style={{ ...credNote, color: '#b45309', margin: '-2px 0 8px' }}>
+          At least 8 chars with uppercase, lowercase, number, and special character.
+        </p>
+      )}
+      <PasswordField label="Confirm new password" value={confirm} onChange={setConfirm} disabled={busy} autoComplete="new-password" />
+      {confirm.length > 0 && !matches && (
+        <p style={{ ...credNote, color: '#b45309', margin: '-2px 0 8px' }}>Passwords don't match.</p>
+      )}
+      {!distinct && (
+        <p style={{ ...credNote, color: '#b45309', margin: '-2px 0 8px' }}>New password must differ from the current one.</p>
+      )}
+      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+        <button type="button" onClick={submit} disabled={!canSubmit} style={credPrimaryBtn(canSubmit)}>
+          {busy ? 'Saving…' : 'Update Password'}
+        </button>
+        <button type="button" onClick={reset} disabled={busy} style={credGhostBtn}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function ChangeEmailForm({ currentEmail }: { currentEmail?: string }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState<string | null>(null);
+
+  const reset = useCallback(() => {
+    setOpen(false); setBusy(false); setEmail(''); setPassword(''); setError(null); setSent(null);
+  }, []);
+
+  const normalized = email.trim().toLowerCase();
+  const emailValid = EMAIL_RE.test(normalized) && normalized.length <= 255;
+  const distinct = !currentEmail || normalized !== currentEmail.trim().toLowerCase();
+  const canSubmit = !busy && emailValid && distinct && password.length > 0;
+
+  const submit = useCallback(async () => {
+    if (!canSubmit) return;
+    setBusy(true); setError(null); setSent(null);
+    try {
+      const res = await changeEmailApi(normalized, password);
+      setSent(res?.message || `Confirmation link sent to ${normalized}. Click it to finish changing your email.`);
+      setPassword('');
+    } catch (err: any) {
+      setError(err?.error || err?.message || 'Could not start the email change. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }, [canSubmit, normalized, password]);
+
+  if (!open) {
+    return (
+      <div className="space-y-2">
+        <p style={credNote}>
+          Change your sign-in email. We'll send a confirmation link to the new address — it isn't changed until you click it.
+        </p>
+        <button type="button" onClick={() => { setSent(null); setError(null); setOpen(true); }} style={credTriggerBtn}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(61, 20, 40, 0.12)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(61, 20, 40, 0.06)'; }}>
+          Change Email
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: 'rgba(61,20,40,0.04)', border: '1px solid rgba(61,20,40,0.12)', borderRadius: 12, padding: '12px 12px 14px' }}>
+      <FormStatus error={error} success={sent} />
+      {!sent && (
+        <>
+          {currentEmail && (
+            <p style={{ ...credNote, marginBottom: 8 }}>Current: <span style={{ color: C.heading, fontWeight: 600 }}>{currentEmail}</span></p>
+          )}
+          <label style={{ display: 'block', marginBottom: 8 }}>
+            <span style={credLabelSpan}>New email</span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={busy}
+              autoComplete="email"
+              inputMode="email"
+              spellCheck={false}
+              style={credInputBase}
+            />
+          </label>
+          {email.length > 0 && !emailValid && (
+            <p style={{ ...credNote, color: '#b45309', margin: '-2px 0 8px' }}>Enter a valid email address.</p>
+          )}
+          {emailValid && !distinct && (
+            <p style={{ ...credNote, color: '#b45309', margin: '-2px 0 8px' }}>That's already your email.</p>
+          )}
+          <PasswordField label="Current password" value={password} onChange={setPassword} disabled={busy} autoComplete="current-password" />
+        </>
+      )}
+      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+        {!sent ? (
+          <>
+            <button type="button" onClick={submit} disabled={!canSubmit} style={credPrimaryBtn(canSubmit)}>
+              {busy ? 'Sending…' : 'Send Confirmation'}
+            </button>
+            <button type="button" onClick={reset} disabled={busy} style={credGhostBtn}>Cancel</button>
+          </>
+        ) : (
+          <button type="button" onClick={reset} style={credGhostBtn}>Done</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // ACCOUNT SETTINGS — destructive actions (Phase 2a)
 // ============================================================================
 //
@@ -1110,6 +1414,21 @@ export default function GlobalDashboard() {
     navigate('/login', { replace: true });
   }, [logout, navigate]);
 
+  // Normal sign-out (non-destructive). logout() revokes the current session
+  // server-side and clears the JWT/refresh token + AuthContext state; we also
+  // wipe the remaining auth-adjacent local-storage keys here so a logout
+  // leaves nothing behind, then route to /login.
+  const handleLogout = useCallback(() => {
+    handleClose();
+    try { clearToken('userInfo'); } catch { /* non-fatal */ }
+    try { localStorage.removeItem('rememberedEmail'); } catch { /* non-fatal */ }
+    try { localStorage.removeItem('loginAttempts'); } catch { /* non-fatal */ }
+    // logout() clears local state in its finally block regardless of API
+    // outcome, so a network/401 failure still ends in a clean logged-out state.
+    logout(false).catch(() => { /* non-fatal */ });
+    navigate('/login', { replace: true });
+  }, [logout, navigate]);
+
   // Cancel in-flight face fetch on unmount.
   useEffect(() => {
     return () => {
@@ -1298,8 +1617,41 @@ export default function GlobalDashboard() {
                   <SubscriptionManager />
                 </Section>
 
-                {/* Account Settings — destructive actions live here (Phase 2a) */}
+                {/* Account Settings — sign-out + destructive actions */}
                 <Section title="Account Settings" icon="⚙️">
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      background: 'rgba(61, 20, 40, 0.06)',
+                      color: C.heading,
+                      border: '1px solid rgba(61, 20, 40, 0.18)',
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      padding: '6px 12px',
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      fontFamily: "'Inter', sans-serif",
+                      WebkitTapHighlightColor: 'transparent',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(61, 20, 40, 0.12)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(61, 20, 40, 0.06)'; }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                      <polyline points="16 17 21 12 16 7" />
+                      <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                    Log Out
+                  </button>
+                  <div style={{ height: 1, background: 'rgba(61, 20, 40, 0.08)', margin: '12px 0' }} />
+                  <ChangePasswordForm />
+                  <div style={{ height: 1, background: 'rgba(61, 20, 40, 0.08)', margin: '12px 0' }} />
+                  <ChangeEmailForm currentEmail={userInfo?.email} />
+                  <div style={{ height: 1, background: 'rgba(61, 20, 40, 0.08)', margin: '12px 0' }} />
                   <AccountSettings onDeleted={handleAccountDeleted} />
                 </Section>
 
@@ -1340,7 +1692,47 @@ export default function GlobalDashboard() {
 
               {/* Footer */}
               <div style={{ padding: '10px 16px', borderTop: `1px solid rgba(61, 20, 40, 0.08)` }}>
-                <p style={{ color: C.muted, fontSize: '0.6rem', textAlign: 'center', fontFamily: "'Inter', sans-serif" }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexWrap: 'wrap',
+                    gap: '4px 10px',
+                    marginBottom: 8,
+                  }}
+                >
+                  {([
+                    ['Site Map', '/map'],
+                    ['Terms & Conditions', '/termsandconditions'],
+                    ['Dev', '/dev'],
+                  ] as [string, string][]).map(([label, path], i) => (
+                    <Fragment key={path}>
+                      {i > 0 && (
+                        <span aria-hidden="true" style={{ color: C.muted, fontSize: '0.6rem', opacity: 0.5 }}>·</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => { handleClose(); navigate(path); }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                          cursor: 'pointer',
+                          color: C.subtle,
+                          fontSize: '0.62rem',
+                          fontFamily: "'Inter', sans-serif",
+                          WebkitTapHighlightColor: 'transparent',
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = C.accent; e.currentTarget.style.textDecoration = 'underline'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = C.subtle; e.currentTarget.style.textDecoration = 'none'; }}
+                      >
+                        {label}
+                      </button>
+                    </Fragment>
+                  ))}
+                </div>
+                <p style={{ color: C.muted, fontSize: '0.6rem', textAlign: 'center', fontFamily: "'Inter', sans-serif", margin: 0 }}>
                   Mirror <span style={{ fontFamily: 'monospace' }}>{(import.meta.env.VITE_APP_VERSION || 'dev').trim()}</span>
                 </p>
               </div>

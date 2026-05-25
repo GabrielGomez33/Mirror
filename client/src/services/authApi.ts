@@ -283,18 +283,49 @@ class AuthApiClient {
     }
   }
 
-  async changePassword(oldPassword: string, newPassword: string): Promise<{ message: string }> {
-    console.log('FUNCTION: changePassword');
-    
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
     try {
       const response = await this.makeRequest<{ message: string }>('/change-password', {
         method: 'POST',
-        body: JSON.stringify({ oldPassword, newPassword })
+        body: JSON.stringify({ currentPassword, newPassword })
       }, true);
 
       return response;
     } catch (error) {
       console.error('Password change failed:', error);
+      throw error;
+    }
+  }
+
+  // Starts the re-verify email change: stages a pending change server-side and
+  // emails a single-use confirmation link to `newEmail`. The address is NOT
+  // changed until that link is confirmed via confirmEmailChange().
+  async changeEmail(newEmail: string, currentPassword: string): Promise<{ message: string; expiresIn?: string }> {
+    try {
+      const response = await this.makeRequest<{ message: string; expiresIn?: string }>('/change-email', {
+        method: 'POST',
+        body: JSON.stringify({ newEmail, currentPassword })
+      }, true);
+
+      return response;
+    } catch (error) {
+      console.error('Email change request failed:', error);
+      throw error;
+    }
+  }
+
+  // Confirms a pending email change from the emailed token. Unauthenticated —
+  // the token is the credential (same model as verifyEmail).
+  async confirmEmailChange(token: string): Promise<{ message: string; email?: string }> {
+    try {
+      const response = await this.makeRequest<{ message: string; email?: string }>('/change-email/confirm', {
+        method: 'POST',
+        body: JSON.stringify({ token })
+      });
+
+      return response;
+    } catch (error) {
+      console.error('Email change confirmation failed:', error);
       throw error;
     }
   }
@@ -510,8 +541,12 @@ export const logoutUser = (allDevices?: boolean) => authApi.logout(allDevices);
 export const refreshTokenApi = () => authApi.refreshToken();
 export const verifyTokenApi = () => authApi.verifyToken();
 export const logoutApi = (allDevices?: boolean) => authApi.logout(allDevices); // This was missing!
-export const changePasswordApi = (oldPassword: string, newPassword: string) => 
-  authApi.changePassword(oldPassword, newPassword);
+export const changePasswordApi = (currentPassword: string, newPassword: string) =>
+  authApi.changePassword(currentPassword, newPassword);
+export const changeEmailApi = (newEmail: string, currentPassword: string) =>
+  authApi.changeEmail(newEmail, currentPassword);
+export const confirmEmailChangeApi = (token: string) =>
+  authApi.confirmEmailChange(token);
 export const requestPasswordResetApi = (email: string) => 
   authApi.requestPasswordReset(email);
 export const resetPasswordApi = (token: string, newPassword: string) =>
