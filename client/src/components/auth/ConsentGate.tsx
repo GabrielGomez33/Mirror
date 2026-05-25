@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getConsentStatus, acceptTerms } from '../../services/consentApi';
-import { TERMS_VERSION, TERMS_PATH, MINIMUM_AGE } from '../../config/legal';
+import { TERMS_VERSION, TERMS_PATH, TERMS_HREF, MINIMUM_AGE } from '../../config/legal';
 
 /**
  * ConsentGate — re-acceptance backstop.
@@ -105,7 +105,7 @@ const ConsentGate: React.FC = () => {
         </p>
 
         <a
-          href={TERMS_PATH}
+          href={TERMS_HREF}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-3 inline-block text-sm font-semibold text-indigo-300 underline hover:text-indigo-200"

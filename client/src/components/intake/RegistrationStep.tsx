@@ -7,7 +7,7 @@ import GlassCard from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import BasicScene from '../three/BasicScene';
 import { acceptTerms } from '../../services/consentApi';
-import { TERMS_VERSION, TERMS_PATH, MINIMUM_AGE } from '../../config/legal';
+import { TERMS_VERSION, TERMS_HREF, MINIMUM_AGE } from '../../config/legal';
 
 interface ValidationErrors {
   username?: string;
@@ -333,17 +333,19 @@ const RegistrationStep = () => {
 
             {/* Progress Indicator */}
             <div className="glass-card-enhanced p-4 rounded-xl">
-              <div className="flex justify-between text-sm text-white/70 mb-2">
-                <span>Progress</span>
-                <span>Step {Math.min(currentStep + 1, 4)} of 4</span>
-              </div>
-              <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${(Math.min(currentStep + 1, 4) / 4) * 100}%` }}
-                  transition={{ duration: 0.5 }}
-                  className="h-full bg-gradient-to-r from-indigo-400 to-purple-400 rounded-full"
-                />
+              <div className="mx-auto w-full max-w-[18rem]">
+                <div className="flex justify-between text-sm text-white/70 mb-2">
+                  <span>Progress</span>
+                  <span>Step {Math.min(currentStep + 1, 4)} of 4</span>
+                </div>
+                <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(Math.min(currentStep + 1, 4) / 4) * 100}%` }}
+                    transition={{ duration: 0.5 }}
+                    className="h-full bg-gradient-to-r from-indigo-400 to-purple-400 rounded-full"
+                  />
+                </div>
               </div>
             </div>
 
@@ -554,7 +556,7 @@ const RegistrationStep = () => {
                 >
                   <label
                     htmlFor="agree-terms"
-                    className="flex cursor-pointer items-start gap-3 text-sm text-white/85"
+                    className="mx-auto flex w-full max-w-[18rem] cursor-pointer items-start gap-3 text-sm text-white/85"
                   >
                     <input
                       id="agree-terms"
@@ -566,7 +568,7 @@ const RegistrationStep = () => {
                     <span className="leading-relaxed">
                       I am at least {MINIMUM_AGE} years old and I agree to the{' '}
                       <a
-                        href={TERMS_PATH}
+                        href={TERMS_HREF}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="font-semibold text-indigo-300 underline hover:text-indigo-200"
