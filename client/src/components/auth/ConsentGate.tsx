@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { getConsentStatus, acceptTerms } from '../../services/consentApi';
 import { TERMS_VERSION, TERMS_PATH, TERMS_HREF, MINIMUM_AGE } from '../../config/legal';
@@ -23,9 +24,19 @@ import { TERMS_VERSION, TERMS_PATH, TERMS_HREF, MINIMUM_AGE } from '../../config
  *     5xx), the gate does NOT show — deploying the client ahead of the
  *     backend can never lock users out.
  *
- * A freshly-registered user already accepted via RegistrationStep, so this
- * gate stays silent for them.
+ * Visual: emulates Mirror's glass-card-enhanced aesthetic (see
+ * IOSInstallTutorial / VerifyEmailBanner) — dark text on light frosted
+ * glass, gradient icon tile, pill buttons. Layout-critical dimensions are
+ * inline-styled so global CSS can't break the proportions.
  */
+
+// Sakura/violet accent to match Mirror's identity without copying the
+// install (pink) or verify (amber) palettes verbatim.
+const ACCENT_GRADIENT = 'linear-gradient(135deg, #a78bfa, #7c3aed)';
+const ACCENT_SHADOW = '0 4px 12px rgba(124, 58, 237, 0.35)';
+const INK = '#1a1024';
+const INK_MUTED = 'rgba(26, 16, 36, 0.65)';
+
 const ConsentGate: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const location = useLocation();
@@ -34,12 +45,10 @@ const ConsentGate: React.FC = () => {
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  // Avoid re-checking on every navigation; one check per authenticated session.
   const [checkedThisSession, setCheckedThisSession] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
-      // Reset so a future login re-checks.
       setCheckedThisSession(false);
       setNeedsConsent(false);
       return;
@@ -51,17 +60,22 @@ const ConsentGate: React.FC = () => {
       const status = await getConsentStatus();
       if (cancelled) return;
       setCheckedThisSession(true);
-      // Fail open: never block when the endpoint is unavailable.
-      if (status.unavailable) return;
-      if (status.termsVersion !== TERMS_VERSION) {
-        setNeedsConsent(true);
-      }
+      if (status.unavailable) return; // fail open
+      if (status.termsVersion !== TERMS_VERSION) setNeedsConsent(true);
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [isAuthenticated, checkedThisSession]);
+
+  const suppressed = !needsConsent || location.pathname === TERMS_PATH;
+
+  // Lock body scroll while the modal is up (prevents background scroll bleed).
+  useEffect(() => {
+    if (suppressed) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [suppressed]);
 
   const handleAccept = async () => {
     if (!agreed || submitting) return;
@@ -69,87 +83,192 @@ const ConsentGate: React.FC = () => {
     setError('');
     const ok = await acceptTerms(TERMS_VERSION);
     setSubmitting(false);
-    if (ok) {
-      setNeedsConsent(false);
-    } else {
-      setError('Could not record your acceptance. Please try again.');
-    }
+    if (ok) setNeedsConsent(false);
+    else setError('Could not record your acceptance. Please try again.');
   };
 
-  // Suppress on the Terms page so the user can read the document, and
-  // whenever there's nothing to ask.
-  if (!needsConsent || location.pathname === TERMS_PATH) return null;
+  if (suppressed) return null;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="consent-gate-title"
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-      style={{ background: 'rgba(8, 6, 20, 0.72)', backdropFilter: 'blur(6px)' }}
-    >
+    <AnimatePresence>
       <div
-        className="w-full max-w-md rounded-2xl border border-white/15 bg-gradient-to-br from-indigo-900/90 to-purple-900/90 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.6)] backdrop-blur-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="consent-gate-title"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1rem',
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)',
+        }}
       >
-        <h2
-          id="consent-gate-title"
-          className="text-xl font-semibold text-white"
-          style={{ fontFamily: 'Poppins, Inter, sans-serif' }}
-        >
-          Our Terms have been updated
-        </h2>
-        <p className="mt-2 text-sm leading-relaxed text-white/80">
-          To keep using Mirror, please review and accept the current Terms &amp;
-          Conditions ({TERMS_VERSION}). They cover how your data is handled,
-          your privacy rights, and how disputes are resolved.
-        </p>
+        {/* Backdrop */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(26, 16, 36, 0.55)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+          }}
+        />
 
-        <a
-          href={TERMS_HREF}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 inline-block text-sm font-semibold text-indigo-300 underline hover:text-indigo-200"
+        {/* Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 12, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 12, scale: 0.98 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
+          className="glass-card-enhanced"
+          style={{
+            position: 'relative',
+            width: '100%',
+            maxWidth: 440,
+            borderRadius: 24,
+            color: INK,
+            padding: 24,
+            maxHeight: '88vh',
+            overflowY: 'auto',
+          }}
         >
-          Read the Terms &amp; Conditions →
-        </a>
+          {/* Header: icon tile + title */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+            <div
+              aria-hidden="true"
+              style={{
+                width: 44,
+                height: 44,
+                flexShrink: 0,
+                borderRadius: 12,
+                background: ACCENT_GRADIENT,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: ACCENT_SHADOW,
+                color: '#fff',
+                fontSize: '1.35rem',
+                fontWeight: 700,
+              }}
+            >
+              ¶
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h2
+                id="consent-gate-title"
+                style={{ fontSize: 19, fontWeight: 600, margin: 0, color: INK, lineHeight: 1.25 }}
+              >
+                Our Terms have been updated
+              </h2>
+              <p style={{ fontSize: 12.5, color: INK_MUTED, margin: '4px 0 0 0', lineHeight: 1.45 }}>
+                Version {TERMS_VERSION}
+              </p>
+            </div>
+          </div>
 
-        <label
-          htmlFor="consent-gate-agree"
-          className="mt-5 flex cursor-pointer items-start gap-3 text-sm text-white/90"
-        >
-          <input
-            id="consent-gate-agree"
-            type="checkbox"
-            checked={agreed}
-            onChange={(e) => setAgreed(e.target.checked)}
-            className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-2 border-white/30 bg-white/10 accent-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300/50"
-          />
-          <span className="leading-relaxed">
-            I am at least {MINIMUM_AGE} years old and I agree to the updated
-            Terms &amp; Conditions.
-          </span>
-        </label>
-
-        {error && (
-          <p className="mt-3 text-sm text-rose-300" role="alert">
-            {error}
+          {/* Body */}
+          <p style={{ fontSize: 14, color: 'rgba(26,16,36,0.8)', lineHeight: 1.55, margin: '16px 0 0 0' }}>
+            To keep using Mirror, please review and accept the current Terms &amp;
+            Conditions. They cover how your data is handled, your privacy rights,
+            and how disputes are resolved.
           </p>
-        )}
 
-        <button
-          type="button"
-          onClick={handleAccept}
-          disabled={!agreed || submitting}
-          className={`mt-5 w-full rounded-xl py-3 text-base font-semibold transition-all duration-300 ${
-            !agreed || submitting
-              ? 'cursor-not-allowed bg-white/10 text-white/40'
-              : 'bg-gradient-to-r from-indigo-400 to-purple-400 text-white hover:from-indigo-300 hover:to-purple-300'
-          }`}
-        >
-          {submitting ? 'Saving…' : 'Accept & continue'}
-        </button>
+          {/* Read link */}
+          <a
+            href={TERMS_HREF}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              marginTop: 12,
+              fontSize: 13,
+              fontWeight: 600,
+              color: '#7c3aed',
+              textDecoration: 'none',
+            }}
+          >
+            Read the Terms &amp; Conditions
+            <span aria-hidden="true">→</span>
+          </a>
+
+          {/* Consent checkbox */}
+          <label
+            htmlFor="consent-gate-agree"
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10,
+              marginTop: 18,
+              padding: '12px 14px',
+              borderRadius: 14,
+              background: 'rgba(124, 58, 237, 0.06)',
+              border: '1px solid rgba(124, 58, 237, 0.18)',
+              cursor: 'pointer',
+              fontSize: 13.5,
+              lineHeight: 1.45,
+              color: INK,
+            }}
+          >
+            <input
+              id="consent-gate-agree"
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              style={{
+                marginTop: 2,
+                width: 18,
+                height: 18,
+                flexShrink: 0,
+                accentColor: '#7c3aed',
+                cursor: 'pointer',
+              }}
+            />
+            <span>
+              I am at least {MINIMUM_AGE} years old and I agree to the updated
+              Terms &amp; Conditions.
+            </span>
+          </label>
+
+          {error && (
+            <p role="alert" style={{ marginTop: 10, fontSize: 12.5, color: '#b91c1c' }}>
+              {error}
+            </p>
+          )}
+
+          {/* Primary action */}
+          <button
+            type="button"
+            onClick={handleAccept}
+            disabled={!agreed || submitting}
+            style={{
+              width: '100%',
+              marginTop: 18,
+              borderRadius: 999,
+              padding: '12px 20px',
+              fontSize: 14,
+              fontWeight: 600,
+              border: 'none',
+              cursor: !agreed || submitting ? 'not-allowed' : 'pointer',
+              color: !agreed || submitting ? 'rgba(26, 16, 36, 0.4)' : '#ffffff',
+              background: !agreed || submitting
+                ? 'rgba(124, 58, 237, 0.15)'
+                : ACCENT_GRADIENT,
+              boxShadow: !agreed || submitting ? 'none' : ACCENT_SHADOW,
+              transition: 'background 0.15s ease, box-shadow 0.15s ease',
+            }}
+          >
+            {submitting ? 'Saving…' : 'Accept & continue'}
+          </button>
+        </motion.div>
       </div>
-    </div>
+    </AnimatePresence>
   );
 };
 
