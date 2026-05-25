@@ -6,6 +6,8 @@ import { useAuth } from '../../context/AuthContext';
 import GlassCard from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import BasicScene from '../three/BasicScene';
+import { acceptTerms } from '../../services/consentApi';
+import { TERMS_VERSION, TERMS_PATH, MINIMUM_AGE } from '../../config/legal';
 
 interface ValidationErrors {
   username?: string;
@@ -46,7 +48,12 @@ const RegistrationStep = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
-  
+
+  // Consent — the user must affirm age + agree to the Terms before the
+  // account can be created. This is the legally-binding clickwrap moment;
+  // the matching audit row is written server-side right after sign-up.
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+
   // Password strength tracking
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [passwordCriteria, setPasswordCriteria] = useState({
@@ -152,12 +159,23 @@ const RegistrationStep = () => {
       setMessage('❌ Please fix all validation errors');
       return;
     }
-    
+
+    if (!agreedToTerms) {
+      setMessage('❌ Please confirm your age and agree to the Terms & Conditions');
+      return;
+    }
+
     setLoading(true);
     setMessage('');
-    
+
     try {
       await registerWithAuth(username, email, password);
+
+      // Record the consent the user just gave. Best-effort: a transient
+      // failure here must not block onboarding — the ConsentGate re-prompts
+      // on the next authenticated load if the row didn't persist.
+      void acceptTerms(TERMS_VERSION).catch(() => undefined);
+
       updateIntake({
         userRegistered: true,
         userLoggedIn: true,
@@ -526,6 +544,42 @@ const RegistrationStep = () => {
                 </motion.div>
               )}
 
+              {/* Consent — age attestation + Terms agreement (clickwrap) */}
+              {currentStep >= 3 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.15 }}
+                  className="glass-card-enhanced p-4 rounded-xl"
+                >
+                  <label
+                    htmlFor="agree-terms"
+                    className="flex cursor-pointer items-start gap-3 text-sm text-white/85"
+                  >
+                    <input
+                      id="agree-terms"
+                      type="checkbox"
+                      checked={agreedToTerms}
+                      onChange={(e) => setAgreedToTerms(e.target.checked)}
+                      className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-2 border-white/30 bg-white/10 accent-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300/50"
+                    />
+                    <span className="leading-relaxed">
+                      I am at least {MINIMUM_AGE} years old and I agree to the{' '}
+                      <a
+                        href={TERMS_PATH}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-indigo-300 underline hover:text-indigo-200"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Terms &amp; Conditions
+                      </a>
+                      .
+                    </span>
+                  </label>
+                </motion.div>
+              )}
+
               {/* Submit Button */}
               {currentStep >= 3 && (
                 <motion.div
@@ -535,11 +589,11 @@ const RegistrationStep = () => {
                 >
                   <button
                     type="submit"
-                    disabled={loading || Object.keys(validationErrors).length > 0 || password !== confirmPassword}
+                    disabled={loading || Object.keys(validationErrors).length > 0 || password !== confirmPassword || !agreedToTerms}
                     className={`
                       w-full py-4 text-lg font-semibold transition-all duration-300 rounded-xl
                       border border-gray-300 backdrop-blur-sm shadow-sm
-                      ${loading || Object.keys(validationErrors).length > 0 || password !== confirmPassword
+                      ${loading || Object.keys(validationErrors).length > 0 || password !== confirmPassword || !agreedToTerms
                         ? 'bg-gray-100 opacity-50 cursor-not-allowed text-gray-400'
                         : 'bg-gradient-to-r from-indigo-100 to-purple-100 hover:from-indigo-200 hover:to-purple-200 text-black hover:border-indigo-300 hover:shadow-md'
                       }

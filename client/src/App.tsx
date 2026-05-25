@@ -9,6 +9,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import { SubscriptionProvider } from './context/SubscriptionContext';
 import IntakeErrorBoundary from './components/intake/IntakeErrorBoundary';
 import { ProtectedRoute, ConditionalRender } from './components/auth/RouteProtection';
+import ConsentGate from './components/auth/ConsentGate';
 import { AccessLevel, SecurityLevel } from './context/AuthContext';
 
 // Paywall UI components (global)
@@ -47,6 +48,7 @@ import MyJournalPage from './pages/MyJournalPage';
 import MyMirrorPage from './pages/MyMirrorPage';
 import DevPage from './pages/DevPage';
 import MapPage from './pages/MapPage';
+import TermsPage from './pages/TermsPage';
 
 // -----------------------------------------------------------------------------
 // Config: prefer same-origin; honor VITE_API_URL if explicitly set
@@ -206,6 +208,11 @@ const App: React.FC = () => {
             <GlobalDashboard />
           </ConditionalRender>
 
+          {/* Terms re-acceptance backstop. Self-suppresses for unauthenticated
+              users, on the Terms page, and when the consent endpoint is
+              unavailable (fail-open). */}
+          <ConsentGate />
+
           {/* Upgrade modal — rendered globally, triggered by FeatureGate or openUpgradeModal() */}
           <UpgradeModal />
 
@@ -239,6 +246,9 @@ const App: React.FC = () => {
             {/* Forgotten-password flow (public — token is the credential) */}
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+            {/* Terms & Conditions — public; the registration checkbox links here. */}
+            <Route path="/termsandconditions" element={<TermsPage />} />
 
             {/* Authentication Routes */}
             <Route

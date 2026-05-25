@@ -351,11 +351,11 @@ export const SITE_ROOT: RouteNode = {
         {
           path: '/termsandconditions',
           title: 'Terms & conditions',
-          status: 'planned',
+          status: 'live',
           category: 'meta',
           glyph: '¶',
           access: 'anonymous',
-          description: 'Legal terms governing use of Mirror, MirrorGroups, and TruthStream. Pending content review.',
+          description: 'Legal terms governing use of Mirror, MirrorGroups, and TruthStream. v1.0 — pending attorney review.',
         },
       ],
     },
