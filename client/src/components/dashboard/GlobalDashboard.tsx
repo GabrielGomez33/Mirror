@@ -681,6 +681,7 @@ const credLabelSpan: React.CSSProperties = {
 };
 const credInputBase: React.CSSProperties = {
   width: '100%',
+  boxSizing: 'border-box',
   padding: '7px 10px',
   borderRadius: 8,
   border: '1px solid rgba(61, 20, 40, 0.18)',
@@ -1155,6 +1156,7 @@ function AccountSettings({ onDeleted }: AccountSettingsProps) {
           spellCheck={false}
           style={{
             width: '100%',
+            boxSizing: 'border-box',
             padding: '7px 10px',
             borderRadius: 8,
             border: '1px solid rgba(61, 20, 40, 0.18)',
@@ -1189,6 +1191,7 @@ function AccountSettings({ onDeleted }: AccountSettingsProps) {
             autoComplete="current-password"
             style={{
               width: '100%',
+              boxSizing: 'border-box',
               padding: '7px 32px 7px 10px',
               borderRadius: 8,
               border: '1px solid rgba(61, 20, 40, 0.18)',

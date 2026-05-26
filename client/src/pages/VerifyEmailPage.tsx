@@ -7,23 +7,36 @@
 // Route: /verify-email?token=xxxxx
 // ============================================================================
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { verifyEmailToken } from '../services/emailVerificationApi';
+import { confirmEmailChangeApi } from '../services/authApi';
 import '../styles/enhanced-glass.css';
 
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = searchParams.get('token');
+  // `type=change` => this link confirms an email *change* (new address), which
+  // hits a different backend endpoint than first-time verification. We reuse
+  // this route so the confirmation link always lands on a path the host is
+  // already configured to serve.
+  const isChange = searchParams.get('type') === 'change';
 
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
   const [message, setMessage] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  // Tokens are single-use; guard against StrictMode's double effect invocation
+  // consuming the token twice and reporting a false "already used".
+  const ranRef = useRef(false);
 
   useEffect(() => {
+    if (ranRef.current) return;
+    ranRef.current = true;
+
     if (!token) {
       setStatus('error');
-      setMessage('No verification token provided.');
+      setMessage(isChange ? 'No confirmation token provided.' : 'No verification token provided.');
       return;
     }
 
@@ -31,23 +44,33 @@ export default function VerifyEmailPage() {
 
     (async () => {
       try {
-        const result = await verifyEmailToken(token);
-        if (cancelled) return;
-        setStatus('success');
-        setMessage(result.message || 'Email verified successfully!');
+        if (isChange) {
+          const result = await confirmEmailChangeApi(token);
+          if (cancelled) return;
+          if (result.email) setNewEmail(result.email);
+          setStatus('success');
+          setMessage(result.message || 'Your email address has been updated.');
+        } else {
+          const result = await verifyEmailToken(token);
+          if (cancelled) return;
+          setStatus('success');
+          setMessage(result.message || 'Email verified successfully!');
+        }
       } catch (err: any) {
         if (cancelled) return;
         setStatus('error');
         setMessage(
           err?.error ||
           err?.message ||
-          'Verification failed. The link may have expired.'
+          (isChange
+            ? 'Confirmation failed. The link may have expired or already been used.'
+            : 'Verification failed. The link may have expired.')
         );
       }
     })();
 
     return () => { cancelled = true; };
-  }, [token]);
+  }, [token, isChange]);
 
   return (
     <div
@@ -61,7 +84,7 @@ export default function VerifyEmailPage() {
         {status === 'verifying' && (
           <>
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-400 mx-auto mb-4" />
-            <h2 className="enhanced-glass-heading text-xl mb-2">Verifying your email...</h2>
+            <h2 className="enhanced-glass-heading text-xl mb-2">{isChange ? 'Confirming your new email...' : 'Verifying your email...'}</h2>
             <p className="enhanced-glass-subtle text-sm">Please wait a moment.</p>
           </>
         )}
@@ -77,8 +100,14 @@ export default function VerifyEmailPage() {
                 <path d="M8 16l5.5 5.5L24 10" stroke="rgba(134,239,172,0.95)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <h2 className="enhanced-glass-heading text-xl mb-2">{message}</h2>
-            <p className="enhanced-glass-subtle text-sm mb-6">You can now access all Mirror features.</p>
+            <h2 className="enhanced-glass-heading text-xl mb-2">{isChange ? 'Email updated' : message}</h2>
+            <p className="enhanced-glass-subtle text-sm mb-6">
+              {isChange
+                ? (newEmail
+                    ? <>Your account email is now <strong>{newEmail}</strong>. Use it next time you sign in.</>
+                    : message)
+                : 'You can now access all Mirror features.'}
+            </p>
             <button
               onClick={() => navigate('/dashboard')}
               className="enhanced-action-button px-6 py-2.5 rounded-xl text-sm font-semibold text-white"
@@ -112,7 +141,7 @@ export default function VerifyEmailPage() {
                 <path d="M20 12L12 20M12 12l8 8" stroke="rgba(252,165,165,0.95)" strokeWidth="3" strokeLinecap="round" />
               </svg>
             </div>
-            <h2 className="enhanced-glass-heading text-xl mb-2">Verification Failed</h2>
+            <h2 className="enhanced-glass-heading text-xl mb-2">{isChange ? 'Confirmation Failed' : 'Verification Failed'}</h2>
             <p className="enhanced-glass-body text-sm mb-6">{message}</p>
             <div className="flex gap-3 justify-center">
               <button
