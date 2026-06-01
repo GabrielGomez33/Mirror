@@ -68,13 +68,34 @@ cleanupOutdatedCaches();
 // ============================================================================
 // SPA NAVIGATION FALLBACK
 // ============================================================================
-// Any route under /Mirror/* that isn't a real file should fall back to the
-// cached index.html. Workbox v7 expects us to register a NavigationRoute
-// that pulls from the precache.
+// Any route under /Mirror/* that isn't a real file should resolve to the app
+// shell (index.html). We use NetworkFirst (NOT CacheFirst from precache) so a
+// browser that visited a previous deploy doesn't get pinned to a stale shell
+// that lacks newer routes — which manifested as a BLANK PAGE on links to
+// freshly-added routes (e.g. email-change confirmation) on devices that had an
+// older service worker. With registerType:'prompt' the new SW waits to
+// activate, so the navigation strategy is the only lever that keeps deep-link
+// navigations fresh. Online: fetch the latest shell (3s timeout). Offline / on
+// failure: fall back to the cached shell, then the global catch handler.
 //
-// Deny-list: never serve cached HTML for API or WebSocket upgrade paths.
-import { createHandlerBoundToURL } from 'workbox-precaching';
-const navigationHandler = createHandlerBoundToURL('/Mirror/index.html');
+// We always request the canonical shell URL so only ONE cache entry is kept,
+// regardless of how many distinct deep-link URLs are navigated to.
+//
+// Deny-list: never serve the shell for API or WebSocket upgrade paths.
+const APP_SHELL_URL = '/Mirror/index.html';
+const appShellStrategy = new NetworkFirst({
+	cacheName: 'mirror-app-shell',
+	networkTimeoutSeconds: 3,
+	plugins: [
+		new CacheableResponsePlugin({ statuses: [0, 200] }),
+		new ExpirationPlugin({ maxEntries: 1 }),
+	],
+});
+const navigationHandler = (options: { event: ExtendableEvent }) =>
+	appShellStrategy.handle({
+		request: new Request(APP_SHELL_URL),
+		event: options.event,
+	});
 registerRoute(
 	new NavigationRoute(navigationHandler, {
 		denylist: [/^\/mirror\/api\//, /^\/mirror\/groups\/chat/],

@@ -688,11 +688,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           };
           
           dispatch({ type: 'SET_USER', payload: user });
-          dispatch({ type: 'SET_TOKENS', payload: { 
-            accessToken: token, 
-            refreshToken: getToken('refreshToken') || '', 
-            expiresIn: 900 
+          dispatch({ type: 'SET_TOKENS', payload: {
+            accessToken: token,
+            refreshToken: getToken('refreshToken') || '',
+            expiresIn: 900
           }});
+
+          // Re-sync the persisted userInfo blob with the freshly-verified data.
+          // verify-token returns the live DB email, so this is what propagates
+          // an email change to surfaces that read getUserInfo() (e.g. the
+          // dashboard) after a refresh, without requiring a new login.
+          try {
+            const existing = getToken('userInfo');
+            const prev = existing ? JSON.parse(existing) : {};
+            setToken(JSON.stringify({
+              ...prev,
+              userId: data.user!.id,
+              username: data.user!.username,
+              email: data.user!.email,
+              emailVerified: Boolean(data.user!.emailVerified),
+              intakeCompleted: Boolean(data.user!.intakeCompleted),
+              subscriptionStatus: data.user!.subscriptionStatus || 'free',
+              tier: data.user!.tier || prev.tier || 'basic',
+            }), 'userInfo');
+          } catch { /* non-fatal — falls back to existing blob */ }
         } else {
           // Try to refresh token
           const refreshed = await refreshTokens();
