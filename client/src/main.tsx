@@ -7,6 +7,7 @@ import './styles/chat-glass.css';
 
 import App from './App.tsx'
 import { initPWA } from './pwa'
+import { installIOSResizeBridge } from './utils/iosResizeBridge'
 
 createRoot(document.getElementById('root')!).render(
      <BrowserRouter basename="/Mirror">
@@ -15,3 +16,4 @@ createRoot(document.getElementById('root')!).render(
 )
 
 initPWA()
+installIOSResizeBridge()
