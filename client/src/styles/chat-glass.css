@@ -1047,6 +1047,25 @@
   .chat-window-container {
     border-radius: 0;
     max-height: 100vh;
+
+    /* Goal #6 — mobile chat breakout.
+       The page wrapper in pages/MirrorGroupsPage.tsx (the inner div
+       around <GroupDetailView/>) carries `padding: 1rem` on mobile so
+       the other tabs (overview, members, insights, voting, sharing)
+       have breathing room. On the chat tab that 16px gutter on each
+       side felt cramped. Pulling -1rem on each side here lets ONLY the
+       chat panel punch out to the page-padding-box edges (effectively
+       to viewport edges, since the outer page wrapper has overflow:
+       hidden, so nothing horizontally overflows the screen). The other
+       tabs are unaffected. Width compensates so layout doesn't
+       collapse. The page itself still scrolls vertically — group
+       header + tab nav render above the chat in GroupDetailView and
+       `max-height: 100vh` above keeps the chat from claiming more
+       than one viewport, so there's always page surface to scroll on.
+    */
+    margin-left: -1rem;
+    margin-right: -1rem;
+    width: calc(100% + 2rem);
   }
 
   .chat-bubble-wrapper {
