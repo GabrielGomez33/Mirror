@@ -170,7 +170,7 @@ jobs:
 
     environment:
       name: production
-      url: https://theundergroundrailroad.world/Mirror/
+      url: https://www.theundergroundrailroad.world/Mirror/
 
     steps:
       - name: Checkout code
@@ -258,12 +258,28 @@ jobs:
           MAX_RETRIES=3
           RETRY_INTERVAL=3
 
+          # Why --resolve + the www hostname instead of https://localhost:
+          # Apache now has TWO vhosts on :443 — the canonical app vhost
+          # (ServerName www.theundergroundrailroad.world) and the apex
+          # redirect vhost (ServerName theundergroundrailroad.world) that
+          # 301s anything bare-apex to www. The apex redirect is also the
+          # default :443 vhost (first in source order), so unknown SNI
+          # like "localhost" gets routed to it and returns 301 — which
+          # the previous smoke test interpreted as a failure.
+          #
+          # --resolve maps the canonical www hostname directly to
+          # 127.0.0.1 so the curl still stays on loopback (no public
+          # DNS round-trip) AND sends the correct SNI/Host so Apache
+          # routes to the app vhost. -k is no longer needed because the
+          # cert is valid for the www name. Plain 200 expected.
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Attempt $i/$MAX_RETRIES..."
 
             HTTP_CODE=$(ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
               ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-              "curl -sk -o /dev/null -w '%{http_code}' https://localhost/Mirror/" \
+              "curl -s -o /dev/null -w '%{http_code}' \
+                --resolve www.theundergroundrailroad.world:443:127.0.0.1 \
+                https://www.theundergroundrailroad.world/Mirror/" \
               2>/dev/null || echo "000")
 
             echo "Smoke test response: HTTP $HTTP_CODE"
