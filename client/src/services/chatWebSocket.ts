@@ -380,23 +380,28 @@ class ChatWebSocketClient {
         return;
       }
 
-      // Handle acknowledgment with requestId
-      if (message.type === 'chat:ack' && message.requestId) {
+      // Defense-in-depth ack routing.
+      //
+      // Resolve / reject ANY pending request whose requestId matches this
+      // message — regardless of the message's `type`. Historically only
+      // `chat:ack` was honoured here, which silently broke join/leave
+      // (server replied with `chat:group_joined` / `chat:group_left`
+      // carrying the requestId) and is fragile against any future
+      // protocol drift. Errors still reject; everything else resolves.
+      //
+      // We DO NOT return after resolving — semantic handlers below should
+      // still fire for the corresponding event type (e.g.
+      // `chat:group_joined` listeners updating UI badges).
+      if (message.requestId) {
         const pending = this.pendingRequests.get(message.requestId);
         if (pending) {
           clearTimeout(pending.timeout);
           this.pendingRequests.delete(message.requestId);
-          pending.resolve(message.payload);
-        }
-      }
-
-      // Handle error with requestId
-      if (message.type === 'chat:error' && message.requestId) {
-        const pending = this.pendingRequests.get(message.requestId);
-        if (pending) {
-          clearTimeout(pending.timeout);
-          this.pendingRequests.delete(message.requestId);
-          pending.reject(new Error((message.payload as WSErrorPayload).error));
+          if (message.type === 'chat:error') {
+            pending.reject(new Error((message.payload as WSErrorPayload).error));
+          } else {
+            pending.resolve(message.payload);
+          }
         }
       }
 
