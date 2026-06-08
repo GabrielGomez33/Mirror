@@ -159,3 +159,164 @@
     background: rgba(255, 255, 255, 0.15);
     transform: translateY(-1px);
 }
+
+/* =============================================================================
+ * REGISTRATION AESTHETICS — sakura-tinted glass cards + ready-state glow button
+ * =============================================================================
+ *
+ * Used by client/src/components/intake/RegistrationStep.tsx for the
+ * sign-up flow. The aim is to keep the existing glass-card-enhanced
+ * silhouette but add a subtle pink tint that ties the input cards to the
+ * petal background animation, and to give the "Create Account" button a
+ * blooming sakura glow once every field is valid + terms accepted.
+ *
+ * The sakura palette referenced here:
+ *   - Pink-200 / 300:  #fbcfe8 / #f9a8d4
+ *   - Rose-200 / 300:  #fecdd3 / #fda4af
+ *   - Pink-400:        #f472b6  (primary glow)
+ *   - Rose-400:        #fb7185  (warm halo)
+ *   - Rose-900 (text): #831843  (on the bright button background)
+ */
+
+/* Sakura-tinted glass card — pinkier sibling of glass-card-enhanced.
+ * Stays neutral when idle, lights up on hover / focus-within so the
+ * card the keyboard is anchored to feels alive on mobile too. */
+.glass-card-sakura {
+    background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.14) 0%,
+        rgba(255, 192, 203, 0.08) 100%
+    );
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 1.5rem; /* rounded-3xl */
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.10),
+        inset 0 1px 0 rgba(255, 192, 203, 0.18);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+}
+
+.glass-card-sakura:focus-within,
+.glass-card-sakura:hover {
+    background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.18) 0%,
+        rgba(255, 182, 193, 0.12) 100%
+    );
+    border-color: rgba(244, 114, 182, 0.45);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.10),
+        0 0 22px rgba(244, 114, 182, 0.22),
+        inset 0 1px 0 rgba(255, 192, 203, 0.28);
+}
+
+/* Sakura-tinted input. Rounded-2xl corners, pink focus ring instead of the
+ * default white-on-white. Plays well on top of glass-card-sakura. */
+.input-sakura {
+    border-radius: 1rem; /* rounded-2xl */
+    transition:
+        border-color 0.25s ease,
+        box-shadow 0.25s ease,
+        background-color 0.25s ease;
+}
+
+.input-sakura:focus {
+    border-color: rgba(244, 114, 182, 0.65) !important;
+    box-shadow: 0 0 0 3px rgba(244, 114, 182, 0.18);
+    background-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+/* ============================================================
+ * READY-STATE SAKURA GLOW BUTTON
+ *
+ * Applied to the Create Account button once every field is
+ * valid + terms accepted + online. The previous "blue glow"
+ * came from from-indigo-100→purple-100 with a hover bump;
+ * we replace it with a soft sakura gradient and a slow,
+ * breathing box-shadow halo so the call to action visibly
+ * blooms when the user is ready to submit.
+ * ============================================================ */
+
+.btn-sakura-ready {
+    background: linear-gradient(
+        135deg,
+        rgba(252, 231, 243, 0.96) 0%,
+        rgba(254, 205, 211, 0.96) 50%,
+        rgba(251, 207, 232, 0.96) 100%
+    );
+    border: 1px solid rgba(244, 114, 182, 0.55);
+    color: #831843; /* rose-900 */
+    box-shadow:
+        0 0 0 1px rgba(244, 114, 182, 0.30),
+        0 4px 14px rgba(251, 113, 133, 0.40),
+        0 0 26px rgba(244, 114, 182, 0.32),
+        inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    animation: sakura-pulse 3s ease-in-out infinite;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+.btn-sakura-ready:hover {
+    transform: translateY(-2px);
+    box-shadow:
+        0 0 0 1px rgba(244, 114, 182, 0.55),
+        0 8px 28px rgba(251, 113, 133, 0.50),
+        0 0 34px rgba(244, 114, 182, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.btn-sakura-ready:active {
+    transform: translateY(0);
+}
+
+/* Idle / not-yet-ready state — neutral glass, no glow.
+ * Slightly muted so the difference between "you can submit"
+ * and "still typing" reads instantly. */
+.btn-sakura-idle {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.55);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+    cursor: not-allowed;
+}
+
+/* While the registration request is in flight — keep the sakura tint
+ * but mute the halo and disable the pulse so the spinner is the only
+ * thing demanding attention. */
+.btn-sakura-busy {
+    background: linear-gradient(
+        135deg,
+        rgba(252, 231, 243, 0.55) 0%,
+        rgba(254, 205, 211, 0.55) 100%
+    );
+    border: 1px solid rgba(244, 114, 182, 0.35);
+    color: rgba(131, 24, 67, 0.75);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.30);
+    cursor: progress;
+}
+
+@keyframes sakura-pulse {
+    0%, 100% {
+        box-shadow:
+            0 0 0 1px rgba(244, 114, 182, 0.30),
+            0 4px 14px rgba(251, 113, 133, 0.40),
+            0 0 26px rgba(244, 114, 182, 0.32),
+            inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    }
+    50% {
+        box-shadow:
+            0 0 0 1px rgba(244, 114, 182, 0.50),
+            0 4px 22px rgba(251, 113, 133, 0.55),
+            0 0 42px rgba(244, 114, 182, 0.48),
+            inset 0 1px 0 rgba(255, 255, 255, 0.65);
+    }
+}
+
+/* Users who've asked for less motion get a static glow — same colour,
+ * no breathing — so the affordance still reads but doesn't pulse. */
+@media (prefers-reduced-motion: reduce) {
+    .btn-sakura-ready {
+        animation: none;
+    }
+}
