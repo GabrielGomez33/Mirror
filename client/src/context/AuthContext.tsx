@@ -453,23 +453,125 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const register = useCallback(async (username: string, email: string, password: string) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'CLEAR_ERROR' });
-    
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/mirror/api/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password }),
-        credentials: 'include'
-      });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Registration failed');
+    try {
+      // Resolve the API base. If VITE_API_URL is unset (which is the case
+      // for same-origin production deploys), an empty string makes this
+      // resolve to a relative URL — which is what we want. The previous
+      // template literal silently produced the string "undefined/..." in
+      // that case and 404'd through the SPA fallback.
+      const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+
+      // Network-retry harness for the FIRST step of a user's journey.
+      // We retry ONLY on genuine network failures (TypeError: Failed to
+      // fetch — DNS, connectivity blip, CDN cold restart). 4xx/5xx
+      // responses come back as proper Response objects and are
+      // surfaced to the caller verbatim — we don't want to mask a
+      // EMAIL_EXISTS by retrying it. Backoff is bounded so a hard
+      // outage doesn't keep the spinner up for 30+ seconds.
+      const REGISTER_MAX_ATTEMPTS = 3;
+      const REGISTER_BACKOFF_MS = [0, 800, 2000];
+      let response: Response | null = null;
+      let lastNetworkError: unknown = null;
+
+      for (let attempt = 0; attempt < REGISTER_MAX_ATTEMPTS; attempt++) {
+        if (attempt > 0) {
+          await new Promise((r) => setTimeout(r, REGISTER_BACKOFF_MS[attempt]));
+        }
+        try {
+          response = await fetch(`${apiBase}/mirror/api/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ username, email, password }),
+            credentials: 'include',
+          });
+          break;
+        } catch (netErr) {
+          lastNetworkError = netErr;
+          // TypeError: Failed to fetch is the classic browser signal for
+          // a network failure. Everything else gets re-thrown.
+          if (!(netErr instanceof TypeError)) throw netErr;
+        }
       }
 
-      // Registration automatically logs in the user
+      if (!response) {
+        throw new Error(
+          (lastNetworkError instanceof Error ? lastNetworkError.message : 'Network error') +
+          ' — please check your connection and try again.'
+        );
+      }
+
+      const data = await response.json().catch(() => ({} as any));
+
+      if (!response.ok) {
+        // Surface the server's error CODE alongside the human message so
+        // the form can switch on it (EMAIL_EXISTS, WEAK_PASSWORD, etc.).
+        const code = (data as any).code ? ` (${(data as any).code})` : '';
+        // 429 carries retryAfter (seconds). Bubble it into the message so
+        // the UI can show "wait N seconds" without parsing the code.
+        const retryAfter = (data as any).retryAfter;
+        const suffix = response.status === 429 && retryAfter
+          ? ` — wait ${retryAfter}s before retrying`
+          : '';
+        throw new Error(((data as any).error || 'Registration failed') + code + suffix);
+      }
+
+      // Registration response carries valid tokens AND the full user
+      // payload. We use those directly instead of issuing a second
+      // /login round-trip — that back-to-back fetch was racy on slow
+      // mobile networks (and created a duplicate session every time).
+      if (data?.tokens?.accessToken && data?.user?.id) {
+        try {
+          setToken(data.tokens.accessToken);
+          if (data.tokens.refreshToken) setToken(data.tokens.refreshToken, 'refreshToken');
+          // userInfo blob — keep in sync with the shape login() writes
+          setToken(JSON.stringify({
+            userId: data.user.id,
+            username: data.user.username,
+            email: data.user.email,
+            lastLogin: data.user.lastLogin,
+            emailVerified: Boolean(data.user.emailVerified),
+            intakeCompleted: Boolean(data.user.intakeCompleted),
+            subscriptionStatus: data.user.subscriptionStatus || 'free',
+            tier: data.user.tier || 'basic',
+          }), 'userInfo');
+        } catch {
+          // localStorage can throw on Safari private mode / quota — non-
+          // fatal, login() can re-hydrate later. We still proceed with
+          // in-memory auth state below.
+        }
+
+        dispatch({
+          type: 'SET_TOKENS',
+          payload: {
+            accessToken: data.tokens.accessToken,
+            refreshToken: data.tokens.refreshToken || '',
+            expiresIn: data.tokens.expiresIn || 900,
+          },
+        });
+
+        const user: User = {
+          id: data.user.id,
+          username: data.user.username,
+          email: data.user.email,
+          tier: mapBackendTierToUserTier(data.user.tier || 'basic'),
+          emailVerified: Boolean(data.user.emailVerified),
+          intakeCompleted: Boolean(data.user.intakeCompleted),
+          subscriptionStatus: ['free', 'premium', 'enterprise'].includes(data.user.subscriptionStatus)
+            ? data.user.subscriptionStatus as 'free' | 'premium' | 'enterprise'
+            : 'free',
+          lastLogin: data.user.lastLogin,
+          sessionId: data.user.sessionId,
+        };
+        dispatch({ type: 'SET_USER', payload: user });
+        dispatch({ type: 'CLEAR_PERMISSION_CACHE' });
+        return;
+      }
+
+      // Fallback for back-compat with any deploy whose /register response
+      // didn't include tokens (shouldn't happen on current mirror-server,
+      // but defends against a partial rollout).
       await login(email, password);
-      
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: (error as Error).message });
       throw error;
