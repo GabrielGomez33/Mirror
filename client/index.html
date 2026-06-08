@@ -46,8 +46,14 @@
          `minimum-scale=1.0` prevents iOS pinch-zoom-out below 100%, which
          would expose the underpan area (gray/black bars on either side of
          the page). Zoom-IN is still allowed for accessibility — only the
-         out-of-bounds zoom-out is locked. -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, viewport-fit=cover" />
+         out-of-bounds zoom-out is locked.
+         `interactive-widget=resizes-content` tells Android Chrome to
+         resize the viewport when the on-screen keyboard appears (the
+         default behaviour) rather than overlaying the page. Older
+         browsers ignore the unknown directive, so it's a safe addition.
+         iOS auto-zoom on input focus is killed separately via the
+         16px font-size on .input-sakura (see glass.css). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
 
     <!-- Mirror is a sakura/light-themed app. Declare `color-scheme: light`
          so native form controls + scrollbars stay light regardless of the

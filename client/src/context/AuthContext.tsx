@@ -386,21 +386,64 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = useCallback(async (email: string, password: string) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'CLEAR_ERROR' });
-    
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/mirror/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-        credentials: 'include'
-      });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Login failed');
+    try {
+      // Defensive API-base resolution. Identical pattern to register() —
+      // if VITE_API_URL is unset (same-origin deploy), an empty string
+      // resolves the fetch to a relative URL, not the stringified word
+      // "undefined" the previous template literal produced.
+      const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+
+      // Network-retry harness for login: 3 attempts on TypeError (network
+      // failure), exponential backoff at [0, 800, 2000]ms. 4xx/5xx
+      // responses come back as a real Response and are surfaced to the
+      // caller verbatim — we never retry an INVALID_CREDENTIALS or a
+      // RATE_LIMIT because that would mask the real outcome.
+      const LOGIN_MAX_ATTEMPTS = 3;
+      const LOGIN_BACKOFF_MS = [0, 800, 2000];
+      let response: Response | null = null;
+      let lastNetworkError: unknown = null;
+
+      for (let attempt = 0; attempt < LOGIN_MAX_ATTEMPTS; attempt++) {
+        if (attempt > 0) {
+          await new Promise((r) => setTimeout(r, LOGIN_BACKOFF_MS[attempt]));
+        }
+        try {
+          response = await fetch(`${apiBase}/mirror/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ email, password }),
+            credentials: 'include',
+          });
+          break;
+        } catch (netErr) {
+          lastNetworkError = netErr;
+          if (!(netErr instanceof TypeError)) throw netErr;
+        }
       }
 
-      const data = await response.json();
+      if (!response) {
+        throw new Error(
+          (lastNetworkError instanceof Error ? lastNetworkError.message : 'Network error') +
+          ' — please check your connection and try again.'
+        );
+      }
+
+      const data = await response.json().catch(() => ({} as any));
+
+      if (!response.ok) {
+        // Preserve the server's error CODE in the thrown message so the
+        // Login UI can switch on it (INVALID_CREDENTIALS, ACCOUNT_LOCKED,
+        // EMAIL_NOT_VERIFIED, RATE_LIMIT). 429 carries a retryAfter
+        // seconds value; bubble it in too.
+        const code = (data as any).code ? ` (${(data as any).code})` : '';
+        const retryAfter = (data as any).retryAfter;
+        const suffix = response.status === 429 && retryAfter
+          ? ` — wait ${retryAfter}s before retrying`
+          : '';
+        throw new Error(((data as any).error || 'Login failed') + code + suffix);
+      }
+
       // Persist a richer userInfo blob so other parts of the app (Login
       // redirect logic, NavBar, etc.) can read the latest hydration state
       // without re-fetching. Keys are stable — adding fields is safe.
@@ -414,21 +457,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         subscriptionStatus: data.user.subscriptionStatus || 'free',
         tier: data.user.tier || 'basic',
       };
-      // Store tokens
-      setToken(data.tokens.accessToken);
-      setToken(data.tokens.refreshToken, 'refreshToken');
-      setToken(JSON.stringify(userInfo), 'userInfo');
-      
+      // Store tokens. Each write is wrapped because Safari private-mode
+      // can throw on localStorage writes — non-fatal, the in-memory auth
+      // state takes over below.
+      try {
+        setToken(data.tokens.accessToken);
+        setToken(data.tokens.refreshToken, 'refreshToken');
+        setToken(JSON.stringify(userInfo), 'userInfo');
+      } catch {
+        /* private mode / quota — non-fatal */
+      }
+
       // Update state
-      dispatch({ 
-        type: 'SET_TOKENS', 
+      dispatch({
+        type: 'SET_TOKENS',
         payload: {
           accessToken: data.tokens.accessToken,
           refreshToken: data.tokens.refreshToken,
           expiresIn: data.tokens.expiresIn
         }
       });
-      
+
       const user: User = {
         id: data.user.id,
         username: data.user.username,
@@ -440,10 +489,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         lastLogin: data.user.lastLogin,
         sessionId: data.user.sessionId
       };
-      
+
       dispatch({ type: 'SET_USER', payload: user });
       dispatch({ type: 'CLEAR_PERMISSION_CACHE' });
-      
+
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: (error as Error).message });
       throw error;
