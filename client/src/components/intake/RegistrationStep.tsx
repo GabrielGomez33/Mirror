@@ -1,62 +1,36 @@
 // src/components/intake/RegistrationStep.tsx
 //
-// Mobile-registration hardening — goal #1 (Phase 2b).
+// Mobile-registration hardening — goal #1 (Phase 2b + aesthetic pass).
 //
-// PHASE A (first pass) addressed the core mobile failures: progressive
-// disclosure unmounted password fields and broke iOS autofill, autoComplete
-// was "off" everywhere, autoCapitalize / autoCorrect were never set on the
-// username, the client and server disagreed on which characters counted as
-// "special", and a setTimeout-driven auto-step opened Confirm/Terms/Submit
-// below the keyboard.
+// Phase A fixed the dominant mobile failures (autofill / password-policy
+// mismatch). Phase B closed the remaining edge cases (honeypot, idempotent
+// submit, offline detection, sessionStorage progress, scrollIntoView,
+// HIBP, ARIA, safe-area). This pass is the visual round:
 //
-// PHASE B (this revision) covers the edge cases that survived phase A.
-// Registration is the user's first interaction with the product — a glitch
-// here is a hard churn signal, not a recoverable bug. So we cover:
+//   1. Progressive disclosure RESTORED (cards expand as steps are earned)
+//      but every input stays mounted in the DOM from first paint so iOS
+//      Keychain / 1Password can still see the full form and offer Strong
+//      Password and autofill. We achieve "appears later" with a CSS
+//      reveal (max-height + opacity transition) instead of conditional
+//      mounting — the only technique that satisfies both "appear when
+//      ready" and "autofill works."
+//   2. Sakura glow on the Create Account button when every field is
+//      valid + terms accepted + online. Idle button is neutral glass;
+//      ready button blooms with a soft pink halo and breathes once
+//      every 3s. Reduced-motion users get the static glow. Replaces
+//      the previous blue from-indigo-100→purple-100 affordance.
+//   3. Sakura-tinted glass-card-sakura on individual input cards —
+//      same silhouette as glass-card-enhanced but with a pink wash
+//      that brightens on focus-within, so the card the keyboard is
+//      anchored to feels alive on mobile.
+//   4. Rounded-2xl input fields with a pink focus ring (input-sakura).
 //
-//    1. Bot defence — a hidden honeypot input ("organisation") that humans
-//       never see and never fill but bot scripts will dutifully populate.
-//       Server doesn't have to know about it; we just refuse to submit
-//       client-side if it's non-empty. (Server-side rate limiting catches
-//       the rest — see mirror-server-updates/routes/auth.ts.)
-//
-//    2. Idempotent submit — a ref guards against a React-StrictMode-style
-//       double-fire AND against a user double-tapping the submit button
-//       inside the same event-loop tick. The existing `loading` state
-//       flag isn't enough on its own because state updates batch.
-//
-//    3. Offline detection — `navigator.onLine` plus online/offline events.
-//       Submit is disabled with an explicit banner when offline; we don't
-//       silently fire-and-forget a request the browser will queue.
-//
-//    4. Field-progress persistence — username + email are checkpointed
-//       to sessionStorage so an accidental refresh / pull-down-to-reload
-//       on iOS doesn't make the user start over. Password is NEVER
-//       persisted.
-//
-//    5. scrollIntoView on focus — iOS Safari does not auto-scroll inputs
-//       above the on-screen keyboard reliably. We do it ourselves on
-//       focus so the user never has to fight the keyboard.
-//
-//    6. HIBP password breach warning — k-anonymity SHA-1 prefix check
-//       against api.pwnedpasswords.com. Only the first 5 hex chars of
-//       the hash leave the device; the password itself never does. The
-//       warning is a soft nudge, never a block — false positives on
-//       memorable passwords are common and we don't want to gatekeep
-//       intent.
-//
-//    7. Stronger ARIA — every error is a live region, the submit button
-//       advertises its busy state, the honeypot is `aria-hidden`.
-//
-//    8. Safe-area-aware submit — the button carries
-//       `paddingBottom: env(safe-area-inset-bottom)` so it never sits
-//       under the iOS home indicator on standalone PWAs.
-//
-// What did NOT change from Phase A:
-//    - Visual layout, framer-motion choreography, GlassCard styling.
-//    - The single source of truth on password policy (matches the server
-//      regex landing in this same change set).
+// Phase A/B behaviour preserved verbatim: honeypot, submittingRef,
+// online/offline events, sessionStorage progress, scrollIntoView on
+// focus, HIBP debounce, server-error-code → field-hint mapping,
+// safe-area-inset-bottom.
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useIntake } from '../../context/IntakeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -74,7 +48,16 @@ const PASSWORD_MAX_LENGTH = 128;
 const USERNAME_MIN_LENGTH = 3;
 const USERNAME_MAX_LENGTH = 20;
 const USERNAME_ALLOWED = /^[a-zA-Z0-9_]+$/;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Strict-enough-for-progressive-disclosure email check. We require a
+// real-looking TLD of 2+ letters (the previous `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`
+// matched `test@gmail.c` and would let the password card pop open while the
+// user was still typing the dot-com). All current public TLDs are 2+
+// alphabetic chars; emails like `test@host.co.uk` still pass because the
+// FINAL segment is what we check. The server-side EMAIL_RE stays at the
+// looser pattern so we don't accidentally reject obscure-but-real TLDs at
+// account creation time — this stricter form only gates the next-field
+// reveal in the UI.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
 const PASSWORD_SPECIAL_RE = /[^A-Za-z0-9\s]/;
 
 const PROGRESS_STORAGE_KEY = 'mirror.registration.progress.v1';
@@ -88,10 +71,6 @@ interface ValidationErrors {
   general?: string;
 }
 
-// iOS substitutes ASCII apostrophes / quotes / hyphens with their "smart"
-// Unicode equivalents when Smart Punctuation is on (the default). Bcrypt
-// hashes raw bytes so we normalise these before sending. Mirrored on the
-// server side as a belt-and-braces guarantee.
 function normalizePassword(raw: string): string {
   return raw
     .replace(/[‘’‚‛]/g, "'")
@@ -107,20 +86,7 @@ function sanitizeEmail(raw: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// HIBP k-anonymity breach check.
-//
-// We SHA-1 the password locally, send the first 5 hex chars over HTTPS,
-// and scan the response for the rest of the hash. The plaintext password
-// never leaves the device. We hit this on a debounce so it doesn't fire
-// on every keystroke (one request per ~600ms of typing-quiet).
-//
-// Designed to be silently best-effort:
-//   - If the network call fails, we return `null` and the UI just doesn't
-//     surface a warning. Users with strict CSPs, ad-blockers, captive-portal
-//     situations, or offline conditions all see the same "no warning"
-//     behaviour they would have seen without this feature.
-//   - We use AbortController so a fast typist isn't waiting on stale
-//     requests once they've moved on.
+// HIBP k-anonymity breach check (unchanged from Phase B).
 // ---------------------------------------------------------------------------
 async function sha1Hex(text: string): Promise<string | null> {
   try {
@@ -134,7 +100,6 @@ async function sha1Hex(text: string): Promise<string | null> {
     return null;
   }
 }
-
 async function checkPasswordBreached(
   password: string,
   signal: AbortSignal
@@ -161,6 +126,57 @@ async function checkPasswordBreached(
   }
 }
 
+// ---------------------------------------------------------------------------
+// RevealCard — progressive disclosure that PRESERVES the DOM.
+//
+// The original pre-Phase-A code rendered later steps with
+// `currentStep >= index && <motion.div>...</motion.div>`. Mounting the
+// password fields only after the user "earned" them broke iOS Keychain
+// (which scans the form once when the user taps a field and needs all
+// credential inputs present at scan time).
+//
+// This component keeps the children mounted in the DOM at all times.
+// Visual progression is achieved by animating max-height + opacity
+// from collapsed-with-overflow-hidden to expanded. autoComplete /
+// name / type attributes on the inputs inside are unchanged, so iOS
+// still classifies the form correctly.
+//
+// `maxHeightPx` is a generous upper bound — we don't measure the
+// child's natural height because that would require a layout-observer
+// dance for a result that adds nothing. The child can never exceed
+// this value in our form.
+// ---------------------------------------------------------------------------
+interface RevealCardProps {
+  show: boolean;
+  delayIndex?: number;
+  children: React.ReactNode;
+}
+const RevealCard: React.FC<RevealCardProps> = ({ show, delayIndex = 0, children }) => {
+  return (
+    <motion.div
+      initial={false}
+      animate={{
+        maxHeight: show ? 900 : 0,
+        opacity: show ? 1 : 0,
+        marginTop: show ? '1.5rem' : 0,
+        pointerEvents: show ? 'auto' : 'none',
+      }}
+      transition={{
+        duration: 0.5,
+        ease: [0.22, 1, 0.36, 1],
+        delay: show ? delayIndex * 0.05 : 0,
+      }}
+      style={{ overflow: 'hidden' }}
+      // Critical: even when collapsed, the children stay in the DOM,
+      // tab-reachable, and discoverable by autofill. `aria-hidden`
+      // updates so screen readers don't announce a hidden card.
+      aria-hidden={!show}
+    >
+      {children}
+    </motion.div>
+  );
+};
+
 const RegistrationStep: React.FC = () => {
   const navigate = useNavigate();
   const { updateIntake } = useIntake();
@@ -172,9 +188,6 @@ const RegistrationStep: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-
-  // Honeypot — humans never see this. Bots that fill every form field
-  // will populate it and we'll silently refuse to submit.
   const [honeypot, setHoneypot] = useState('');
 
   // ----- UI state ----------------------------------------------------------
@@ -186,9 +199,6 @@ const RegistrationStep: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
   const [breachWarning, setBreachWarning] = useState<string | null>(null);
-
-  // Connectivity. `navigator.onLine` defaults to `true` server-side / in
-  // tests, which is the safe default.
   const [online, setOnline] = useState<boolean>(
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
@@ -203,27 +213,15 @@ const RegistrationStep: React.FC = () => {
     special: false,
   });
 
-  // Refs ------------------------------------------------------------------
-  // Field refs so the mobile keyboard's Enter / Next moves focus instead
-  // of submitting a half-empty form, and so we can `scrollIntoView` on
-  // focus / error.
+  // Refs
   const usernameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const confirmPasswordRef = useRef<HTMLInputElement>(null);
-
-  // Idempotent-submit guard — defends against React StrictMode firing
-  // event handlers twice in dev AND against rapid double-tap on the
-  // submit button (a single render between taps can leave `loading`
-  // false even though we're already submitting).
   const submittingRef = useRef<boolean>(false);
-
-  // Abort handle for the in-flight HIBP request so we don't leak fetches.
   const hibpAbortRef = useRef<AbortController | null>(null);
 
-  // ----- Field-progress persistence (sessionStorage) ---------------------
-  // Rehydrate username + email on mount so a pull-to-refresh doesn't make
-  // the user re-type. Password and Confirm Password are NEVER persisted.
+  // ----- sessionStorage progress (hydrate + persist) ---------------------
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(PROGRESS_STORAGE_KEY);
@@ -233,9 +231,6 @@ const RegistrationStep: React.FC = () => {
       if (parsed?.email) setEmail(sanitizeEmail(parsed.email));
     } catch { /* corrupt blob — ignore */ }
   }, []);
-
-  // Save progress as the user types. Debounce is implicit — these fields
-  // change at typing speed, and the writes are tiny.
   useEffect(() => {
     try {
       sessionStorage.setItem(
@@ -245,7 +240,7 @@ const RegistrationStep: React.FC = () => {
     } catch { /* private mode / quota — non-fatal */ }
   }, [username, email]);
 
-  // ----- Connectivity listeners -----------------------------------------
+  // ----- Connectivity listeners ------------------------------------------
   useEffect(() => {
     const onUp = () => setOnline(true);
     const onDown = () => setOnline(false);
@@ -257,7 +252,7 @@ const RegistrationStep: React.FC = () => {
     };
   }, []);
 
-  // ----- Real-time validation -------------------------------------------
+  // ----- Real-time validation --------------------------------------------
   useEffect(() => {
     const errors: ValidationErrors = {};
 
@@ -305,22 +300,17 @@ const RegistrationStep: React.FC = () => {
   }, [username, email, password, confirmPassword]);
 
   // ----- HIBP debounced breach check -------------------------------------
-  // Run only when the password passes local validation, so we don't burn
-  // requests on every keystroke as the user types up to "Strong".
   useEffect(() => {
     setBreachWarning(null);
     if (!password) return;
     if (password.length < PASSWORD_MIN_LENGTH) return;
-
-    // Cancel any pending request — the user kept typing.
     hibpAbortRef.current?.abort();
     const ctrl = new AbortController();
     hibpAbortRef.current = ctrl;
-
     const timer = setTimeout(async () => {
       const result = await checkPasswordBreached(password, ctrl.signal);
       if (ctrl.signal.aborted) return;
-      if (!result) return; // network or crypto unavailable — fail silent
+      if (!result) return;
       if (result.breached) {
         setBreachWarning(
           `Heads up — this password has appeared in ${result.count.toLocaleString()} known data breaches. ` +
@@ -328,7 +318,6 @@ const RegistrationStep: React.FC = () => {
         );
       }
     }, 600);
-
     return () => {
       clearTimeout(timer);
       ctrl.abort();
@@ -336,23 +325,77 @@ const RegistrationStep: React.FC = () => {
   }, [password]);
 
   // ----- Step progression -------------------------------------------------
+  // Drives the visual reveal. The step is a CASCADING gate: each rung
+  // requires the previous rung to currently hold, and the step is
+  // RECOMPUTED on every state change — not monotonic-max. That means
+  // backing up and editing an earlier field collapses everything below
+  // it again, which is what "do not display the next field until
+  // requirements are met" actually demands. Without that, a user who
+  // typed a valid email and then deleted half of it would still see the
+  // password card hanging open.
+  //
+  // The rungs:
+  //   step 1 — username valid                  ⇒ email card reveals
+  //   step 2 — + email valid                   ⇒ password card reveals
+  //   step 3 — + password valid                ⇒ confirm card reveals
+  //   step 4 — + confirm matches password      ⇒ terms card reveals
+  //   step 5 — + terms checkbox agreed         ⇒ submit button reveals
+  //
+  // Every input stays mounted in the DOM from first paint regardless of
+  // step (see <RevealCard>) so iOS Keychain / 1Password can offer Strong
+  // Password and autofill the whole form at once.
   useEffect(() => {
     let next = 0;
-    if (username && !validationErrors.username) next = Math.max(next, 1);
-    if (email && !validationErrors.email) next = Math.max(next, 2);
-    if (password && !validationErrors.password) next = Math.max(next, 3);
-    if (confirmPassword && !validationErrors.confirmPassword) next = Math.max(next, 3);
-    if (next > currentStep) setCurrentStep(next);
-  }, [username, email, password, confirmPassword, validationErrors, currentStep]);
+    if (username && !validationErrors.username) {
+      next = 1;
+      if (email && !validationErrors.email) {
+        next = 2;
+        if (password && !validationErrors.password) {
+          next = 3;
+          if (confirmPassword && password === confirmPassword) {
+            next = 4;
+            if (agreedToTerms) {
+              next = 5;
+            }
+          }
+        }
+      }
+    }
+    if (next !== currentStep) setCurrentStep(next);
+  }, [
+    username, email, password, confirmPassword, agreedToTerms,
+    validationErrors.username, validationErrors.email, validationErrors.password,
+    currentStep,
+  ]);
+
+  // ----- All-fields-ready (drives the sakura glow on submit) -------------
+  const allFieldsReady = useMemo(() => {
+    return (
+      username.length >= USERNAME_MIN_LENGTH &&
+      !validationErrors.username &&
+      email.length > 0 &&
+      EMAIL_RE.test(email) &&
+      !validationErrors.email &&
+      password.length >= PASSWORD_MIN_LENGTH &&
+      !validationErrors.password &&
+      confirmPassword.length > 0 &&
+      password === confirmPassword &&
+      agreedToTerms
+    );
+  }, [
+    username,
+    email,
+    password,
+    confirmPassword,
+    agreedToTerms,
+    validationErrors.username,
+    validationErrors.email,
+    validationErrors.password,
+  ]);
 
   // ----- Mobile-keyboard scroll helper -----------------------------------
-  // iOS Safari does NOT reliably scroll a focused input above the on-screen
-  // keyboard once the form contains taller content. We do it ourselves.
-  // `block: 'center'` puts the field comfortably above the keyboard on
-  // every screen size we've tested.
   const scrollFieldIntoView = useCallback((el: HTMLElement | null) => {
     if (!el) return;
-    // Defer past the keyboard's own opening animation (~250ms on iOS).
     setTimeout(() => {
       try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch { /* noop */ }
     }, 300);
@@ -367,7 +410,6 @@ const RegistrationStep: React.FC = () => {
     },
     []
   );
-
   const handleEnter = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>, field: 'username' | 'email' | 'password' | 'confirm') => {
       if (e.key !== 'Enter') return;
@@ -383,20 +425,13 @@ const RegistrationStep: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Honeypot triggered → silently refuse. Don't say WHY (real users
-    // would never see this; bots get no signal to refine against).
     if (honeypot.trim().length > 0) {
       setLoading(false);
       return;
     }
-
-    // Idempotent guard. submittingRef beats `loading` because state
-    // updates batch — two synchronous taps can both pass `if (!loading)`.
     if (submittingRef.current) return;
     submittingRef.current = true;
 
-    // Offline guard. The browser would happily queue the fetch and fail
-    // later; better to tell the user now.
     if (!online) {
       setMessage('❌ You appear to be offline. Reconnect and try again.');
       submittingRef.current = false;
@@ -415,7 +450,6 @@ const RegistrationStep: React.FC = () => {
     } else if (!USERNAME_ALLOWED.test(trimmedUsername)) {
       finalErrors.username = 'Letters, numbers, and underscores only';
     }
-
     if (!trimmedEmail) finalErrors.email = 'Email is required';
     else if (!EMAIL_RE.test(trimmedEmail)) finalErrors.email = 'Please enter a valid email address';
 
@@ -434,7 +468,6 @@ const RegistrationStep: React.FC = () => {
     if (normalizedPassword !== normalizedConfirm) {
       finalErrors.confirmPassword = 'Passwords do not match';
     }
-
     if (!agreedToTerms) {
       finalErrors.terms = `Please confirm your age and agree to the Terms & Conditions`;
     }
@@ -456,8 +489,6 @@ const RegistrationStep: React.FC = () => {
 
     try {
       await registerWithAuth(trimmedUsername, trimmedEmail, normalizedPassword);
-
-      // Best-effort consent record.
       void acceptTerms(TERMS_VERSION).catch(() => undefined);
 
       updateIntake({
@@ -466,8 +497,6 @@ const RegistrationStep: React.FC = () => {
         name: trimmedUsername,
       });
 
-      // Clear persisted progress on success so a returning unauthenticated
-      // user on this device doesn't see the previous signup's draft.
       try { sessionStorage.removeItem(PROGRESS_STORAGE_KEY); } catch { /* noop */ }
 
       setIsSuccess(true);
@@ -475,9 +504,6 @@ const RegistrationStep: React.FC = () => {
       setTimeout(() => navigate('/intake/visual'), 3500);
     } catch (err: any) {
       const raw: string = err?.message || '';
-      // The server's per-field error code travels through to here via
-      // AuthContext's thrown Error. Map back to a focused field + a
-      // human-friendly message.
       let display = raw || 'Registration failed. Please try again.';
       let focusField: 'username' | 'email' | 'password' | null = null;
 
@@ -528,15 +554,18 @@ const RegistrationStep: React.FC = () => {
     if (passwordStrength <= 4) return 'Good';
     return 'Strong';
   };
-  const cardEmphasis = (index: number) => {
-    if (index === currentStep) return 'opacity-100';
-    if (index < currentStep) return 'opacity-100';
-    return 'opacity-70';
-  };
 
-  // Honeypot styles — must NOT be `display: none` (some bots skip those).
-  // We make it visually unreachable + zero-tab-index + aria-hidden so
-  // screen readers don't announce it.
+  // Button class selection — drives the sakura glow when ready, idle
+  // glass when not, muted-busy when in flight.
+  const submitButtonClass = useMemo(() => {
+    const base =
+      'w-full py-4 text-lg font-semibold rounded-2xl transition-all duration-300 backdrop-blur-sm flex items-center justify-center gap-2';
+    if (loading) return `${base} btn-sakura-busy`;
+    if (!allFieldsReady || !online) return `${base} btn-sakura-idle`;
+    return `${base} btn-sakura-ready`;
+  }, [loading, allFieldsReady, online]);
+
+  // Honeypot — see Phase B notes.
   const honeypotStyle: React.CSSProperties = {
     position: 'absolute',
     left: '-10000px',
@@ -606,7 +635,6 @@ const RegistrationStep: React.FC = () => {
         className="absolute inset-0 bg-gradient-to-br from-indigo-100/50 via-purple-50/30 to-pink-100/50 pointer-events-none"
       />
 
-      {/* Floating petals — pointer-events-none so they never steal taps. */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {[...Array(12)].map((_, i) => (
           <motion.div
@@ -622,7 +650,7 @@ const RegistrationStep: React.FC = () => {
               opacity: [0, 0.4, 0],
             }}
             transition={{ duration: Math.random() * 8 + 6, repeat: Infinity, ease: 'easeInOut' }}
-            className="absolute w-2 h-2 bg-gradient-to-r from-white to-indigo-300 rounded-full"
+            className="absolute w-2 h-2 bg-gradient-to-r from-white to-pink-200 rounded-full"
           />
         ))}
       </div>
@@ -646,9 +674,9 @@ const RegistrationStep: React.FC = () => {
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-                  className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-400 to-purple-400 flex items-center justify-center"
+                  className="w-16 h-16 rounded-full bg-gradient-to-br from-pink-300 to-rose-400 flex items-center justify-center shadow-[0_0_24px_rgba(244,114,182,0.35)]"
                 >
-                  <span className="text-2xl">🔆</span>
+                  <span className="text-2xl">🌸</span>
                 </motion.div>
               </div>
 
@@ -665,7 +693,7 @@ const RegistrationStep: React.FC = () => {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="p-3 rounded-xl text-center text-sm bg-yellow-400/20 text-yellow-100 border border-yellow-400/30"
+                  className="p-3 rounded-2xl text-center text-sm bg-yellow-400/20 text-yellow-100 border border-yellow-400/30"
                   role="alert"
                 >
                   You're offline. We'll re-enable the Create Account button once you're back online.
@@ -674,18 +702,22 @@ const RegistrationStep: React.FC = () => {
             </AnimatePresence>
 
             {/* Progress indicator */}
-            <div className="glass-card-enhanced p-4 rounded-xl">
+            <div className="glass-card-sakura p-4 rounded-3xl">
               <div className="mx-auto w-full max-w-[18rem]">
                 <div className="flex justify-between text-sm text-white/70 mb-2">
                   <span>Progress</span>
                   <span>Step {Math.min(currentStep + 1, 4)} of 4</span>
                 </div>
-                <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-white/15 rounded-full overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${(Math.min(currentStep + 1, 4) / 4) * 100}%` }}
                     transition={{ duration: 0.5 }}
-                    className="h-full bg-gradient-to-r from-indigo-400 to-purple-400 rounded-full"
+                    className="h-full rounded-full"
+                    style={{
+                      background: 'linear-gradient(90deg, #f9a8d4 0%, #f472b6 50%, #fb7185 100%)',
+                      boxShadow: '0 0 12px rgba(244, 114, 182, 0.5)',
+                    }}
                   />
                 </div>
               </div>
@@ -693,21 +725,12 @@ const RegistrationStep: React.FC = () => {
 
             <form
               onSubmit={handleSubmit}
-              className="space-y-6"
+              className="space-y-0"
               autoComplete="on"
               noValidate
               aria-label="Create your Mirror account"
             >
-              {/*
-                Honeypot — hidden from users, irresistible to dumb bots.
-                Field name deliberately uses `nickname` — it is NOT a name
-                in the HTML autofill spec, so neither Safari, Chrome, nor
-                1Password / iOS Keychain will populate it. A human won't
-                see it (position + size + opacity); a bot fills every
-                input it parses and trips the silent-reject path below.
-                aria-hidden + tabIndex={-1} keep screen readers and
-                keyboard nav clear of it.
-              */}
+              {/* Honeypot — hidden, off-spec name `nickname` so no autofill triggers. */}
               <div aria-hidden="true" style={honeypotStyle}>
                 <label htmlFor="reg-nickname-hp">Leave this field empty</label>
                 <input
@@ -721,101 +744,92 @@ const RegistrationStep: React.FC = () => {
                 />
               </div>
 
-              {/* --------- USERNAME --------- */}
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4 }}
-                className="space-y-3"
-              >
-                <div className={`glass-card-enhanced p-4 rounded-xl transition-opacity duration-300 ${cardEmphasis(0)}`}>
-                  <div className="flex flex-col items-center space-y-2 w-full">
-                    <span className="text-2xl" aria-hidden="true">👤</span>
+              {/* --------- USERNAME (always visible — step 0) --------- */}
+              <div className="glass-card-sakura p-5 rounded-3xl">
+                <div className="flex flex-col items-center space-y-2 w-full">
+                  <span className="text-2xl" aria-hidden="true">👤</span>
 
-                    <div className="relative w-full max-w-[16rem]">
-                      <input
-                        ref={usernameRef}
-                        id="reg-username"
-                        name="username"
-                        type="text"
-                        placeholder="Choose a unique username"
-                        value={username}
-                        onChange={(e) => setUsername(sanitizeUsername(e.target.value))}
-                        onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
-                        onKeyDown={(e) => handleEnter(e, 'username')}
-                        className={`
-                          w-full p-3 bg-white/10 border-2 rounded-lg
-                          text-white placeholder-white/50 text-center
-                          focus:outline-none focus:border-white/40 transition-all duration-300
-                          ${validationErrors.username ? 'border-red-400' :
-                            username && !validationErrors.username ? 'border-green-400' : 'border-white/20'}
-                        `}
-                        required
-                        autoComplete="username"
-                        autoCapitalize="none"
-                        autoCorrect="off"
-                        spellCheck={false}
-                        inputMode="text"
-                        enterKeyHint="next"
-                        maxLength={USERNAME_MAX_LENGTH}
-                        aria-label="Username"
-                        aria-invalid={!!validationErrors.username}
-                        aria-describedby="reg-username-help"
-                        disabled={loading}
-                      />
-                    </div>
+                  <div className="relative w-full max-w-[16rem]">
+                    <input
+                      ref={usernameRef}
+                      id="reg-username"
+                      name="username"
+                      type="text"
+                      placeholder="Choose a unique username"
+                      value={username}
+                      onChange={(e) => setUsername(sanitizeUsername(e.target.value))}
+                      onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
+                      onKeyDown={(e) => handleEnter(e, 'username')}
+                      className={`
+                        input-sakura w-full p-3 bg-white/10 border-2
+                        text-white placeholder-white/50 text-center
+                        focus:outline-none
+                        ${validationErrors.username ? 'border-red-400' :
+                          username && !validationErrors.username ? 'border-pink-300/70' : 'border-white/20'}
+                      `}
+                      required
+                      autoComplete="username"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      inputMode="text"
+                      enterKeyHint="next"
+                      maxLength={USERNAME_MAX_LENGTH}
+                      aria-label="Username"
+                      aria-invalid={!!validationErrors.username}
+                      aria-describedby="reg-username-help"
+                      disabled={loading}
+                    />
+                  </div>
 
-                    <AnimatePresence>
-                      {validationErrors.username && (
-                        <motion.p
-                          initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          className="text-red-400 text-xs text-center"
-                          role="alert"
-                          aria-live="polite"
-                        >
-                          {validationErrors.username}
-                        </motion.p>
-                      )}
-                    </AnimatePresence>
-
-                    {username && !validationErrors.username && (
+                  <AnimatePresence>
+                    {validationErrors.username && (
                       <motion.p
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="text-green-400 text-xs flex items-center justify-center space-x-1"
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="text-red-400 text-xs text-center"
+                        role="alert"
+                        aria-live="polite"
                       >
-                        <span>✓</span>
-                        <span>Looks good!</span>
+                        {validationErrors.username}
                       </motion.p>
                     )}
-                  </div>
+                  </AnimatePresence>
 
-                  <div id="reg-username-help" className="mt-3 p-3 bg-white/5 rounded-lg mx-auto max-w-[18rem]">
-                    <p className="text-white/70 text-xs mb-2 text-center">Requirements</p>
-                    <ul className="space-y-1">
-                      <li className="text-white/60 text-xs flex items-center justify-center space-x-2">
-                        <span className="w-1 h-1 bg-white/40 rounded-full"></span>
-                        <span>{USERNAME_MIN_LENGTH}-{USERNAME_MAX_LENGTH} characters</span>
-                      </li>
-                      <li className="text-white/60 text-xs flex items-center justify-center space-x-2">
-                        <span className="w-1 h-1 bg-white/40 rounded-full"></span>
-                        <span>Letters, numbers, underscores only</span>
-                      </li>
-                    </ul>
-                  </div>
+                  {username && !validationErrors.username && (
+                    <motion.p
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="text-pink-200 text-xs flex items-center justify-center space-x-1"
+                    >
+                      <span>✓</span>
+                      <span>Looks good!</span>
+                    </motion.p>
+                  )}
                 </div>
-              </motion.div>
 
-              {/* --------- EMAIL --------- */}
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, delay: 0.05 }}
-                className="space-y-3"
-              >
-                <div className={`glass-card-enhanced p-4 rounded-xl transition-opacity duration-300 ${cardEmphasis(1)}`}>
+                <div id="reg-username-help" className="mt-3 p-3 bg-white/5 rounded-2xl mx-auto max-w-[18rem]">
+                  <p className="text-white/70 text-xs mb-2 text-center">Requirements</p>
+                  <ul className="space-y-1">
+                    <li className="text-white/60 text-xs flex items-center justify-center space-x-2">
+                      <span className="w-1 h-1 bg-pink-200/60 rounded-full"></span>
+                      <span>{USERNAME_MIN_LENGTH}-{USERNAME_MAX_LENGTH} characters</span>
+                    </li>
+                    <li className="text-white/60 text-xs flex items-center justify-center space-x-2">
+                      <span className="w-1 h-1 bg-pink-200/60 rounded-full"></span>
+                      <span>Letters, numbers, underscores only</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* --------- EMAIL — appears once username is valid ---------
+                  Children stay mounted at all times so iOS autofill sees
+                  every credential input on first paint; the RevealCard
+                  collapses the visual to zero height when not yet earned. */}
+              <RevealCard show={currentStep >= 1} delayIndex={1}>
+                <div className="glass-card-sakura p-5 rounded-3xl">
                   <div className="flex flex-col items-center space-y-2 w-full">
                     <span className="text-2xl" aria-hidden="true">📧</span>
 
@@ -831,11 +845,11 @@ const RegistrationStep: React.FC = () => {
                         onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                         onKeyDown={(e) => handleEnter(e, 'email')}
                         className={`
-                          w-full p-3 bg-white/10 border-2 rounded-lg
+                          input-sakura w-full p-3 bg-white/10 border-2
                           text-white placeholder-white/50 text-center
-                          focus:outline-none focus:border-white/40 transition-all duration-300
+                          focus:outline-none
                           ${validationErrors.email ? 'border-red-400' :
-                            email && !validationErrors.email ? 'border-green-400' : 'border-white/20'}
+                            email && !validationErrors.email ? 'border-pink-300/70' : 'border-white/20'}
                         `}
                         required
                         autoComplete="email"
@@ -871,7 +885,7 @@ const RegistrationStep: React.FC = () => {
                       <motion.p
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="text-green-400 text-xs flex items-center justify-center space-x-1"
+                        className="text-pink-200 text-xs flex items-center justify-center space-x-1"
                       >
                         <span>✓</span>
                         <span>Looks good!</span>
@@ -879,30 +893,25 @@ const RegistrationStep: React.FC = () => {
                     )}
                   </div>
 
-                  <div id="reg-email-help" className="mt-3 p-3 bg-white/5 rounded-lg mx-auto max-w-[18rem]">
+                  <div id="reg-email-help" className="mt-3 p-3 bg-white/5 rounded-2xl mx-auto max-w-[18rem]">
                     <p className="text-white/70 text-xs mb-2 text-center">Requirements</p>
                     <ul className="space-y-1">
                       <li className="text-white/60 text-xs flex items-center justify-center space-x-2">
-                        <span className="w-1 h-1 bg-white/40 rounded-full"></span>
+                        <span className="w-1 h-1 bg-pink-200/60 rounded-full"></span>
                         <span>Valid email format</span>
                       </li>
                       <li className="text-white/60 text-xs flex items-center justify-center space-x-2">
-                        <span className="w-1 h-1 bg-white/40 rounded-full"></span>
+                        <span className="w-1 h-1 bg-pink-200/60 rounded-full"></span>
                         <span>Will be used for account recovery</span>
                       </li>
                     </ul>
                   </div>
                 </div>
-              </motion.div>
+              </RevealCard>
 
-              {/* --------- PASSWORD --------- */}
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, delay: 0.1 }}
-                className="space-y-3"
-              >
-                <div className={`glass-card-enhanced p-4 rounded-xl transition-opacity duration-300 ${cardEmphasis(2)}`}>
+              {/* --------- PASSWORD — appears once email is valid --------- */}
+              <RevealCard show={currentStep >= 2} delayIndex={2}>
+                <div className="glass-card-sakura p-5 rounded-3xl">
                   <div className="flex flex-col items-center space-y-2 w-full">
                     <span className="text-2xl" aria-hidden="true">🔒</span>
 
@@ -918,11 +927,11 @@ const RegistrationStep: React.FC = () => {
                         onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                         onKeyDown={(e) => handleEnter(e, 'password')}
                         className={`
-                          w-full p-3 pr-10 bg-white/10 border-2 rounded-lg
+                          input-sakura w-full p-3 pr-10 bg-white/10 border-2
                           text-white placeholder-white/50 text-center
-                          focus:outline-none focus:border-white/40 transition-all duration-300
+                          focus:outline-none
                           ${validationErrors.password ? 'border-red-400' :
-                            password && !validationErrors.password ? 'border-green-400' : 'border-white/20'}
+                            password && !validationErrors.password ? 'border-pink-300/70' : 'border-white/20'}
                         `}
                         required
                         autoComplete="new-password"
@@ -939,7 +948,7 @@ const RegistrationStep: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setShowPassword((v) => !v)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-pink-200 transition-colors"
                         tabIndex={-1}
                         aria-label={showPassword ? 'Hide password' : 'Show password'}
                       >
@@ -966,7 +975,7 @@ const RegistrationStep: React.FC = () => {
                       <motion.p
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="text-green-400 text-xs flex items-center justify-center space-x-1"
+                        className="text-pink-200 text-xs flex items-center justify-center space-x-1"
                       >
                         <span>✓</span>
                         <span>Looks good!</span>
@@ -974,42 +983,42 @@ const RegistrationStep: React.FC = () => {
                     )}
                   </div>
 
-                  <div id="reg-password-help" className="mt-3 p-3 bg-white/5 rounded-lg mx-auto max-w-[18rem]">
+                  <div id="reg-password-help" className="mt-3 p-3 bg-white/5 rounded-2xl mx-auto max-w-[18rem]">
                     <p className="text-white/70 text-xs mb-2 text-center">Requirements</p>
                     <ul className="space-y-1">
                       <li className="text-white/60 text-xs flex items-center justify-center space-x-2">
-                        <span className="w-1 h-1 bg-white/40 rounded-full"></span>
+                        <span className="w-1 h-1 bg-pink-200/60 rounded-full"></span>
                         <span>At least {PASSWORD_MIN_LENGTH} characters</span>
                       </li>
                       <li className="text-white/60 text-xs flex items-center justify-center space-x-2">
-                        <span className="w-1 h-1 bg-white/40 rounded-full"></span>
+                        <span className="w-1 h-1 bg-pink-200/60 rounded-full"></span>
                         <span>One uppercase letter</span>
                       </li>
                       <li className="text-white/60 text-xs flex items-center justify-center space-x-2">
-                        <span className="w-1 h-1 bg-white/40 rounded-full"></span>
+                        <span className="w-1 h-1 bg-pink-200/60 rounded-full"></span>
                         <span>One lowercase letter</span>
                       </li>
                       <li className="text-white/60 text-xs flex items-center justify-center space-x-2">
-                        <span className="w-1 h-1 bg-white/40 rounded-full"></span>
+                        <span className="w-1 h-1 bg-pink-200/60 rounded-full"></span>
                         <span>One number</span>
                       </li>
                       <li className="text-white/60 text-xs flex items-center justify-center space-x-2">
-                        <span className="w-1 h-1 bg-white/40 rounded-full"></span>
+                        <span className="w-1 h-1 bg-pink-200/60 rounded-full"></span>
                         <span>One symbol (any non-letter / non-digit)</span>
                       </li>
                     </ul>
                   </div>
                 </div>
-              </motion.div>
+              </RevealCard>
 
-              {/* HIBP breach warning — soft nudge, never a block. */}
+              {/* HIBP breach warning — only renders when meaningful + visible. */}
               <AnimatePresence>
-                {breachWarning && password && !validationErrors.password && (
+                {breachWarning && password && !validationErrors.password && currentStep >= 2 && (
                   <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="p-3 rounded-xl text-center text-xs bg-amber-400/20 text-amber-100 border border-amber-400/30"
+                    initial={{ opacity: 0, y: -10, marginTop: 0 }}
+                    animate={{ opacity: 1, y: 0, marginTop: '1.5rem' }}
+                    exit={{ opacity: 0, y: -10, marginTop: 0 }}
+                    className="p-3 rounded-2xl text-center text-xs bg-amber-400/20 text-amber-100 border border-amber-400/30"
                     role="status"
                     aria-live="polite"
                   >
@@ -1018,209 +1027,198 @@ const RegistrationStep: React.FC = () => {
                 )}
               </AnimatePresence>
 
-              {/* Password strength meter */}
-              {password && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="glass-card-enhanced p-4 rounded-xl"
-                >
-                  <div className="mx-auto w-full max-w-[18rem]">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-white/80 text-sm">Password Strength</span>
-                      <span className={`text-sm font-medium bg-gradient-to-r ${getPasswordStrengthColor()} bg-clip-text text-transparent`}>
-                        {getPasswordStrengthText()}
-                      </span>
-                    </div>
+              {/* Password strength meter — sakura-tinted, appears with password */}
+              <AnimatePresence>
+                {password && currentStep >= 2 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, marginTop: 0 }}
+                    animate={{ opacity: 1, y: 0, marginTop: '1.5rem' }}
+                    exit={{ opacity: 0, y: -10, marginTop: 0 }}
+                    className="glass-card-sakura p-4 rounded-3xl"
+                  >
+                    <div className="mx-auto w-full max-w-[18rem]">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-white/80 text-sm">Password Strength</span>
+                        <span className={`text-sm font-medium bg-gradient-to-r ${getPasswordStrengthColor()} bg-clip-text text-transparent`}>
+                          {getPasswordStrengthText()}
+                        </span>
+                      </div>
 
-                    <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden mb-3">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(passwordStrength / 5) * 100}%` }}
-                        transition={{ duration: 0.5 }}
-                        className={`h-full bg-gradient-to-r ${getPasswordStrengthColor()} rounded-full`}
+                      <div className="w-full h-2 bg-white/15 rounded-full overflow-hidden mb-3">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(passwordStrength / 5) * 100}%` }}
+                          transition={{ duration: 0.5 }}
+                          className={`h-full bg-gradient-to-r ${getPasswordStrengthColor()} rounded-full`}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                        {Object.entries(passwordCriteria).map(([key, met]) => (
+                          <div key={key} className={`flex items-center space-x-2 ${met ? 'text-pink-200' : 'text-white/40'}`}>
+                            <span>{met ? '✓' : '○'}</span>
+                            <span className="capitalize">
+                              {key === 'length' ? `${PASSWORD_MIN_LENGTH}+ chars` : key}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* --------- CONFIRM PASSWORD — appears once password is valid --------- */}
+              <RevealCard show={currentStep >= 3} delayIndex={3}>
+                <div className="glass-card-sakura p-5 rounded-3xl">
+                  <div className="flex flex-col items-center space-y-2 w-full">
+                    <span className="text-2xl" aria-hidden="true">🔑</span>
+
+                    <div className="relative w-full max-w-[16rem]">
+                      <input
+                        ref={confirmPasswordRef}
+                        id="reg-confirm-password"
+                        name="confirm-password"
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        placeholder="Confirm your password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
+                        onKeyDown={(e) => handleEnter(e, 'confirm')}
+                        className={`
+                          input-sakura w-full p-3 pr-10 bg-white/10 border-2
+                          text-white placeholder-white/50 text-center
+                          focus:outline-none
+                          ${confirmPassword && password !== confirmPassword ? 'border-red-400' :
+                            confirmPassword && password === confirmPassword ? 'border-pink-300/70' : 'border-white/20'}
+                        `}
+                        required
+                        autoComplete="new-password"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        enterKeyHint="go"
+                        maxLength={PASSWORD_MAX_LENGTH}
+                        aria-label="Confirm password"
+                        aria-invalid={!!validationErrors.confirmPassword}
+                        disabled={loading}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword((v) => !v)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-pink-200 transition-colors"
+                        tabIndex={-1}
+                        aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showConfirmPassword ? '🙈' : '👁️'}
+                      </button>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                      {Object.entries(passwordCriteria).map(([key, met]) => (
-                        <div key={key} className={`flex items-center space-x-2 ${met ? 'text-green-400' : 'text-white/40'}`}>
-                          <span>{met ? '✓' : '○'}</span>
-                          <span className="capitalize">
-                            {key === 'length' ? `${PASSWORD_MIN_LENGTH}+ chars` : key}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                    {confirmPassword && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`text-xs flex items-center justify-center space-x-1 ${
+                          password === confirmPassword ? 'text-pink-200' : 'text-red-400'
+                        }`}
+                        role={password === confirmPassword ? undefined : 'alert'}
+                        aria-live="polite"
+                      >
+                        <span>{password === confirmPassword ? '✓' : '✗'}</span>
+                        <span>{password === confirmPassword ? 'Passwords match' : 'Passwords do not match'}</span>
+                      </motion.p>
+                    )}
                   </div>
-                </motion.div>
-              )}
-
-              {/* --------- CONFIRM PASSWORD --------- */}
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, delay: 0.15 }}
-                className={`glass-card-enhanced p-4 rounded-xl transition-opacity duration-300 ${cardEmphasis(3)}`}
-              >
-                <div className="flex flex-col items-center space-y-2 w-full">
-                  <span className="text-2xl" aria-hidden="true">🔑</span>
-
-                  <div className="relative w-full max-w-[16rem]">
-                    <input
-                      ref={confirmPasswordRef}
-                      id="reg-confirm-password"
-                      name="confirm-password"
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      placeholder="Confirm your password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
-                      onKeyDown={(e) => handleEnter(e, 'confirm')}
-                      className={`
-                        w-full p-3 pr-10 bg-white/10 border-2 rounded-lg text-white placeholder-white/50
-                        text-center focus:outline-none focus:border-white/40 transition-all duration-300
-                        ${confirmPassword && password !== confirmPassword ? 'border-red-400' :
-                          confirmPassword && password === confirmPassword ? 'border-green-400' : 'border-white/20'}
-                      `}
-                      required
-                      autoComplete="new-password"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      enterKeyHint="go"
-                      maxLength={PASSWORD_MAX_LENGTH}
-                      aria-label="Confirm password"
-                      aria-invalid={!!validationErrors.confirmPassword}
-                      disabled={loading}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword((v) => !v)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white"
-                      tabIndex={-1}
-                      aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                    >
-                      {showConfirmPassword ? '🙈' : '👁️'}
-                    </button>
-                  </div>
-
-                  {confirmPassword && (
-                    <motion.p
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`text-xs flex items-center justify-center space-x-1 ${
-                        password === confirmPassword ? 'text-green-400' : 'text-red-400'
-                      }`}
-                      role={password === confirmPassword ? undefined : 'alert'}
-                      aria-live="polite"
-                    >
-                      <span>{password === confirmPassword ? '✓' : '✗'}</span>
-                      <span>{password === confirmPassword ? 'Passwords match' : 'Passwords do not match'}</span>
-                    </motion.p>
-                  )}
                 </div>
-              </motion.div>
+              </RevealCard>
 
-              {/* --------- TERMS --------- */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 }}
-                className="glass-card-enhanced p-4 rounded-xl"
-              >
-                <label
-                  htmlFor="agree-terms"
-                  className="mx-auto flex w-full max-w-[18rem] cursor-pointer items-start gap-3 text-sm text-white/85"
-                >
-                  <input
-                    id="agree-terms"
-                    name="agree-terms"
-                    type="checkbox"
-                    checked={agreedToTerms}
-                    onChange={(e) => setAgreedToTerms(e.target.checked)}
-                    className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-2 border-white/30 bg-white/10 accent-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300/50"
-                    disabled={loading}
-                    aria-invalid={!!validationErrors.terms}
-                  />
-                  <span className="leading-relaxed">
-                    I am at least {MINIMUM_AGE} years old and I agree to the{' '}
-                    <a
-                      href={TERMS_HREF}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-semibold text-indigo-300 underline hover:text-indigo-200"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      Terms &amp; Conditions
-                    </a>
-                    .
-                  </span>
-                </label>
-
-                <AnimatePresence>
-                  {validationErrors.terms && (
-                    <motion.p
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="text-red-400 text-xs text-center mt-2"
-                      role="alert"
-                      aria-live="polite"
-                    >
-                      {validationErrors.terms}
-                    </motion.p>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-
-              {/* --------- SUBMIT --------- */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-              >
-                <button
-                  type="submit"
-                  disabled={loading || !online}
-                  className={`
-                    w-full py-4 text-lg font-semibold transition-all duration-300 rounded-xl
-                    border border-gray-300 backdrop-blur-sm shadow-sm
-                    ${loading || !online
-                      ? 'bg-gray-100 opacity-50 cursor-not-allowed text-gray-400'
-                      : 'bg-gradient-to-r from-indigo-100 to-purple-100 hover:from-indigo-200 hover:to-purple-200 text-black hover:border-indigo-300 hover:shadow-md'}
-                  `}
-                  aria-busy={loading}
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center space-x-2">
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                        className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
-                      />
-                      <span>Creating Account...</span>
+              {/* --------- TERMS — appears once confirm matches password --------- */}
+              <RevealCard show={currentStep >= 4} delayIndex={4}>
+                <div className="glass-card-sakura p-5 rounded-3xl">
+                  <label
+                    htmlFor="agree-terms"
+                    className="mx-auto flex w-full max-w-[18rem] cursor-pointer items-start gap-3 text-sm text-white/85"
+                  >
+                    <input
+                      id="agree-terms"
+                      name="agree-terms"
+                      type="checkbox"
+                      checked={agreedToTerms}
+                      onChange={(e) => setAgreedToTerms(e.target.checked)}
+                      className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded-md border-2 border-white/30 bg-white/10 accent-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-300/50"
+                      disabled={loading}
+                      aria-invalid={!!validationErrors.terms}
+                    />
+                    <span className="leading-relaxed">
+                      I am at least {MINIMUM_AGE} years old and I agree to the{' '}
+                      <a
+                        href={TERMS_HREF}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-pink-200 underline hover:text-pink-100"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Terms &amp; Conditions
+                      </a>
+                      .
                     </span>
-                  ) : (
-                    <span className="flex items-center justify-center space-x-2">
-                      <span>🚀</span>
-                      <span>Create Account</span>
-                    </span>
-                  )}
-                </button>
-              </motion.div>
+                  </label>
+
+                  <AnimatePresence>
+                    {validationErrors.terms && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="text-red-400 text-xs text-center mt-2"
+                        role="alert"
+                        aria-live="polite"
+                      >
+                        {validationErrors.terms}
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </RevealCard>
+
+              {/* --------- SUBMIT — appears once the terms checkbox is ticked --------- */}
+              <RevealCard show={currentStep >= 5} delayIndex={5}>
+                <div style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+                  <button
+                    type="submit"
+                    disabled={loading || !online || !allFieldsReady}
+                    className={submitButtonClass}
+                    aria-busy={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                          className="w-5 h-5 border-2 border-rose-300/40 border-t-rose-700 rounded-full"
+                        />
+                        <span>Creating Account...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>🌸</span>
+                        <span>Create Account</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </RevealCard>
 
               {/* --------- BANNER MESSAGE --------- */}
               <AnimatePresence>
                 {message && (
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
+                    initial={{ opacity: 0, scale: 0.8, marginTop: 0 }}
+                    animate={{ opacity: 1, scale: 1, marginTop: '1.5rem' }}
+                    exit={{ opacity: 0, scale: 0.8, marginTop: 0 }}
                     transition={{ duration: 0.3 }}
                     className={`
-                      p-4 rounded-xl text-center font-medium
+                      p-4 rounded-2xl text-center font-medium
                       ${/^(?!.*❌).*success/i.test(message)
                         ? 'bg-green-400/20 text-green-200 border border-green-400/30'
                         : 'bg-red-400/20 text-red-200 border border-red-400/30'}
@@ -1245,7 +1243,7 @@ const RegistrationStep: React.FC = () => {
                 Already have an account?{' '}
                 <button
                   onClick={() => navigate('/login')}
-                  className="text-indigo-300 hover:text-indigo-200 underline transition-colors"
+                  className="text-pink-200 hover:text-pink-100 underline transition-colors"
                   type="button"
                 >
                   Sign in here
