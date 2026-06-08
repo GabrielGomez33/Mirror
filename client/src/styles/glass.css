@@ -212,9 +212,18 @@
 }
 
 /* Sakura-tinted input. Rounded-2xl corners, pink focus ring instead of the
- * default white-on-white. Plays well on top of glass-card-sakura. */
+ * default white-on-white. Plays well on top of glass-card-sakura.
+ *
+ * font-size: 16px is intentional and load-bearing — iOS Safari auto-zooms
+ * the page on focus of any input whose computed font-size is less than
+ * 16px (it's trying to "rescue" small text by zooming in). Setting 16px
+ * on the input itself satisfies that threshold and kills the zoom-in /
+ * scroll-shift jank without having to disable user pinch-zoom in the
+ * viewport meta (which would break accessibility). The visible character
+ * size is identical to the browser default, so desktop is unaffected. */
 .input-sakura {
     border-radius: 1rem; /* rounded-2xl */
+    font-size: 16px;
     transition:
         border-color 0.25s ease,
         box-shadow 0.25s ease,
