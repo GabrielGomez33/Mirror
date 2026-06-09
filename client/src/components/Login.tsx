@@ -679,8 +679,8 @@ const LogUserIn: React.FC = () => {
                 />
               </div>
 
-              <div className="field-card-shell glass-card-sakura p-5 rounded-3xl">
-                <div className="flex flex-col items-center space-y-2 w-full">
+              <div className="field-card-shell glass-card-sakura p-5 rounded-3xl" style={{boxShadow:'none',border:'none'}}>
+                <div className="flex flex-col items-center space-y-2 w-full" >
                   <div className="relative w-full">
                     <input
                       ref={emailRef}
@@ -728,7 +728,7 @@ const LogUserIn: React.FC = () => {
                 </div>
               </div>
 
-              <div className="field-card-shell glass-card-sakura p-5 rounded-3xl">
+              <div className="field-card-shell glass-card-sakura p-5 rounded-3xl" style={{boxShadow:'none',border:'none'}}>
                 <div className="flex flex-col items-center space-y-2 w-full">
                   <div className="relative w-full">
                     <input
