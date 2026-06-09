@@ -681,33 +681,35 @@ const LogUserIn: React.FC = () => {
 
               <div className="field-card-shell glass-card-sakura p-5 rounded-3xl">
                 <div className="flex flex-col items-center space-y-2 w-full">
-                  <input
-                    ref={emailRef}
-                    id="login-email"
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData((p) => ({ ...p, email: sanitizeEmail(e.target.value) }))}
-                    onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
-                    className={`
-                      input-sakura w-full p-3 bg-white/10 border-2
-                      text-white placeholder-white/50 text-center
-                      focus:outline-none
-                      ${validationErrors.email ? 'border-red-400' :
-                        formData.email && !validationErrors.email && EMAIL_RE.test(trimmedEmail) ? 'border-pink-300/70' : 'border-white/20'}
-                    `}
-                    placeholder="Enter your email address"
-                    autoComplete="email"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    inputMode="email"
-                    enterKeyHint="next"
-                    maxLength={254}
-                    aria-label="Email address"
-                    aria-invalid={!!validationErrors.email}
-                    disabled={isLoading || lockoutInfo.locked}
-                  />
+                  <div className="relative w-full">
+                    <input
+                      ref={emailRef}
+                      id="login-email"
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData((p) => ({ ...p, email: sanitizeEmail(e.target.value) }))}
+                      onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
+                      className={`
+                        input-sakura w-full p-3 bg-white/10 border-2
+                        text-white placeholder-white/50 text-center
+                        focus:outline-none
+                        ${validationErrors.email ? 'border-red-400' :
+                          formData.email && !validationErrors.email && EMAIL_RE.test(trimmedEmail) ? 'border-pink-300/70' : 'border-white/20'}
+                      `}
+                      placeholder="Enter your email address"
+                      autoComplete="email"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      inputMode="email"
+                      enterKeyHint="next"
+                      maxLength={254}
+                      aria-label="Email address"
+                      aria-invalid={!!validationErrors.email}
+                      disabled={isLoading || lockoutInfo.locked}
+                    />
+                  </div>
 
                   <AnimatePresence>
                     {validationErrors.email && (
@@ -758,7 +760,7 @@ const LogUserIn: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
-                      className="absolute left-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-pink-200 transition-colors"
+                      className="absolute left-2 top-1/2 -translate-y-1/2 border-0 bg-transparent p-1 leading-none text-white/60 hover:text-pink-200 transition-colors focus:outline-none"
                       style={{borderRadius:'1rem'}}
                       tabIndex={-1}
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
