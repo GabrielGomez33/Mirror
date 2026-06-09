@@ -679,47 +679,35 @@ const LogUserIn: React.FC = () => {
                 />
               </div>
 
-              {/* --------- EMAIL ---------
-                  Structural pattern copied from RegistrationStep's input
-                  cards (which the user confirmed renders cleanly): outer
-                  p-5, inner flex flex-col items-center space-y-2 w-full,
-                  and CRUCIALLY a `relative max-w-[16rem]` wrapper around
-                  the input WITHOUT a w-full. Letting the wrapper sit at
-                  its intrinsic 16rem width and centering it via the
-                  parent's items-center is what keeps the inner input
-                  pill the same size as Registration's and prevents the
-                  pink pill from outgrowing the outer pink card. */}
               <div className="field-card-shell glass-card-sakura p-5 rounded-3xl">
                 <div className="flex flex-col items-center space-y-2 w-full">
-                  <div className="relative  max-w-[16rem]">
-                    <input
-                      ref={emailRef}
-                      id="login-email"
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData((p) => ({ ...p, email: sanitizeEmail(e.target.value) }))}
-                      onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
-                      className={`
-                        input-sakura w-full p-3 bg-white/10 border-2
-                        text-white placeholder-white/50 text-center
-                        focus:outline-none
-                        ${validationErrors.email ? 'border-red-400' :
-                          formData.email && !validationErrors.email && EMAIL_RE.test(trimmedEmail) ? 'border-pink-300/70' : 'border-white/20'}
-                      `}
-                      placeholder="Enter your email address"
-                      autoComplete="email"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      inputMode="email"
-                      enterKeyHint="next"
-                      maxLength={254}
-                      aria-label="Email address"
-                      aria-invalid={!!validationErrors.email}
-                      disabled={isLoading || lockoutInfo.locked}
-                    />
-                  </div>
+                  <input
+                    ref={emailRef}
+                    id="login-email"
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData((p) => ({ ...p, email: sanitizeEmail(e.target.value) }))}
+                    onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
+                    className={`
+                      input-sakura w-full p-3 bg-white/10 border-2
+                      text-white placeholder-white/50 text-center
+                      focus:outline-none
+                      ${validationErrors.email ? 'border-red-400' :
+                        formData.email && !validationErrors.email && EMAIL_RE.test(trimmedEmail) ? 'border-pink-300/70' : 'border-white/20'}
+                    `}
+                    placeholder="Enter your email address"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    inputMode="email"
+                    enterKeyHint="next"
+                    maxLength={254}
+                    aria-label="Email address"
+                    aria-invalid={!!validationErrors.email}
+                    disabled={isLoading || lockoutInfo.locked}
+                  />
 
                   <AnimatePresence>
                     {validationErrors.email && (
@@ -738,17 +726,9 @@ const LogUserIn: React.FC = () => {
                 </div>
               </div>
 
-              {/* --------- PASSWORD ---------
-                  Same structural pattern as the email card and as
-                  RegistrationStep's password card: outer p-5, inner
-                  flex flex-col items-center space-y-2 w-full, and a
-                  `relative max-w-[16rem]` wrapper without w-full so
-                  the input naturally sits at 16rem and items-center
-                  centers it. pl-10 dropped to match Registration
-                  exactly — only pr-10 for the eye toggle. */}
               <div className="field-card-shell glass-card-sakura p-5 rounded-3xl">
                 <div className="flex flex-col items-center space-y-2 w-full">
-                  <div className="relative  max-w-[16rem]">
+                  <div className="relative w-full">
                     <input
                       ref={passwordRef}
                       id="login-password"
@@ -758,7 +738,7 @@ const LogUserIn: React.FC = () => {
                       onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))}
                       onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                       className={`
-                        input-sakura w-full p-3 pr-10 bg-white/10 border-2
+                        input-sakura w-full p-3 pl-10 bg-white/10 border-2
                         text-white placeholder-white/50 text-center
                         focus:outline-none
                         ${validationErrors.password ? 'border-red-400' :
@@ -778,7 +758,7 @@ const LogUserIn: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-pink-200 transition-colors"
+                      className="absolute left-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-pink-200 transition-colors"
                       style={{borderRadius:'1rem'}}
                       tabIndex={-1}
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
