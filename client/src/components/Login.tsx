@@ -770,7 +770,7 @@ const LogUserIn: React.FC = () => {
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
                       className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-pink-200 transition-colors"
-                      style={{borderRadius:'20px'}}
+                      style={{borderRadius:'1rem'}}
                       tabIndex={-1}
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
@@ -878,7 +878,7 @@ const LogUserIn: React.FC = () => {
                         type="submit"
                         disabled={isLoading || lockoutInfo.locked || !formReady}
                         className={submitButtonClass}
-                        style={{borderRadius: '20px'}}
+                        style={{borderRadius: '1rem'}}
                         aria-busy={isLoading}
                       >
                         {isLoading ? (

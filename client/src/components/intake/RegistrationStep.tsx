@@ -955,7 +955,7 @@ const RegistrationStep: React.FC = () => {
                         type="button"
                         onClick={() => setShowPassword((v) => !v)}
                         className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-pink-200 transition-colors"
-                        style={{borderRadius:'20px'}}
+                        style={{borderRadius:'1rem'}}
                         tabIndex={-1}
                         aria-label={showPassword ? 'Hide password' : 'Show password'}
                       >
@@ -1114,7 +1114,7 @@ const RegistrationStep: React.FC = () => {
                         type="button"
                         onClick={() => setShowConfirmPassword((v) => !v)}
                         className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-pink-200 transition-colors"
-                        style={{borderRadius:'20px'}}
+                        style={{borderRadius:'1rem'}}
                         tabIndex={-1}
                         aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                       >
