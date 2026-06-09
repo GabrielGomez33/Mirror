@@ -680,13 +680,18 @@ const LogUserIn: React.FC = () => {
               </div>
 
               {/* --------- EMAIL ---------
-                  No leading 📧 icon — the placeholder + label
-                  already communicate the field. With the icon gone,
-                  the input fills the card's inner width so the inner
-                  pill is aligned with the outer pink card edge. */}
-              <div className="field-card-shell glass-card-sakura p-4 rounded-3xl">
-                <div className="flex flex-col">
-                  <div className="relative w-full">
+                  Structural pattern copied from RegistrationStep's input
+                  cards (which the user confirmed renders cleanly): outer
+                  p-5, inner flex flex-col items-center space-y-2 w-full,
+                  and CRUCIALLY a `relative max-w-[16rem]` wrapper around
+                  the input WITHOUT a w-full. Letting the wrapper sit at
+                  its intrinsic 16rem width and centering it via the
+                  parent's items-center is what keeps the inner input
+                  pill the same size as Registration's and prevents the
+                  pink pill from outgrowing the outer pink card. */}
+              <div className="field-card-shell glass-card-sakura p-5 rounded-3xl">
+                <div className="flex flex-col items-center space-y-2 w-full">
+                  <div className="relative  max-w-[16rem]">
                     <input
                       ref={emailRef}
                       id="login-email"
@@ -734,12 +739,16 @@ const LogUserIn: React.FC = () => {
               </div>
 
               {/* --------- PASSWORD ---------
-                  Same icon removal as email — the input fills the
-                  card's inner width so the inner pill aligns with
-                  the outer pink card. */}
-              <div className="field-card-shell glass-card-sakura p-4 rounded-3xl">
-                <div className="flex flex-col">
-                  <div className="relative w-full">
+                  Same structural pattern as the email card and as
+                  RegistrationStep's password card: outer p-5, inner
+                  flex flex-col items-center space-y-2 w-full, and a
+                  `relative max-w-[16rem]` wrapper without w-full so
+                  the input naturally sits at 16rem and items-center
+                  centers it. pl-10 dropped to match Registration
+                  exactly — only pr-10 for the eye toggle. */}
+              <div className="field-card-shell glass-card-sakura p-5 rounded-3xl">
+                <div className="flex flex-col items-center space-y-2 w-full">
+                  <div className="relative  max-w-[16rem]">
                     <input
                       ref={passwordRef}
                       id="login-password"
@@ -749,7 +758,7 @@ const LogUserIn: React.FC = () => {
                       onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))}
                       onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                       className={`
-                        input-sakura w-full p-3 pl-10 pr-10 bg-white/10 border-2
+                        input-sakura w-full p-3 pr-10 bg-white/10 border-2
                         text-white placeholder-white/50 text-center
                         focus:outline-none
                         ${validationErrors.password ? 'border-red-400' :
