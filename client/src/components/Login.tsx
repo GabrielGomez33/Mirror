@@ -555,12 +555,14 @@ const LogUserIn: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
           className="max-w-md"
-          style={{ minWidth: 'min(88vw, 320px)', maxWidth: 'min(48vw, 36rem)' }}
+          style={{ minWidth: 'min(95vw, 380px)', maxWidth: 'min(48vw, 36rem)' }}
         >
           {/* rounded-[2rem] (32px) reads visibly rounded at the outer
               corners; the previous rounded-3xl (24px) wasn't soft
-              enough against the GlassCard's bright background. */}
-          <GlassCard enhanced gradient className="space-y-5 rounded-[2rem] overflow-hidden">
+              enough against the GlassCard's bright background.
+              overflow-hidden removed — it was clipping the rotating
+              avatar's box-shadow halo at the top edge of the card. */}
+          <GlassCard enhanced gradient className="space-y-5 rounded-[2rem]">
             {/* Header */}
             <motion.div
               initial={{ scale: 0.9 }}
@@ -568,11 +570,11 @@ const LogUserIn: React.FC = () => {
               transition={{ duration: 0.5 }}
               className="text-center space-y-3"
             >
-              {/* Explicit mx-auto on the rotating avatar — flex
-                  justify-center alone can drift a px or two when the
-                  child has a box-shadow halo that throws off the
-                  flex centroid. */}
-              <div className="flex justify-center mb-2">
+              {/* mt-4 pushes the rotating avatar far enough below the
+                  GlassCard's top edge that its sakura-tinted halo has
+                  room to breathe — the previous mb-2 alone left the
+                  glow flush against the corner. */}
+              <div className="flex justify-center mt-4 mb-2">
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
@@ -583,8 +585,8 @@ const LogUserIn: React.FC = () => {
               </div>
 
               <h2 className="text-3xl font-bold text-white text-shadow-soft">Welcome Back</h2>
-              <p className="text-white/80 text-sm">
-                "He who has a why to live can bear almost any how."
+              <p className="text-white/80 text-sm" style={{textAlign:'center'}}>
+                "May the mirror continue to reflect that which is."
               </p>
             </motion.div>
 
@@ -648,13 +650,21 @@ const LogUserIn: React.FC = () => {
             </AnimatePresence>
 
             {/* Form */}
-            {/* flex flex-col gap-6 instead of space-y-6 — the
-                space-y-* utility relies on a sibling combinator that
-                Tailwind v4's content-scan can miss, and any wrapper
-                inserted between cards (e.g. via AnimatePresence) breaks
-                the "direct sibling" assumption. Flex gap is unconditional
-                and survives both edge cases. */}
-            <form onSubmit={handleSubmit} className="flex flex-col gap-6" autoComplete="on" noValidate aria-label="Sign in to Mirror">
+            {/* flex flex-col gap-6 — gap survives wrapper changes and
+                isn't affected by Tailwind's content-scan quirks the way
+                space-y-* can be. items-center physically centers each
+                card on the cross-axis so the field-card-shell's
+                margin-inline: auto isn't fighting the parent's stretch
+                default on mobile. w-full keeps the form spanning the
+                GlassCard's inner width so items-center has a real
+                axis to center against. */}
+            <form
+              onSubmit={handleSubmit}
+              className="flex flex-col items-center gap-6 w-full"
+              autoComplete="on"
+              noValidate
+              aria-label="Sign in to Mirror"
+            >
               {/* Honeypot — off-spec field name `nickname` so no autofill triggers. */}
               <div aria-hidden="true" style={honeypotStyle}>
                 <label htmlFor="login-nickname-hp">Leave this field empty</label>
@@ -739,7 +749,7 @@ const LogUserIn: React.FC = () => {
                       onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))}
                       onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                       className={`
-                        input-sakura w-full p-3 pr-10 bg-white/10 border-2
+                        input-sakura w-full p-3 pl-10 pr-10 bg-white/10 border-2
                         text-white placeholder-white/50 text-center
                         focus:outline-none
                         ${validationErrors.password ? 'border-red-400' :
@@ -760,6 +770,7 @@ const LogUserIn: React.FC = () => {
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
                       className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-pink-200 transition-colors"
+                      style={{borderRadius:'20px'}}
                       tabIndex={-1}
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
@@ -789,7 +800,7 @@ const LogUserIn: React.FC = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.3, delay: 0.2 }}
-                className="flex items-center justify-between px-1"
+                className="flex items-center justify-between px-1 w-full max-w-[18rem] mx-auto"
               >
                 <label className="flex items-center space-x-2 cursor-pointer">
                   <input
@@ -833,7 +844,7 @@ const LogUserIn: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.25 }}
-                className="px-3"
+                className="px-3 w-full max-w-[18rem] mx-auto"
                 style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
               >
                 <AnimatePresence mode="wait" initial={false}>
@@ -867,6 +878,7 @@ const LogUserIn: React.FC = () => {
                         type="submit"
                         disabled={isLoading || lockoutInfo.locked || !formReady}
                         className={submitButtonClass}
+                        style={{borderRadius: '20px'}}
                         aria-busy={isLoading}
                       >
                         {isLoading ? (
