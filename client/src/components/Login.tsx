@@ -691,7 +691,7 @@ const LogUserIn: React.FC = () => {
                       onChange={(e) => setFormData((p) => ({ ...p, email: sanitizeEmail(e.target.value) }))}
                       onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
                       className={`
-                        input-sakura w-full p-3 bg-white/10 border-2
+                        input-sakura w-full p-3 pl-10 bg-white/10 border-2
                         text-white placeholder-white/50 text-center
                         focus:outline-none
                         ${validationErrors.email ? 'border-red-400' :
@@ -791,7 +791,7 @@ const LogUserIn: React.FC = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.3, delay: 0.2 }}
-                className="flex items-center justify-between px-1 w-full max-w-[18rem] mx-auto"
+                className="flex items-center justify-between w-full max-w-[15.5rem] mx-auto"
               >
                 <label className="flex items-center space-x-2 cursor-pointer">
                   <input
@@ -835,7 +835,7 @@ const LogUserIn: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.25 }}
-                className="px-3 w-full max-w-[18rem] mx-auto"
+                className="w-full max-w-[15.5rem] mx-auto"
                 style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
               >
                 <AnimatePresence mode="wait" initial={false}>
