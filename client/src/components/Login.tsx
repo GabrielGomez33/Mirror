@@ -545,13 +545,22 @@ const LogUserIn: React.FC = () => {
       </div>
 
       <div className="relative z-10 min-h-screen flex flex-col justify-center items-center p-6">
+        {/* Outer GlassCard wrapper — viewport-relative width. Phone
+            stays full-screen-comfortable; desktop is ~25% wider than
+            the previous 38vw so the form has more presence on a wide
+            monitor without losing the centered, petals-visible-on-
+            both-sides aesthetic. */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="w-full max-w-md"
+          className="max-w-md"
+          style={{ minWidth: 'min(88vw, 320px)', maxWidth: 'min(48vw, 36rem)' }}
         >
-          <GlassCard enhanced gradient className="space-y-5 rounded-3xl">
+          {/* rounded-[2rem] (32px) reads visibly rounded at the outer
+              corners; the previous rounded-3xl (24px) wasn't soft
+              enough against the GlassCard's bright background. */}
+          <GlassCard enhanced gradient className="space-y-5 rounded-[2rem] overflow-hidden">
             {/* Header */}
             <motion.div
               initial={{ scale: 0.9 }}
@@ -559,13 +568,17 @@ const LogUserIn: React.FC = () => {
               transition={{ duration: 0.5 }}
               className="text-center space-y-3"
             >
+              {/* Explicit mx-auto on the rotating avatar — flex
+                  justify-center alone can drift a px or two when the
+                  child has a box-shadow halo that throws off the
+                  flex centroid. */}
               <div className="flex justify-center mb-2">
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-                  className="w-14 h-14 rounded-full bg-gradient-to-br from-pink-300 to-rose-400 flex items-center justify-center shadow-[0_0_24px_rgba(244,114,182,0.35)]"
+                  className="w-14 h-14 mx-auto rounded-full bg-gradient-to-br from-pink-300 to-rose-400 flex items-center justify-center shadow-[0_0_24px_rgba(244,114,182,0.35)]"
                 >
-                  <span className="text-2xl">🌸</span>
+                  <span className="text-2xl leading-none">🌸</span>
                 </motion.div>
               </div>
 
@@ -635,7 +648,13 @@ const LogUserIn: React.FC = () => {
             </AnimatePresence>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on" noValidate aria-label="Sign in to Mirror">
+            {/* flex flex-col gap-6 instead of space-y-6 — the
+                space-y-* utility relies on a sibling combinator that
+                Tailwind v4's content-scan can miss, and any wrapper
+                inserted between cards (e.g. via AnimatePresence) breaks
+                the "direct sibling" assumption. Flex gap is unconditional
+                and survives both edge cases. */}
+            <form onSubmit={handleSubmit} className="flex flex-col gap-6" autoComplete="on" noValidate aria-label="Sign in to Mirror">
               {/* Honeypot — off-spec field name `nickname` so no autofill triggers. */}
               <div aria-hidden="true" style={honeypotStyle}>
                 <label htmlFor="login-nickname-hp">Leave this field empty</label>
@@ -650,11 +669,14 @@ const LogUserIn: React.FC = () => {
                 />
               </div>
 
-              {/* --------- EMAIL --------- */}
-              <div className="glass-card-sakura p-4 rounded-3xl">
-                <div className="flex flex-col items-center space-y-2">
-                  <span className="text-2xl" aria-hidden="true">📧</span>
-                  <div className="relative w-full max-w-[18rem]">
+              {/* --------- EMAIL ---------
+                  No leading 📧 icon — the placeholder + label
+                  already communicate the field. With the icon gone,
+                  the input fills the card's inner width so the inner
+                  pill is aligned with the outer pink card edge. */}
+              <div className="field-card-shell glass-card-sakura p-4 rounded-3xl">
+                <div className="flex flex-col">
+                  <div className="relative w-full">
                     <input
                       ref={emailRef}
                       id="login-email"
@@ -701,11 +723,13 @@ const LogUserIn: React.FC = () => {
                 </div>
               </div>
 
-              {/* --------- PASSWORD --------- */}
-              <div className="glass-card-sakura p-4 rounded-3xl">
-                <div className="flex flex-col items-center space-y-2">
-                  <span className="text-2xl" aria-hidden="true">🔒</span>
-                  <div className="relative w-full max-w-[18rem]">
+              {/* --------- PASSWORD ---------
+                  Same icon removal as email — the input fills the
+                  card's inner width so the inner pill aligns with
+                  the outer pink card. */}
+              <div className="field-card-shell glass-card-sakura p-4 rounded-3xl">
+                <div className="flex flex-col">
+                  <div className="relative w-full">
                     <input
                       ref={passwordRef}
                       id="login-password"
@@ -779,43 +803,91 @@ const LogUserIn: React.FC = () => {
                   <span className="text-white/80 text-sm">Remember me</span>
                 </label>
 
-                <Link
-                  to="/forgot-password"
-                  className="text-pink-200 hover:text-pink-100 text-sm underline transition-colors"
-                >
+                <Link to="/forgot-password" className="link-mono text-sm">
                   Forgot password?
                 </Link>
               </motion.div>
 
-              {/* --------- SUBMIT --------- */}
+              {/* --------- SUBMIT ---------
+                  The outer wrapper adds px-3 of breathing room so the
+                  ready-state halo (0 6px 18px / 0 0 14px) lands inside
+                  the GlassCard's padding instead of bleeding past it.
+                  paddingBottom carries the iOS safe-area inset. */}
+              {/*
+                Flower ↔ Sign In transition.
+
+                Before every field is valid, the user sees a centered,
+                gently-bobbing sakura — no button, no label. The form
+                still submits via Enter on the password field, so
+                keyboard users aren't blocked. The moment formReady
+                flips true (or a request is in flight), the flower
+                cross-fades out and the actual Sign In button blooms
+                in via AnimatePresence with mode="wait".
+
+                The pulse / sway on the placeholder is a 3.5s easeInOut
+                loop, so it reads as alive without being attention-
+                grabbing. aria-hidden because the placeholder carries
+                no information assistive tech needs to announce.
+              */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.25 }}
+                className="px-3"
                 style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
               >
-                <button
-                  type="submit"
-                  disabled={isLoading || lockoutInfo.locked || !formReady}
-                  className={submitButtonClass}
-                  aria-busy={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                        className="w-5 h-5 border-2 border-rose-300/40 border-t-rose-700 rounded-full"
-                      />
-                      <span>Signing in…</span>
-                    </>
+                <AnimatePresence mode="wait" initial={false}>
+                  {(!formReady && !isLoading) ? (
+                    <motion.div
+                      key="flower-placeholder"
+                      initial={{ opacity: 0, scale: 0.92 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.92 }}
+                      transition={{ duration: 0.35, ease: 'easeOut' }}
+                      className="flex justify-center items-center py-4"
+                      aria-hidden="true"
+                    >
+                      <motion.span
+                        animate={{ y: [0, -4, 0], rotate: [0, 5, -5, 0] }}
+                        transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+                        className="text-4xl select-none drop-shadow-[0_0_14px_rgba(244,114,182,0.45)]"
+                      >
+                        🌸
+                      </motion.span>
+                    </motion.div>
                   ) : (
-                    <>
-                      <span>🌸</span>
-                      <span>Sign In</span>
-                    </>
+                    <motion.div
+                      key="signin-button"
+                      initial={{ opacity: 0, scale: 0.97 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.97 }}
+                      transition={{ duration: 0.4, ease: 'easeOut' }}
+                    >
+                      <button
+                        type="submit"
+                        disabled={isLoading || lockoutInfo.locked || !formReady}
+                        className={submitButtonClass}
+                        aria-busy={isLoading}
+                      >
+                        {isLoading ? (
+                          <>
+                            <motion.div
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                              className="w-5 h-5 border-2 border-rose-300/40 border-t-rose-700 rounded-full"
+                            />
+                            <span>Signing in…</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>🌸</span>
+                            <span>Sign In</span>
+                          </>
+                        )}
+                      </button>
+                    </motion.div>
                   )}
-                </button>
+                </AnimatePresence>
               </motion.div>
             </form>
 
@@ -841,13 +913,14 @@ const LogUserIn: React.FC = () => {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.4 }}
               className="text-center pt-3 border-t border-white/10"
+              style={{ border: 'none' }}
             >
               <p className="text-white/60 text-sm">
                 Don't have an account?{' '}
                 <button
                   type="button"
                   onClick={() => navigate('/register')}
-                  className="text-pink-200 hover:text-pink-100 underline transition-colors"
+                  className="link-mono"
                 >
                   Sign up here
                 </button>

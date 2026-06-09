@@ -197,6 +197,11 @@
     transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
 }
 
+/* Focus / hover lift. Previously the outer halo was 0 0 22px which
+ * extended past the GlassCard's p-6 padding on narrow viewports
+ * and trailed pink onto the page. Now the bloom is inset (a soft
+ * pink inner ring) plus a tighter 0 0 10px ambient — the card
+ * lights up but the glow never escapes the card's own footprint. */
 .glass-card-sakura:focus-within,
 .glass-card-sakura:hover {
     background: linear-gradient(
@@ -207,7 +212,8 @@
     border-color: rgba(244, 114, 182, 0.45);
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.10),
-        0 0 22px rgba(244, 114, 182, 0.22),
+        0 0 10px rgba(244, 114, 182, 0.18),
+        inset 0 0 0 1px rgba(244, 114, 182, 0.25),
         inset 0 1px 0 rgba(255, 192, 203, 0.28);
 }
 
@@ -239,12 +245,25 @@
 /* ============================================================
  * READY-STATE SAKURA GLOW BUTTON
  *
- * Applied to the Create Account button once every field is
- * valid + terms accepted + online. The previous "blue glow"
- * came from from-indigo-100→purple-100 with a hover bump;
- * we replace it with a soft sakura gradient and a slow,
- * breathing box-shadow halo so the call to action visibly
- * blooms when the user is ready to submit.
+ * Applied to the Create Account / Sign In buttons once every
+ * field is valid + online (+ terms accepted, on register).
+ *
+ * Two visual fixes in this revision:
+ *   1. Removed the 1px hard border. It read as a rectangle
+ *      around the bloom and made the button look "cheap" against
+ *      the GlassCard's softer edges.
+ *   2. Tightened the box-shadow halo so it stays inside the
+ *      GlassCard's padding instead of bleeding out into the
+ *      page background — the previous 26px outer glow + 42px
+ *      pulse peak reached well past the card edge on narrow
+ *      mobile cards AND on the widescreen desktop layout.
+ *
+ * The bloom is now built from THREE inner-leaning shadows:
+ *   - inset ring of pink-300 at low alpha for the soft border
+ *   - close-range 0 6px 18px halo at the bottom
+ *   - mid-range 0 0 14px diffuse glow
+ * Plus a small inset highlight along the top. Pulse animates
+ * the close-range halo +/- a few px, NOT a 40px spread.
  * ============================================================ */
 
 .btn-sakura-ready {
@@ -254,71 +273,80 @@
         rgba(254, 205, 211, 0.96) 50%,
         rgba(251, 207, 232, 0.96) 100%
     );
-    border: 1px solid rgba(244, 114, 182, 0.55);
+    border: none;
     color: #831843; /* rose-900 */
     box-shadow:
-        0 0 0 1px rgba(244, 114, 182, 0.30),
-        0 4px 14px rgba(251, 113, 133, 0.40),
-        0 0 26px rgba(244, 114, 182, 0.32),
-        inset 0 1px 0 rgba(255, 255, 255, 0.55);
+        inset 0 0 0 1px rgba(244, 114, 182, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.60),
+        0 6px 18px rgba(251, 113, 133, 0.32),
+        0 0 14px rgba(244, 114, 182, 0.22);
     animation: sakura-pulse 3s ease-in-out infinite;
     cursor: pointer;
     transition: transform 0.2s ease, box-shadow 0.3s ease;
 }
 
 .btn-sakura-ready:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
     box-shadow:
-        0 0 0 1px rgba(244, 114, 182, 0.55),
-        0 8px 28px rgba(251, 113, 133, 0.50),
-        0 0 34px rgba(244, 114, 182, 0.42),
-        inset 0 1px 0 rgba(255, 255, 255, 0.65);
+        inset 0 0 0 1px rgba(244, 114, 182, 0.70),
+        inset 0 1px 0 rgba(255, 255, 255, 0.70),
+        0 8px 22px rgba(251, 113, 133, 0.42),
+        0 0 18px rgba(244, 114, 182, 0.30);
 }
 
 .btn-sakura-ready:active {
     transform: translateY(0);
 }
 
-/* Idle / not-yet-ready state — neutral glass, no glow.
- * Slightly muted so the difference between "you can submit"
- * and "still typing" reads instantly. */
+/* Idle / not-yet-ready — neutral glass, no glow, no border.
+ *
+ * Color note: previously we used rgba(255,255,255,0.55) which was
+ * invisible against the near-white GlassCard background — only the
+ * 🌸 emoji showed through, and it looked off-center because the
+ * adjacent "Sign In" text still occupied layout space invisibly.
+ * Switched to a muted rose so the label reads cleanly while still
+ * looking "inactive" relative to the bloomed ready state. */
 .btn-sakura-idle {
     background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    color: rgba(255, 255, 255, 0.55);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+    border: none;
+    color: rgba(131, 24, 67, 0.55); /* muted rose-900 */
+    box-shadow:
+        inset 0 0 0 1px rgba(244, 114, 182, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.20);
     cursor: not-allowed;
 }
 
-/* While the registration request is in flight — keep the sakura tint
- * but mute the halo and disable the pulse so the spinner is the only
- * thing demanding attention. */
+/* In-flight — muted sakura, no pulse, no glow. */
 .btn-sakura-busy {
     background: linear-gradient(
         135deg,
         rgba(252, 231, 243, 0.55) 0%,
         rgba(254, 205, 211, 0.55) 100%
     );
-    border: 1px solid rgba(244, 114, 182, 0.35);
+    border: none;
     color: rgba(131, 24, 67, 0.75);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.30);
+    box-shadow:
+        inset 0 0 0 1px rgba(244, 114, 182, 0.30),
+        inset 0 1px 0 rgba(255, 255, 255, 0.30);
     cursor: progress;
 }
 
+/* The pulse now breathes the halo +/- ~6px instead of +/- 16px,
+ * so it stays inside any container with reasonable padding. */
 @keyframes sakura-pulse {
     0%, 100% {
         box-shadow:
-            0 0 0 1px rgba(244, 114, 182, 0.30),
-            0 4px 14px rgba(251, 113, 133, 0.40),
-            0 0 26px rgba(244, 114, 182, 0.32),
-            inset 0 1px 0 rgba(255, 255, 255, 0.55);
+            inset 0 0 0 1px rgba(244, 114, 182, 0.55),
+            inset 0 1px 0 rgba(255, 255, 255, 0.60),
+            0 6px 18px rgba(251, 113, 133, 0.32),
+            0 0 14px rgba(244, 114, 182, 0.22);
     }
     50% {
         box-shadow:
-            0 0 0 1px rgba(244, 114, 182, 0.50),
-            0 4px 22px rgba(251, 113, 133, 0.55),
-            0 0 42px rgba(244, 114, 182, 0.48),
-            inset 0 1px 0 rgba(255, 255, 255, 0.65);
+            inset 0 0 0 1px rgba(244, 114, 182, 0.70),
+            inset 0 1px 0 rgba(255, 255, 255, 0.70),
+            0 8px 24px rgba(251, 113, 133, 0.45),
+            0 0 20px rgba(244, 114, 182, 0.34);
     }
 }
 
@@ -328,4 +356,101 @@
     .btn-sakura-ready {
         animation: none;
     }
+}
+
+/* ============================================================
+ * SAKURA LINK
+ * ============================================================
+ *
+ * "Forgot password?", "Sign up here", "Sign in here" — all need
+ * to be a soft pink that matches the rest of the form. Previous
+ * implementation relied on Tailwind's text-pink-200 utility, but
+ * in production those classes were being eaten by either the
+ * Tailwind content scan (false negative on the literal class
+ * name) or beating the browser's UA default `<a>` color in
+ * specificity. We sidestep both by shipping our own class with
+ * the colors hardcoded.
+ *
+ * Important: includes `:visited` because once the user has
+ * clicked "Forgot password?" once, browsers paint the link
+ * purple by default, which clashes with the sakura palette
+ * regardless of whether the unvisited color is right.
+ *
+ * !important is used sparingly here, only on color, because it
+ * fights the very-specific UA default and any inherited Tailwind
+ * utility that might also try to set color.
+ */
+
+.link-sakura,
+.link-sakura:link,
+.link-sakura:visited {
+    color: #fbcfe8 !important; /* pink-200 */
+    text-decoration: underline;
+    transition: color 0.2s ease;
+}
+
+.link-sakura:hover,
+.link-sakura:focus {
+    color: #fce7f3 !important; /* pink-50 */
+}
+
+/* ============================================================
+ * MONO (black) LINK
+ * ============================================================
+ *
+ * Used on auth-surface tertiary links the user wants to read
+ * straight black instead of pink — "Forgot password?" and
+ * "Sign up here" / "Sign in here". Pink read as "way too pink"
+ * against the rest of the form. Black with underline is the
+ * traditional affordance for "secondary action on a marketing
+ * surface" and matches the body copy color.
+ *
+ * Same UA-defeating treatment as link-sakura: explicit :visited
+ * (so once-clicked links don't flip to purple) and !important
+ * on color (to beat the browser's UA `<a>` default and any
+ * inherited Tailwind utility).
+ */
+
+.link-mono,
+.link-mono:link,
+.link-mono:visited {
+    color: #111111 !important;
+    text-decoration: underline;
+    transition: opacity 0.2s ease;
+}
+
+.link-mono:hover,
+.link-mono:focus {
+    color: #111111 !important;
+    opacity: 0.7;
+}
+
+/* ============================================================
+ * INPUT CARD WIDTH CONSTRAINT
+ * ============================================================
+ *
+ * Wraps individual <glass-card-sakura> input cards so they sit
+ * at ~70% of the surrounding GlassCard's inner width instead of
+ * spanning edge-to-edge. Two reasons:
+ *
+ *   1. The focus-within bloom (+ any ambient halo) no longer
+ *      lands at the GlassCard edge, so it can't bleed past.
+ *   2. The half-width-input-on-a-wider-card pattern matches the
+ *      existing Reset-Password / Registration aesthetic that the
+ *      team approved in earlier rounds.
+ *
+ * Centered with margin-inline-auto. Caller adds vertical
+ * spacing through the parent <form>'s space-y class.
+ */
+/* Wraps individual glass-card-sakura input cards so they sit at a
+ * smaller-than-the-GlassCard width with margin on both sides. The
+ * 18rem ceiling keeps the inner pill noticeably narrower than the
+ * outer GlassCard (which can stretch to 36rem on desktop), so the
+ * inputs feel like inset chips rather than spanning edge-to-edge. */
+.field-card-shell {
+    width: 100%;
+    max-width: 18rem; /* ~288px — narrower than before so each
+                         input card reads as its own chip inside
+                         the bigger GlassCard. */
+    margin-inline: auto;
 }

@@ -656,13 +656,19 @@ const RegistrationStep: React.FC = () => {
       </div>
 
       <div className="relative z-10 min-h-screen flex flex-col justify-center items-center p-6">
+        {/* Outer GlassCard wrapper — same width constraints as
+            Login.tsx so both auth surfaces look symmetric.
+            Desktop maxWidth bumped ~25% (38vw → 48vw, 28rem →
+            36rem cap) to give the form more presence on wide
+            monitors; mobile minWidth unchanged. */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="w-full max-w-md"
+          className="max-w-md"
+          style={{ minWidth: 'min(88vw, 320px)', maxWidth: 'min(48vw, 36rem)' }}
         >
-          <GlassCard enhanced gradient className="space-y-6">
+          <GlassCard enhanced gradient className="space-y-6 rounded-[2rem] overflow-hidden">
             {/* Header */}
             <motion.div
               initial={{ scale: 0.9 }}
@@ -702,7 +708,7 @@ const RegistrationStep: React.FC = () => {
             </AnimatePresence>
 
             {/* Progress indicator */}
-            <div className="glass-card-sakura p-4 rounded-3xl">
+            <div className="field-card-shell glass-card-sakura p-4 rounded-3xl">
               <div className="mx-auto w-full max-w-[18rem]">
                 <div className="flex justify-between text-sm text-white/70 mb-2">
                   <span>Progress</span>
@@ -745,7 +751,7 @@ const RegistrationStep: React.FC = () => {
               </div>
 
               {/* --------- USERNAME (always visible — step 0) --------- */}
-              <div className="glass-card-sakura p-5 rounded-3xl">
+              <div className="field-card-shell glass-card-sakura p-5 rounded-3xl">
                 <div className="flex flex-col items-center space-y-2 w-full">
                   <span className="text-2xl" aria-hidden="true">👤</span>
 
@@ -829,7 +835,7 @@ const RegistrationStep: React.FC = () => {
                   every credential input on first paint; the RevealCard
                   collapses the visual to zero height when not yet earned. */}
               <RevealCard show={currentStep >= 1} delayIndex={1}>
-                <div className="glass-card-sakura p-5 rounded-3xl">
+                <div className="field-card-shell glass-card-sakura p-5 rounded-3xl">
                   <div className="flex flex-col items-center space-y-2 w-full">
                     <span className="text-2xl" aria-hidden="true">📧</span>
 
@@ -911,7 +917,7 @@ const RegistrationStep: React.FC = () => {
 
               {/* --------- PASSWORD — appears once email is valid --------- */}
               <RevealCard show={currentStep >= 2} delayIndex={2}>
-                <div className="glass-card-sakura p-5 rounded-3xl">
+                <div className="field-card-shell glass-card-sakura p-5 rounded-3xl">
                   <div className="flex flex-col items-center space-y-2 w-full">
                     <span className="text-2xl" aria-hidden="true">🔒</span>
 
@@ -1034,7 +1040,7 @@ const RegistrationStep: React.FC = () => {
                     initial={{ opacity: 0, y: 10, marginTop: 0 }}
                     animate={{ opacity: 1, y: 0, marginTop: '1.5rem' }}
                     exit={{ opacity: 0, y: -10, marginTop: 0 }}
-                    className="glass-card-sakura p-4 rounded-3xl"
+                    className="field-card-shell glass-card-sakura p-4 rounded-3xl"
                   >
                     <div className="mx-auto w-full max-w-[18rem]">
                       <div className="flex justify-between items-center mb-2">
@@ -1070,7 +1076,7 @@ const RegistrationStep: React.FC = () => {
 
               {/* --------- CONFIRM PASSWORD — appears once password is valid --------- */}
               <RevealCard show={currentStep >= 3} delayIndex={3}>
-                <div className="glass-card-sakura p-5 rounded-3xl">
+                <div className="field-card-shell glass-card-sakura p-5 rounded-3xl">
                   <div className="flex flex-col items-center space-y-2 w-full">
                     <span className="text-2xl" aria-hidden="true">🔑</span>
 
@@ -1134,7 +1140,7 @@ const RegistrationStep: React.FC = () => {
 
               {/* --------- TERMS — appears once confirm matches password --------- */}
               <RevealCard show={currentStep >= 4} delayIndex={4}>
-                <div className="glass-card-sakura p-5 rounded-3xl">
+                <div className="field-card-shell glass-card-sakura p-5 rounded-3xl">
                   <label
                     htmlFor="agree-terms"
                     className="mx-auto flex w-full max-w-[18rem] cursor-pointer items-start gap-3 text-sm text-white/85"
@@ -1181,9 +1187,12 @@ const RegistrationStep: React.FC = () => {
                 </div>
               </RevealCard>
 
-              {/* --------- SUBMIT — appears once the terms checkbox is ticked --------- */}
+              {/* --------- SUBMIT — appears once the terms checkbox is ticked ---------
+                  px-3 keeps the ready-state halo inside the GlassCard's
+                  padding so the bloom doesn't spill out onto the page
+                  background. paddingBottom carries the iOS safe-area inset. */}
               <RevealCard show={currentStep >= 5} delayIndex={5}>
-                <div style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+                <div className="px-3" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
                   <button
                     type="submit"
                     disabled={loading || !online || !allFieldsReady}
@@ -1243,7 +1252,7 @@ const RegistrationStep: React.FC = () => {
                 Already have an account?{' '}
                 <button
                   onClick={() => navigate('/login')}
-                  className="text-pink-200 hover:text-pink-100 underline transition-colors"
+                  className="link-mono"
                   type="button"
                 >
                   Sign in here
