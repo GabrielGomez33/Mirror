@@ -666,9 +666,9 @@ const RegistrationStep: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
           className="max-w-md"
-          style={{ minWidth: 'min(88vw, 320px)', maxWidth: 'min(48vw, 36rem)' }}
+          style={{ minWidth: 'min(95vw, 380px)', maxWidth: 'min(48vw, 36rem)' }}
         >
-          <GlassCard enhanced gradient className="space-y-6 rounded-[2rem] overflow-hidden">
+          <GlassCard enhanced gradient className="space-y-6 rounded-[2rem]">
             {/* Header */}
             <motion.div
               initial={{ scale: 0.9 }}
@@ -676,7 +676,7 @@ const RegistrationStep: React.FC = () => {
               transition={{ duration: 0.5 }}
               className="text-center space-y-4"
             >
-              <div className="flex justify-center mb-4">
+              <div className="flex justify-center mt-4 mb-4">
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
@@ -755,7 +755,7 @@ const RegistrationStep: React.FC = () => {
                 <div className="flex flex-col items-center space-y-2 w-full">
                   <span className="text-2xl" aria-hidden="true">👤</span>
 
-                  <div className="relative w-full max-w-[16rem]">
+                  <div className="relative  max-w-[16rem]">
                     <input
                       ref={usernameRef}
                       id="reg-username"
@@ -839,7 +839,7 @@ const RegistrationStep: React.FC = () => {
                   <div className="flex flex-col items-center space-y-2 w-full">
                     <span className="text-2xl" aria-hidden="true">📧</span>
 
-                    <div className="relative w-full max-w-[16rem]">
+                    <div className="relative  max-w-[16rem]">
                       <input
                         ref={emailRef}
                         id="reg-email"
@@ -921,7 +921,7 @@ const RegistrationStep: React.FC = () => {
                   <div className="flex flex-col items-center space-y-2 w-full">
                     <span className="text-2xl" aria-hidden="true">🔒</span>
 
-                    <div className="relative w-full max-w-[16rem]">
+                    <div className="relative  max-w-[16rem]">
                       <input
                         ref={passwordRef}
                         id="reg-password"
@@ -955,6 +955,7 @@ const RegistrationStep: React.FC = () => {
                         type="button"
                         onClick={() => setShowPassword((v) => !v)}
                         className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-pink-200 transition-colors"
+                        style={{borderRadius:'20px'}}
                         tabIndex={-1}
                         aria-label={showPassword ? 'Hide password' : 'Show password'}
                       >
@@ -1080,7 +1081,7 @@ const RegistrationStep: React.FC = () => {
                   <div className="flex flex-col items-center space-y-2 w-full">
                     <span className="text-2xl" aria-hidden="true">🔑</span>
 
-                    <div className="relative w-full max-w-[16rem]">
+                    <div className="relative  max-w-[16rem]">
                       <input
                         ref={confirmPasswordRef}
                         id="reg-confirm-password"
@@ -1113,6 +1114,7 @@ const RegistrationStep: React.FC = () => {
                         type="button"
                         onClick={() => setShowConfirmPassword((v) => !v)}
                         className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-pink-200 transition-colors"
+                        style={{borderRadius:'20px'}}
                         tabIndex={-1}
                         aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                       >
@@ -1247,6 +1249,7 @@ const RegistrationStep: React.FC = () => {
               animate={{ opacity: 1 }}
               transition={{ delay: 1 }}
               className="text-center pt-4 border-t border-white/10"
+              style={{ border: 'none' }}
             >
               <p className="text-white/60 text-sm">
                 Already have an account?{' '}
