@@ -659,240 +659,217 @@ const LogUserIn: React.FC = () => {
                 GlassCard's inner width so items-center has a real
                 axis to center against. */}
             <form
-              onSubmit={handleSubmit}
-              className="flex flex-col items-center gap-6 w-full"
-              autoComplete="on"
-              noValidate
-              aria-label="Sign in to Mirror"
-            >
-              {/* Honeypot — off-spec field name `nickname` so no autofill triggers. */}
-              <div aria-hidden="true" style={honeypotStyle}>
-                <label htmlFor="login-nickname-hp">Leave this field empty</label>
-                <input
-                  id="login-nickname-hp"
-                  type="text"
-                  name="nickname"
-                  tabIndex={-1}
-                  autoComplete="off"
-                  value={honeypot}
-                  onChange={(e) => setHoneypot(e.target.value)}
+  onSubmit={handleSubmit}
+  className="flex flex-col items-center gap-5 w-full"
+  autoComplete="on"
+  noValidate
+  aria-label="Sign in to Mirror"
+>
+  {/* Honeypot */}
+  <div aria-hidden="true" style={honeypotStyle}>
+    <label htmlFor="login-nickname-hp">Leave this field empty</label>
+    <input
+      id="login-nickname-hp"
+      type="text"
+      name="nickname"
+      tabIndex={-1}
+      autoComplete="off"
+      value={honeypot}
+      onChange={(e) => setHoneypot(e.target.value)}
+    />
+  </div>
+
+  {/* Email Field Shell */}
+  <div className="field-card-shell glass-card-sakura p-4 rounded-3xl w-full max-w-[18rem] mx-auto" style={{boxShadow:'none',border:'none'}}>
+    <div className="flex flex-col items-center w-full">
+      <div className="relative w-full">
+        <input
+          ref={emailRef}
+          id="login-email"
+          type="email"
+          name="email"
+          value={formData.email}
+          onChange={(e) => setFormData((p) => ({ ...p, email: sanitizeEmail(e.target.value) }))}
+          onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
+          className={`
+            input-sakura w-full p-3 bg-white/10 border-2
+            text-white placeholder-white/50 text-center rounded-2xl
+            focus:outline-none transition-colors
+            ${validationErrors.email ? 'border-red-400' :
+              formData.email && !validationErrors.email && EMAIL_RE.test(trimmedEmail) ? 'border-pink-300/70' : 'border-white/20'}
+          `}
+          placeholder="Enter your email address"
+          autoComplete="email"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          inputMode="email"
+          enterKeyHint="next"
+          maxLength={254}
+          aria-label="Email address"
+          aria-invalid={!!validationErrors.email}
+          disabled={isLoading || lockoutInfo.locked}
+        />
+      </div>
+
+      <AnimatePresence>
+        {validationErrors.email && (
+          <motion.p
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            className="text-red-400 text-xs mt-1.5 text-center w-full"
+            role="alert"
+            aria-live="polite"
+          >
+            {validationErrors.email}
+          </motion.p>
+        )}
+      </AnimatePresence>
+    </div>
+  </div>
+
+  {/* Password Field Shell */}
+  <div className="field-card-shell glass-card-sakura p-4 rounded-3xl w-full max-w-[18rem] mx-auto" style={{boxShadow:'none',border:'none'}}>
+    <div className="flex flex-col items-center w-full">
+      <div className="relative w-full">
+        <input
+          ref={passwordRef}
+          id="login-password"
+          type={showPassword ? 'text' : 'password'}
+          name="current-password"
+          value={formData.password}
+          onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))}
+          onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
+          className={`
+            input-sakura w-full p-3 px-10 bg-white/10 border-2
+            text-white placeholder-white/50 text-center rounded-2xl
+            focus:outline-none transition-colors
+            ${validationErrors.password ? 'border-red-400' :
+              formData.password ? 'border-pink-300/70' : 'border-white/20'}
+          `}
+          placeholder="Enter your password"
+          autoComplete="current-password"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="go"
+          maxLength={256}
+          aria-label="Password"
+          aria-invalid={!!validationErrors.password}
+          disabled={isLoading || lockoutInfo.locked}
+        />
+        <button
+          type="button"
+          onClick={() => setShowPassword((v) => !v)}
+          className="absolute left-3 top-1/2 -translate-y-1/2 border-0 bg-transparent p-1 leading-none text-white/60 hover:text-pink-200 transition-colors focus:outline-none"
+          style={{borderRadius:'1rem'}}
+          tabIndex={-1}
+          aria-label={showPassword ? 'Hide password' : 'Show password'}
+        >
+          {showPassword ? '🙈' : '👁️'}
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {validationErrors.password && (
+          <motion.p
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            className="text-red-400 text-xs mt-1.5 text-center w-full"
+            role="alert"
+            aria-live="polite"
+          >
+            {validationErrors.password}
+          </motion.p>
+        )}
+      </AnimatePresence>
+    </div>
+  </div>
+
+  {/* Remember + Forgot Links */}
+  {/* Removed px-1 to avoid pushing things off-center, forced symmetrical alignment boundaries */}
+  <div className="flex items-center justify-between w-full max-w-[17rem] mx-auto select-none">
+    <label className="flex items-center space-x-2 cursor-pointer">
+      <input
+        type="checkbox"
+        name="remember-me"
+        checked={formData.rememberMe}
+        onChange={(e) => setFormData((p) => ({ ...p, rememberMe: e.target.checked }))}
+        className="h-4 w-4 cursor-pointer rounded border-2 border-white/30 bg-white/10 accent-pink-400 focus:outline-none"
+        disabled={isLoading || lockoutInfo.locked}
+      />
+      <span className="text-white/80 text-xs sm:text-sm">Remember me</span>
+    </label>
+
+    <Link to="/forgot-password" className="link-mono text-xs sm:text-sm">
+      Forgot password?
+    </Link>
+  </div>
+
+  {/* Submit Button Section */}
+  {/* Standardized width boundary down slightly to cleanly float inside the parent text margins */}
+  <div 
+    className="w-full max-w-[17rem] mx-auto flex flex-col items-center justify-center text-center"
+    style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+  >
+    <AnimatePresence mode="wait" initial={false}>
+      {(!formReady && !isLoading) ? (
+        <motion.div
+          key="flower-placeholder"
+          initial={{ opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.92 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
+          className="w-full flex justify-center items-center py-3 mx-auto text-center"
+          aria-hidden="true"
+        >
+          <motion.span
+            animate={{ y: [0, -4, 0], rotate: [0, 4, -4, 0] }}
+            transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+            className="text-4xl select-none drop-shadow-[0_0_14px_rgba(244,114,182,0.45)] mx-auto block text-center"
+          >
+            🌸
+          </motion.span>
+        </motion.div>
+      ) : (
+        <motion.div
+          key="signin-button"
+          initial={{ opacity: 0, scale: 0.97 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.97 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+          className="w-full flex justify-center mx-auto"
+        >
+          <button
+            type="submit"
+            disabled={isLoading || lockoutInfo.locked || !formReady}
+            className={`${submitButtonClass} w-full`}
+            style={{ borderRadius: '1rem' }}
+            aria-busy={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                  className="w-5 h-5 border-2 border-rose-300/40 border-t-rose-700 rounded-full"
                 />
-              </div>
-
-              <div className="field-card-shell glass-card-sakura p-5 rounded-3xl" style={{boxShadow:'none',border:'none'}}>
-                <div className="flex flex-col items-center space-y-2 w-full" >
-                  <div className="relative w-full">
-                    <input
-                      ref={emailRef}
-                      id="login-email"
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData((p) => ({ ...p, email: sanitizeEmail(e.target.value) }))}
-                      onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
-                      className={`
-                        input-sakura w-full p-3 pl-10 bg-white/10 border-2
-                        text-white placeholder-white/50 text-center
-                        focus:outline-none
-                        ${validationErrors.email ? 'border-red-400' :
-                          formData.email && !validationErrors.email && EMAIL_RE.test(trimmedEmail) ? 'border-pink-300/70' : 'border-white/20'}
-                      `}
-                      placeholder="Enter your email address"
-                      autoComplete="email"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      inputMode="email"
-                      enterKeyHint="next"
-                      maxLength={254}
-                      aria-label="Email address"
-                      aria-invalid={!!validationErrors.email}
-                      disabled={isLoading || lockoutInfo.locked}
-                    />
-                  </div>
-
-                  <AnimatePresence>
-                    {validationErrors.email && (
-                      <motion.p
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="text-red-400 text-xs"
-                        role="alert"
-                        aria-live="polite"
-                      >
-                        {validationErrors.email}
-                      </motion.p>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-
-              <div className="field-card-shell glass-card-sakura p-5 rounded-3xl" style={{boxShadow:'none',border:'none'}}>
-                <div className="flex flex-col items-center space-y-2 w-full">
-                  <div className="relative w-full">
-                    <input
-                      ref={passwordRef}
-                      id="login-password"
-                      type={showPassword ? 'text' : 'password'}
-                      name="current-password"
-                      value={formData.password}
-                      onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))}
-                      onFocus={(e) => scrollFieldIntoView(e.currentTarget)}
-                      className={`
-                        input-sakura w-full p-3 pl-10 bg-white/10 border-2
-                        text-white placeholder-white/50 text-center
-                        focus:outline-none
-                        ${validationErrors.password ? 'border-red-400' :
-                          formData.password ? 'border-pink-300/70' : 'border-white/20'}
-                      `}
-                      placeholder="Enter your password"
-                      autoComplete="current-password"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      enterKeyHint="go"
-                      maxLength={256}
-                      aria-label="Password"
-                      aria-invalid={!!validationErrors.password}
-                      disabled={isLoading || lockoutInfo.locked}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="absolute left-2 top-1/2 -translate-y-1/2 border-0 bg-transparent p-1 leading-none text-white/60 hover:text-pink-200 transition-colors focus:outline-none"
-                      style={{borderRadius:'1rem'}}
-                      tabIndex={-1}
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    >
-                      {showPassword ? '🙈' : '👁️'}
-                    </button>
-                  </div>
-
-                  <AnimatePresence>
-                    {validationErrors.password && (
-                      <motion.p
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="text-red-400 text-xs"
-                        role="alert"
-                        aria-live="polite"
-                      >
-                        {validationErrors.password}
-                      </motion.p>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-
-              {/* --------- REMEMBER + FORGOT --------- */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3, delay: 0.2 }}
-                className="flex items-center justify-between w-full max-w-[15.5rem] mx-auto"
-              >
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="remember-me"
-                    checked={formData.rememberMe}
-                    onChange={(e) => setFormData((p) => ({ ...p, rememberMe: e.target.checked }))}
-                    className="h-5 w-5 cursor-pointer rounded-md border-2 border-white/30 bg-white/10 accent-pink-400 focus:outline-none focus:ring-2 focus:ring-pink-300/50"
-                    disabled={isLoading || lockoutInfo.locked}
-                  />
-                  <span className="text-white/80 text-sm">Remember me</span>
-                </label>
-
-                <Link to="/forgot-password" className="link-mono text-sm">
-                  Forgot password?
-                </Link>
-              </motion.div>
-
-              {/* --------- SUBMIT ---------
-                  The outer wrapper adds px-3 of breathing room so the
-                  ready-state halo (0 6px 18px / 0 0 14px) lands inside
-                  the GlassCard's padding instead of bleeding past it.
-                  paddingBottom carries the iOS safe-area inset. */}
-              {/*
-                Flower ↔ Sign In transition.
-
-                Before every field is valid, the user sees a centered,
-                gently-bobbing sakura — no button, no label. The form
-                still submits via Enter on the password field, so
-                keyboard users aren't blocked. The moment formReady
-                flips true (or a request is in flight), the flower
-                cross-fades out and the actual Sign In button blooms
-                in via AnimatePresence with mode="wait".
-
-                The pulse / sway on the placeholder is a 3.5s easeInOut
-                loop, so it reads as alive without being attention-
-                grabbing. aria-hidden because the placeholder carries
-                no information assistive tech needs to announce.
-              */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25 }}
-                className="w-full max-w-[15.5rem] mx-auto"
-                style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-              >
-                <AnimatePresence mode="wait" initial={false}>
-                  {(!formReady && !isLoading) ? (
-                    <motion.div
-                      key="flower-placeholder"
-                      initial={{ opacity: 0, scale: 0.92 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.92 }}
-                      transition={{ duration: 0.35, ease: 'easeOut' }}
-                      className="flex justify-center items-center py-4"
-                      aria-hidden="true"
-                    >
-                      <motion.span
-                        animate={{ y: [0, -4, 0], rotate: [0, 5, -5, 0] }}
-                        transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-                        className="text-4xl select-none drop-shadow-[0_0_14px_rgba(244,114,182,0.45)]"
-                      >
-                        🌸
-                      </motion.span>
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="signin-button"
-                      initial={{ opacity: 0, scale: 0.97 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.97 }}
-                      transition={{ duration: 0.4, ease: 'easeOut' }}
-                    >
-                      <button
-                        type="submit"
-                        disabled={isLoading || lockoutInfo.locked || !formReady}
-                        className={submitButtonClass}
-                        style={{borderRadius: '1rem'}}
-                        aria-busy={isLoading}
-                      >
-                        {isLoading ? (
-                          <>
-                            <motion.div
-                              animate={{ rotate: 360 }}
-                              transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                              className="w-5 h-5 border-2 border-rose-300/40 border-t-rose-700 rounded-full"
-                            />
-                            <span>Signing in…</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>🌸</span>
-                            <span>Sign In</span>
-                          </>
-                        )}
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            </form>
+                <span>Signing in…</span>
+              </>
+            ) : (
+              <>
+                <span>🌸</span>
+                <span>Sign In</span>
+              </>
+            )}
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </div>
+</form>
 
             {/* Failed-attempts hint */}
             <AnimatePresence>
