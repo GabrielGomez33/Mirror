@@ -267,17 +267,25 @@ const VocalStep = () => {
     } catch { /* localStorage unavailable */ }
   }, []);
 
-  // Restore previous recording if context has voiceMeta
+  // Restore a previously-captured recording (navigating back, or fix-mode from
+  // SubmitStep). The blob lives in IntakeContext for the session, so rebuild the
+  // local playback state from it once on mount rather than forcing a re-record.
+  // (Blobs are intentionally not persisted to localStorage, so after a full page
+  // reload there is nothing to restore — the user records fresh, as expected.)
+  const restoredRef = useRef(false);
   useEffect(() => {
-    const meta = (getIntake as any)?.voiceMeta as { blobUrl?: string; durationMs?: number } | undefined;
-    if (meta?.blobUrl) {
-      setRecordingState(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          url: meta.blobUrl!,
-          duration: typeof meta.durationMs === 'number' ? meta.durationMs / 1000 : prev.duration,
-        };
+    if (restoredRef.current) return;
+    const existingBlob = getIntake.voice;
+    if (existingBlob instanceof Blob && existingBlob.size > 0) {
+      restoredRef.current = true;
+      const meta = getIntake.voiceMetadata as { duration?: number; mimeType?: string } | undefined;
+      const url = URL.createObjectURL(existingBlob);
+      setRecordingState({
+        blob: existingBlob,
+        url,
+        mimeType: existingBlob.type || meta?.mimeType || 'audio/webm',
+        size: existingBlob.size,
+        duration: typeof meta?.duration === 'number' ? meta.duration : 0,
       });
     }
   }, [getIntake]);
@@ -754,33 +762,41 @@ const VocalStep = () => {
         clearProcessingTimeout();
         try {
           const chunks = audioChunksRef.current;
-          if (chunks.length > 0) {
-            const mimeType = recorderOptions.mimeType || deviceInfo.preferredCodec || 'audio/webm';
-            const blob = new Blob(chunks, { type: mimeType });
-            const url = URL.createObjectURL(blob);
-            const duration = lastDurationRef.current || 0;
+          const mimeType = recorderOptions.mimeType || deviceInfo.preferredCodec || 'audio/webm';
+          const blob = chunks.length > 0 ? new Blob(chunks, { type: mimeType }) : null;
 
+          // Edge case: recorder produced no data (mic muted/glitched, or stopped
+          // before the first timeslice). Surface it instead of failing silently.
+          if (!blob || blob.size === 0) {
             if (mountedRef.current) {
-              setRecordingState({ blob, url, mimeType: blob.type, size: blob.size, duration });
-
-              updateIntake({
-                voice: blob,
-                voiceMetadata: {
-                  mimeType: blob.type,
-                  duration,
-                  size: blob.size,
-                  deviceInfo: {
-                    isMobile: deviceInfo.isMobile,
-                    platform: deviceInfo.isMobile ? 'Mobile' : 'Desktop',
-                    browser: deviceInfo.isChrome ? 'Chrome'
-                      : deviceInfo.isSafari ? 'Safari'
-                      : deviceInfo.isFirefox ? 'Firefox'
-                      : deviceInfo.isEdge ? 'Edge'
-                      : 'Other',
-                  },
-                },
-              });
+              setError('No audio was captured. Please check your microphone and record again.');
             }
+            return;
+          }
+
+          const url = URL.createObjectURL(blob);
+          const duration = lastDurationRef.current || 0;
+
+          if (mountedRef.current) {
+            setRecordingState({ blob, url, mimeType: blob.type, size: blob.size, duration });
+
+            updateIntake({
+              voice: blob,
+              voiceMetadata: {
+                mimeType: blob.type,
+                duration,
+                size: blob.size,
+                deviceInfo: {
+                  isMobile: deviceInfo.isMobile,
+                  platform: deviceInfo.isMobile ? 'Mobile' : 'Desktop',
+                  browser: deviceInfo.isChrome ? 'Chrome'
+                    : deviceInfo.isSafari ? 'Safari'
+                    : deviceInfo.isFirefox ? 'Firefox'
+                    : deviceInfo.isEdge ? 'Edge'
+                    : 'Other',
+                },
+              },
+            });
           }
         } catch (blobErr) {
           console.error('[VocalStep] Error creating recording blob:', blobErr);
@@ -802,6 +818,11 @@ const VocalStep = () => {
           setCountdown(null);
         }
       };
+
+      // ── Setup complete: drop the processing overlay so the 3-2-1 countdown is
+      //    visible (acquire + pipeline setup are the only "processing" phase). ──
+      if (mountedRef.current) setIsProcessing(false);
+      clearProcessingTimeout();
 
       // ── Countdown then start ──
       setRecordingTime(0);
@@ -916,6 +937,42 @@ const VocalStep = () => {
     setAudioLevel(0);
     setAudioWaveform(new Array(48).fill(0));
   }, [recordingState?.url]);
+
+  // ============================================================================
+  // CANCEL COUNTDOWN (abort cleanly before recording actually starts)
+  // ============================================================================
+  const cancelCountdown = useCallback(() => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setCountdown(null);
+    setRecording(false);
+
+    // The recorder is created during setup but not started until the countdown
+    // ends, so it is still 'inactive' here — guard before stopping either way.
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try { mediaRecorderRef.current.stop(); } catch { /* already stopped */ }
+    }
+    mediaRecorderRef.current = null;
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => { try { t.stop(); } catch { /* noop */ } });
+      streamRef.current = null;
+    }
+
+    // Stop visualization + release transient state
+    vizRunningRef.current = false;
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    audioChunksRef.current = [];
+    setIsProcessing(false);
+    clearProcessingTimeout();
+    setAudioLevel(0);
+    setAudioWaveform(new Array(48).fill(0));
+  }, [clearProcessingTimeout]);
 
   // ============================================================================
   // RETRY PERMISSION
@@ -1212,8 +1269,7 @@ const VocalStep = () => {
 
               {/* Reading Prompt */}
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="glass-card-enhanced p-5 rounded-xl">
-                <p className="text-white/70 text-sm mb-3">Please read this text naturally (max {MAX_DURATION_SEC}s, min {MIN_DURATION_SEC}s):</p>
-                <blockquote className="text-base sm:text-lg text-white font-medium leading-relaxed">"{prompt}"</blockquote>
+                <blockquote className="text-base sm:text-lg text-white font-medium leading-relaxed">{prompt}</blockquote>
               </motion.div>
 
               {/* Recording Interface */}
@@ -1225,27 +1281,41 @@ const VocalStep = () => {
                   </div>
                 )}
 
-                {/* Countdown */}
-                <AnimatePresence mode="wait">
-                  {countdown !== null && (
-                    <motion.div
-                      key={countdown}
-                      initial={{ scale: 0.5, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 1.5, opacity: 0 }}
-                      className="text-center"
-                    >
-                      <div className="text-6xl font-bold text-white">{countdown}</div>
-                      <p className="text-white/70 mt-2">Get ready...</p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {/* Countdown — only the number animates per tick; the label and
+                    Cancel button stay mounted so Cancel is stable/clickable. */}
+                {countdown !== null && (
+                  <div className="text-center">
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={countdown}
+                        initial={{ scale: 0.5, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 1.5, opacity: 0 }}
+                        className="text-6xl font-bold text-white"
+                        aria-live="assertive"
+                      >
+                        {countdown}
+                      </motion.div>
+                    </AnimatePresence>
+                    <p className="text-white/70 mt-2">Get ready...</p>
+                    <div className="mt-5 flex justify-center">
+                      <GlassButton
+                        onClick={cancelCountdown}
+                        aria-label="Cancel countdown"
+                        className="bg-white/5 hover:bg-white/10 border-white/15 text-sm py-2 px-6"
+                      >
+                        Cancel
+                      </GlassButton>
+                    </div>
+                  </div>
+                )}
 
                 {/* Start Recording Button */}
                 {canStartRecording && (
                   <div className="text-center">
                     <GlassButton
                       onClick={startRecording}
+                      aria-label="Start recording your voice"
                       className="bg-red-500/20 border-red-400/30 hover:bg-red-500/30 px-8 py-4 text-base"
                       disabled={false}
                     >
@@ -1265,7 +1335,7 @@ const VocalStep = () => {
                 {/* Recording Status */}
                 {recording && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center space-y-5">
-                    <div className="text-white/80 text-sm">
+                    <div className="text-white/80 text-sm" role="status" aria-live="polite">
                       {recordingTime < MIN_DURATION_SEC
                         ? `Keep recording (min ${MIN_DURATION_SEC}s)`
                         : `Recording... (max ${MAX_DURATION_SEC}s)`}
@@ -1302,6 +1372,7 @@ const VocalStep = () => {
 
                     <GlassButton
                       onClick={stopRecording}
+                      aria-label="Stop recording"
                       className="bg-gray-500/20 border-gray-400/30 hover:bg-gray-500/30"
                       disabled={isProcessing}
                     >
@@ -1380,7 +1451,7 @@ const VocalStep = () => {
               {/* Tips */}
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="glass-card p-4 rounded-lg">
                 <p className="text-white/70 text-sm font-medium mb-2">Tips for best results:</p>
-                <ul className="text-white/60 text-xs space-y-1">
+                <ul className="text-white/60 text-xs space-y-1 text-left">
                   <li>Find a quiet environment</li>
                   <li>Speak clearly and at a natural pace</li>
                   <li>Keep your device 6-12 inches from your mouth</li>
