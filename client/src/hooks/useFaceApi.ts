@@ -18,35 +18,50 @@ export const useFaceApi = () => {
   const [isModelLoaded, setModelLoaded] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [loadingProgress, setLoadingProgress] = useState<string>('');
+  // Bumping this token re-runs model initialization (used by reload()).
+  const [reloadToken, setReloadToken] = useState(0);
   const isProcessingRef = useRef(false);
 
-  // Initialize and load models
+  // Initialize and load models. Re-runs whenever reloadToken changes so a
+  // failed load can be retried without a full page refresh.
   useEffect(() => {
+    let cancelled = false;
+
     const init = async () => {
       try {
+        setLoadingError(null);
+        setModelLoaded(false);
         setLoadingProgress('Initializing face detection...');
-        
+
         // The @vladmandic/face-api uses tf internally
         // Set backend to webgl (it should handle this automatically)
         const tf = faceapi.tf;
         console.log('TensorFlow version:', tf.version);
-        
-        // Load models
+
+        // Load models (loadFromUri is a no-op if already cached in IndexedDB)
         setLoadingProgress('Loading models...');
         await faceapi.nets.tinyFaceDetector.loadFromUri(CONFIG.MODELS_BASE_PATH);
         await faceapi.nets.faceLandmark68Net.loadFromUri(CONFIG.MODELS_BASE_PATH);
         await faceapi.nets.faceExpressionNet.loadFromUri(CONFIG.MODELS_BASE_PATH);
-        
+
+        if (cancelled) return;
         setModelLoaded(true);
         setLoadingProgress('Ready');
         console.log('Face detection models loaded successfully');
       } catch (error) {
+        if (cancelled) return;
         console.error('Initialization error:', error);
         setLoadingError(error instanceof Error ? error.message : 'Failed to initialize');
       }
     };
 
     init();
+    return () => { cancelled = true; };
+  }, [reloadToken]);
+
+  // Re-attempt model loading after a failure (no page reload needed).
+  const reload = useCallback(() => {
+    setReloadToken(t => t + 1);
   }, []);
 
   // Face detection function
@@ -113,5 +128,6 @@ export const useFaceApi = () => {
     loadingError,
     loadingProgress,
     analyzeImage,
+    reload,
   };
 };

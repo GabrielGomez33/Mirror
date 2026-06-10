@@ -116,8 +116,12 @@ const Intake: React.FC = () => {
 
       <DevSubsection id="intake-step-visual" title="Step 1 — VisualStep (face-api)">
         <p>
-          The first measured step. The user grants camera access or uploads
-          a still. The image is processed{' '}
+          The first measured step. The user adds a still — by uploading from
+          their device, or on mobile by tapping <code>Take Photo</code>, which
+          opens the native OS camera through a <code>&lt;input capture&gt;</code>
+          field (the legacy in-browser <code>getUserMedia</code> viewfinder was
+          removed: it was unreliable on mobile WebKit and the native picker also
+          transcodes iOS HEIC → JPEG automatically). The image is processed{' '}
           <strong>entirely in the browser</strong> by{' '}
           <code>@vladmandic/face-api</code>: landmarks (68 × {`{x, y}`}),
           an expression vector, and a 128-dimensional face descriptor are
@@ -135,18 +139,26 @@ const Intake: React.FC = () => {
           IndexedDB so the second visit is instant.
         </DevCallout>
         <p>
-          <code>handleNext()</code> refuses to advance if{' '}
-          <code>analysisState.hasAnalysis</code> is false; the user sees
-          an inline error rather than a silent advance to a step that
-          would lack its prerequisite.
+          Facial analysis is <strong>required</strong>:{' '}
+          <code>handleNext()</code> refuses to advance unless{' '}
+          <code>analysisState.hasAnalysis</code> is true — there is no skip
+          path. When detection fails the user gets a <em>Try Again</em> action
+          plus an actionable tips panel (lighting, framing, remove glasses) to
+          help capture a usable photo. If the face-api engine itself fails to
+          load, a <em>Retry</em> button re-loads the models in place via{' '}
+          <code>useFaceApi.reload()</code> (no full page refresh) — the user
+          still cannot continue until analysis succeeds. A decode watchdog
+          clears any stuck <code>Analyzing…</code> state, and the action area
+          auto-scrolls into view on success so the Continue button is never
+          stranded below the fold.
         </p>
         <DevCodeBlock
           language="ts"
           caption="VisualStep — markStepComplete + navigate"
           code={`
 markStepComplete('VisualStep', {
-  hasPhoto:    captureState.hasPhoto,
-  hasAnalysis: true,
+  hasPhoto:     captureState.hasPhoto,
+  hasAnalysis:  true, // required — guaranteed at this point
   qualityScore: analysisState.qualityScore,
 });
 navigate('/intake/vocal');
@@ -410,7 +422,9 @@ localStorage.removeItem('mirror_intake_v1');
       <DevSubsection id="intake-edge-cases" title="Edge cases and recovery">
         <DevFieldList
           rows={[
-            { name: 'Camera permission denied', description: <>VisualStep falls back to a file-upload widget. If the user also has no usable file, the step refuses to advance and surfaces an inline explanation. There is no "skip" affordance — the rest of the flow requires <code>faceAnalysis</code> to be present.</> },
+            { name: 'Camera permission denied', description: <>Not applicable on mobile — <code>Take Photo</code> uses the native OS camera picker, which handles its own permission UI; if the user cancels, they simply fall back to <code>Upload</code>. Desktop is upload-only. The step refuses to advance without a photo and surfaces an inline explanation.</> },
+            { name: 'Undecodable / HEIC image', description: <>The <code>&lt;img&gt;</code> <code>onError</code> handler catches images the browser cannot decode (HEIC/HEIF on Chrome/Firefox, truncated files) and surfaces an actionable message instead of silently stalling. Accepted upload types are aligned with the server (<code>jpeg/png/webp</code>); HEIC is rejected up-front with guidance.</> },
+            { name: 'Analysis engine fails / no face', description: <>A 20s watchdog clears any stuck <code>Analyzing…</code> state. Face detection failures surface a <em>Try Again</em> action plus a tips panel; an engine-load failure offers <em>Retry</em> (<code>useFaceApi.reload()</code>). Analysis is required, so there is no skip — the user fixes the photo or retries until it succeeds.</> },
             { name: 'Microphone permission denied', description: <>VocalStep offers a "skip" affordance with a one-line explanation of how the missing data affects downstream analysis. <code>voicePayload</code> is set to a sentinel value so server-side aggregation knows the gap is intentional, not a bug.</> },
             { name: 'Mid-step page reload', description: <>Context rehydrates from localStorage; the router opens the last step that had not reported <code>markStepComplete</code>. Only the voice <code>Blob</code> is non-recoverable.</> },
             { name: 'Submit fails (5xx)', description: <>Client keeps the payload in context and shows a retry CTA. Up to 3 attempts with exponential backoff (1s / 2s / 4s). After the third failure, the user is told to try again later — localStorage is intentionally <strong>not</strong> cleared.</> },
