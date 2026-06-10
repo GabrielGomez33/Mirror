@@ -47,6 +47,7 @@ const MAX_VOICE_DURATION_SEC = 30;
 const MIN_VOICE_DURATION_SEC = 3;
 const PHOTO_MAX_DIMENSION = 800; // Max width or height in pixels
 const PHOTO_JPEG_QUALITY = 0.82;
+const ANALYSIS_WATCHDOG_MS = 20000; // clear stuck “Analyzing…” state
 
 /**
  * Compress and resize an image to a max dimension and JPEG quality.
@@ -235,29 +236,6 @@ const ChevronIcon: React.FC<{ open: boolean }> = ({ open }) => (
     >
       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
     </svg>
-  </div>
-);
-
-// ============================================================================
-// FACE OVAL GUIDE (from VisualStep)
-// ============================================================================
-const FaceGuideOverlay: React.FC<{ isReady: boolean }> = ({ isReady }) => (
-  <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: isReady ? 1 : 0.3, scale: 1 }}
-      className="relative"
-      style={{ width: '55%', maxWidth: 200, aspectRatio: '3/4' }}
-    >
-      <svg viewBox="0 0 150 200" className="w-full h-full" fill="none">
-        <ellipse cx="75" cy="95" rx="60" ry="78" stroke="rgba(255,255,255,0.45)" strokeWidth="2" strokeDasharray="8 4" />
-      </svg>
-      {isReady && (
-        <div className="absolute -bottom-5 left-0 right-0 text-center">
-          <span className="text-white/60 text-[10px] bg-black/30 px-2 py-0.5 rounded-full">Align your face</span>
-        </div>
-      )}
-    </motion.div>
   </div>
 );
 
@@ -554,7 +532,12 @@ const AstrologicalDisplay: React.FC<{ data: AstroDisplayData }> = ({ data }) => 
 
 
 // ============================================================================
-// EMBEDDED PHOTO CAPTURE PANEL (core VisualStep mechanics)
+// EMBEDDED PHOTO CAPTURE PANEL
+// Native-capture mechanics (matches intake VisualStep): mobile uses the OS
+// camera via <input capture>, desktop uploads. Face analysis here is OPTIONAL,
+// display-only quality feedback — it is never persisted and never blocks. The
+// photo uploads to storage immediately; only its path is saved by the parent.
+// The same panel serves both create and edit (avatar replacement) modes.
 // ============================================================================
 function PhotoCapturePanel({
   onPhotoUploaded,
@@ -570,244 +553,70 @@ function PhotoCapturePanel({
   const { isModelLoaded, loadingProgress, analyzeImage } = useFaceApi();
   const device = detectDeviceInfo();
 
-  // Camera state
-  const [cameraActive, setCameraActive] = useState(false);
-  const [cameraReady, setCameraReady] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [showFlash, setShowFlash] = useState(false);
-  const streamRef = useRef<MediaStream | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Refs
+  const fileInputRef = useRef<HTMLInputElement>(null);   // library / file chooser
+  const cameraInputRef = useRef<HTMLInputElement>(null); // native camera (capture="user")
+  const imgRef = useRef<HTMLImageElement>(null);
   const mountedRef = useRef(true);
-  const startingCameraRef = useRef(false);
+  const isAnalyzingRef = useRef(false);
+  const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Photo state
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [hasPhoto, setHasPhoto] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // "Change Photo" reveals the picker even when an existing photo is present.
+  const [changing, setChanging] = useState(false);
 
-  // Analysis state
+  // Analysis state (OPTIONAL — quality feedback only; never persisted)
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<any>(null);
   const [qualityScore, setQualityScore] = useState(0);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
-  const imgRef = useRef<HTMLImageElement>(null);
-  const isAnalyzingRef = useRef(false);
   const [imgMounted, setImgMounted] = useState(false);
   const imgCallbackRef = useCallback((node: HTMLImageElement | null) => {
     imgRef.current = node;
     setImgMounted(!!node);
   }, []);
 
+  const clearWatchdog = useCallback(() => {
+    if (watchdogRef.current) { clearTimeout(watchdogRef.current); watchdogRef.current = null; }
+  }, []);
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => { try { t.stop(); } catch {} });
-      }
-      if (photoPreview) { try { URL.revokeObjectURL(photoPreview); } catch {} }
+      clearWatchdog();
+      if (photoPreview && photoPreview.startsWith('blob:')) { try { URL.revokeObjectURL(photoPreview); } catch { /* noop */ } }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Tab visibility: stop camera on hide
-  useEffect(() => {
-    const onVisibility = () => {
-      if (document.visibilityState === 'hidden' && cameraActive) stopCamera();
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [cameraActive]);
-
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => { try { t.stop(); } catch {} });
-      streamRef.current = null;
-    }
-    setCameraActive(false);
-    setCameraReady(false);
-  }, []);
-
-  // Start camera — three-tier constraint fallback (from VisualStep)
-  const startCamera = useCallback(async () => {
-    if (cameraActive || startingCameraRef.current) return;
-    startingCameraRef.current = true;
-    setCameraError(null);
-
-    if (!device.supportsGetUserMedia) {
-      setCameraError('Camera not supported. Please use file upload.');
-      startingCameraRef.current = false;
-      return;
-    }
-
-    let stream: MediaStream | null = null;
-    try {
-      // Tier 1
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 640, max: 1280 }, height: { ideal: 480, max: 960 } },
-          audio: false,
-        });
-      } catch (e1: any) {
-        if (e1.name === 'NotAllowedError' || e1.name === 'NotFoundError') throw e1;
-        // Tier 2
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
-        } catch (e2: any) {
-          if (e2.name === 'NotAllowedError' || e2.name === 'NotFoundError') throw e2;
-          // Tier 3
-          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        }
-      }
-
-      if (!stream || !mountedRef.current) {
-        if (stream) stream.getTracks().forEach(t => t.stop());
-        startingCameraRef.current = false;
-        return;
-      }
-
-      streamRef.current = stream;
-      setCameraActive(true);
-      setCameraReady(false);
-    } catch (err: any) {
-      if (stream) stream.getTracks().forEach(t => { try { t.stop(); } catch {} });
-      if (err.name === 'NotAllowedError') {
-        setCameraError('Camera permission denied. Allow camera access in browser settings.');
-      } else if (err.name === 'NotFoundError') {
-        setCameraError('No camera found. Use the upload option.');
-      } else {
-        setCameraError(err.message || 'Camera error.');
-      }
-    } finally {
-      startingCameraRef.current = false;
-    }
-  }, [cameraActive, device]);
-
-  // Phase 2: attach stream to video element when it mounts
-  useEffect(() => {
-    const stream = streamRef.current;
-    if (!stream || !cameraActive) return;
-    let cancelled = false;
-    let polls = 0;
-    const tryAttach = () => {
-      if (cancelled) return;
-      const video = videoRef.current;
-      if (!video) { polls++; if (polls < 40) setTimeout(tryAttach, 50); return; }
-      if (video.srcObject === stream) {
-        if (video.readyState >= 2) setCameraReady(true);
-        return;
-      }
-      video.srcObject = stream;
-      const timeout = setTimeout(() => { if (!cancelled && mountedRef.current) setCameraReady(true); }, 5000);
-      const markReady = () => { clearTimeout(timeout); if (!cancelled && mountedRef.current) setCameraReady(true); };
-      if (video.readyState >= 2) { video.play().catch(() => {}); markReady(); }
-      else {
-        video.addEventListener('canplay', markReady, { once: true });
-        video.addEventListener('playing', markReady, { once: true });
-        video.addEventListener('loadedmetadata', () => { video.play().catch(() => {}); }, { once: true });
-      }
-    };
-    requestAnimationFrame(tryAttach);
-    return () => { cancelled = true; };
-  }, [cameraActive]);
-
-  // Capture photo (with mirror correction)
-  const capturePhoto = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx || video.videoWidth === 0 || video.readyState < 2) return;
-
-    setShowFlash(true);
-    setTimeout(() => { if (mountedRef.current) setShowFlash(false); }, 200);
-
-    // Scale down camera capture to max dimension
-    let cw = video.videoWidth;
-    let ch = video.videoHeight;
-    if (cw > PHOTO_MAX_DIMENSION || ch > PHOTO_MAX_DIMENSION) {
-      const scale = PHOTO_MAX_DIMENSION / Math.max(cw, ch);
-      cw = Math.round(cw * scale);
-      ch = Math.round(ch * scale);
-    }
-    canvas.width = cw;
-    canvas.height = ch;
-    ctx.translate(cw, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0, cw, ch);
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-
-    const finalize = (blob: Blob | null) => {
-      if (!blob || !mountedRef.current) return;
-      if (photoPreview) URL.revokeObjectURL(photoPreview);
-      const preview = URL.createObjectURL(blob);
-      const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
-      setPhotoPreview(preview);
-      setHasPhoto(true);
-      isAnalyzingRef.current = false;
-      setAnalysisResults(null);
-      setQualityScore(0);
-      setAnalysisError(null);
-      stopCamera();
-
-      // Upload immediately
-      setUploading(true);
-      uploadToStorage(file, 'photo', userId)
-        .then(filename => { if (mountedRef.current) onPhotoUploaded(filename, preview); })
-        .catch(err => { if (mountedRef.current) setCameraError(`Upload failed: ${err.message}`); })
-        .finally(() => { if (mountedRef.current) setUploading(false); });
-    };
-
-    if (canvas.toBlob) canvas.toBlob(b => finalize(b), 'image/jpeg', 0.85);
-    else {
-      try {
-        fetch(canvas.toDataURL('image/jpeg', 0.85)).then(r => r.blob()).then(finalize).catch(() => {});
-      } catch {}
-    }
-  }, [photoPreview, stopCamera, userId, onPhotoUploaded]);
-
-  // File upload handler
-  const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
-    if (!allowed.includes(file.type) && !file.name.toLowerCase().match(/\.(jpe?g|png|webp|heic|heif)$/)) {
-      setCameraError('Please upload a JPEG, PNG, or WebP image.');
-      return;
-    }
-    if (file.size > MAX_PHOTO_MB * 1024 * 1024) { setCameraError(`Image too large. Max ${MAX_PHOTO_MB}MB.`); return; }
-
-    stopCamera();
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
-    const preview = URL.createObjectURL(file);
-    setPhotoPreview(preview);
-    setHasPhoto(true);
-    isAnalyzingRef.current = false;
-    setAnalysisResults(null);
-    setQualityScore(0);
-    setAnalysisError(null);
-    setCameraError(null);
-
-    setUploading(true);
-    uploadToStorage(file, 'photo', userId)
-      .then(filename => { if (mountedRef.current) onPhotoUploaded(filename, preview); })
-      .catch(err => { if (mountedRef.current) setCameraError(`Upload failed: ${err.message}`); })
-      .finally(() => { if (mountedRef.current) setUploading(false); });
-  }, [photoPreview, stopCamera, userId, onPhotoUploaded]);
-
-  // Face analysis
+  // ── Optional face analysis (non-blocking quality feedback) ──
   const analyzePhoto = useCallback(async () => {
     if (isAnalyzingRef.current || !imgRef.current || !isModelLoaded) return;
     if (!imgRef.current.complete || imgRef.current.naturalWidth === 0) return;
     isAnalyzingRef.current = true;
     setIsAnalyzing(true);
     setAnalysisError(null);
+
+    clearWatchdog();
+    watchdogRef.current = setTimeout(() => {
+      if (mountedRef.current && isAnalyzingRef.current) {
+        isAnalyzingRef.current = false;
+        setIsAnalyzing(false);
+        setAnalysisError('Analysis timed out — you can retry. Your photo is already saved.');
+      }
+    }, ANALYSIS_WATCHDOG_MS);
+
     try {
       const result = await analyzeImage(imgRef.current);
-      if (!result?.expressions) throw new Error('No face detected.');
-      const confidence = (result as any)?.detection?._score ?? 0;
-      const qs = Math.round(Math.max(0, Math.min(1, confidence)) * 100);
+      if (!result?.expressions) throw new Error('No face detected. Your photo is still saved.');
+      const rawScore = (result as any)?.detection?.score ?? (result as any)?.detection?._score ?? 0;
+      const qs = Math.round(Math.max(0, Math.min(1, Number(rawScore) || 0)) * 100);
+      clearWatchdog();
       if (mountedRef.current) {
         isAnalyzingRef.current = false;
         setIsAnalyzing(false);
@@ -815,50 +624,113 @@ function PhotoCapturePanel({
         setQualityScore(qs);
       }
     } catch (err: any) {
+      clearWatchdog();
       if (mountedRef.current) {
         isAnalyzingRef.current = false;
         setIsAnalyzing(false);
-        setAnalysisError(err.message || 'Analysis failed.');
+        setAnalysisError(err?.message || 'Analysis failed. Your photo is still saved.');
       }
     }
-  }, [analyzeImage, isModelLoaded]);
+  }, [analyzeImage, isModelLoaded, clearWatchdog]);
 
-  // Auto-trigger analysis after image mounts
+  // Auto-run analysis once the <img> has decoded (cached / fast blob URL).
   useEffect(() => {
     if (!hasPhoto || !photoPreview || isAnalyzingRef.current || analysisResults || !isModelLoaded) return;
     const img = imgRef.current;
     if (!img) return;
-    const run = () => { if (mountedRef.current && !isAnalyzingRef.current) analyzePhoto(); };
     if (img.complete && img.naturalWidth > 0) {
-      const t = setTimeout(run, 300);
+      const t = setTimeout(() => { if (mountedRef.current && !isAnalyzingRef.current) analyzePhoto(); }, 250);
       return () => clearTimeout(t);
     }
-    const onLoad = () => setTimeout(run, 300);
-    img.addEventListener('load', onLoad);
-    return () => img.removeEventListener('load', onLoad);
   }, [hasPhoto, photoPreview, analysisResults, isModelLoaded, analyzePhoto, imgMounted]);
 
-  // Start over
+  const onImgLoad = useCallback(() => {
+    if (!mountedRef.current || analysisResults || isAnalyzingRef.current || !isModelLoaded) return;
+    const img = imgRef.current;
+    if (img && img.complete && img.naturalWidth > 0) {
+      setTimeout(() => { if (mountedRef.current && !isAnalyzingRef.current) analyzePhoto(); }, 250);
+    }
+  }, [analysisResults, isModelLoaded, analyzePhoto]);
+
+  const onImgError = useCallback(() => {
+    // The <img> couldn't decode (HEIC, corrupt). compressImage() in
+    // uploadToStorage uses the same decode path and will also have failed —
+    // surface a clear message rather than leaving a broken preview.
+    if (!mountedRef.current) return;
+    clearWatchdog();
+    isAnalyzingRef.current = false;
+    setIsAnalyzing(false);
+    setAnalysisResults(null);
+    setError('We couldn’t read that image. Please choose a JPEG, PNG, or WebP photo.');
+  }, [clearWatchdog]);
+
+  // ── File intake (shared by Upload + Take Photo); uploads immediately ──
+  const acceptFile = useCallback((file: File) => {
+    const nameLower = (file.name || '').toLowerCase();
+    if (/\.(heic|heif)$/i.test(nameLower) || file.type === 'image/heic' || file.type === 'image/heif') {
+      setError('HEIC/HEIF photos aren’t supported. On iPhone use “Take Photo”, or set Camera → Formats → “Most Compatible”.');
+      return;
+    }
+    const typeOk = ALLOWED_IMAGE_TYPES.has(file.type);
+    const extOk = /\.(jpe?g|png|webp)$/i.test(nameLower);
+    if (!typeOk && !(file.type === '' && extOk)) { setError('Please choose a JPEG, PNG, or WebP image.'); return; }
+    if (file.size > MAX_PHOTO_MB * 1024 * 1024) { setError(`Image too large. Max ${MAX_PHOTO_MB}MB.`); return; }
+    if (file.size < 1024) { setError('That file looks empty or corrupted.'); return; }
+
+    if (photoPreview && photoPreview.startsWith('blob:')) { try { URL.revokeObjectURL(photoPreview); } catch { /* noop */ } }
+    clearWatchdog();
+    isAnalyzingRef.current = false;
+    const preview = URL.createObjectURL(file);
+    setPhotoPreview(preview);
+    setHasPhoto(true);
+    setChanging(false);
+    setAnalysisResults(null);
+    setQualityScore(0);
+    setAnalysisError(null);
+    setError(null);
+
+    // Upload immediately (storage path is what gets persisted by the parent).
+    setUploading(true);
+    uploadToStorage(file, 'photo', userId)
+      .then(filename => { if (mountedRef.current) onPhotoUploaded(filename, preview); })
+      .catch(err => { if (mountedRef.current) setError(`Upload failed: ${err.message}`); })
+      .finally(() => { if (mountedRef.current) setUploading(false); });
+  }, [photoPreview, clearWatchdog, userId, onPhotoUploaded]);
+
+  const onUploadChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file
+    if (file) acceptFile(file);
+  }, [acceptFile]);
+
+  const onCameraChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (file) acceptFile(file);
+  }, [acceptFile]);
+
   const startOver = useCallback(() => {
-    stopCamera();
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
+    clearWatchdog();
+    if (photoPreview && photoPreview.startsWith('blob:')) { try { URL.revokeObjectURL(photoPreview); } catch { /* noop */ } }
     setPhotoPreview(null);
     setHasPhoto(false);
+    setChanging(false);
     isAnalyzingRef.current = false;
     setAnalysisResults(null);
     setQualityScore(0);
     setAnalysisError(null);
-    setCameraError(null);
+    setError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
     onPhotoRemoved();
-  }, [stopCamera, photoPreview, onPhotoRemoved]);
+  }, [clearWatchdog, photoPreview, onPhotoRemoved]);
 
-  const showMethodPicker = !hasPhoto && !cameraActive && !existingPhotoPath;
-  const showExistingOnly = !hasPhoto && !cameraActive && !!existingPhotoPath;
+  const showMethodPicker = !hasPhoto && (!existingPhotoPath || changing);
+  const showExistingOnly = !hasPhoto && !!existingPhotoPath && !changing;
 
   return (
     <div className="space-y-3">
-      {/* Existing photo thumbnail */}
+      {/* Existing photo thumbnail (edit / avatar-replace mode) */}
       {showExistingOnly && (
         <div className="flex items-center gap-4">
           <div className="rounded-full overflow-hidden flex-shrink-0" style={{ width: 80, height: 80, minWidth: 80, minHeight: 80, border: '2px solid rgba(244,114,182,0.3)' }}>
@@ -867,7 +739,7 @@ function PhotoCapturePanel({
           <div className="space-y-2">
             <p className="text-xs" style={{ color: COLORS.label }}>Current photo uploaded</p>
             <div className="flex gap-2">
-              <button onClick={() => { setHasPhoto(false); setCameraError(null); }} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: 'linear-gradient(135deg, rgba(244,114,182,0.2), rgba(167,139,250,0.2))', border: '1px solid rgba(244,114,182,0.4)', color: COLORS.heading }}>
+              <button onClick={() => { setChanging(true); setError(null); }} className="px-3 py-1.5 rounded-lg text-xs font-medium" style={{ background: 'linear-gradient(135deg, rgba(244,114,182,0.2), rgba(167,139,250,0.2))', border: '1px solid rgba(244,114,182,0.4)', color: COLORS.heading }}>
                 Change Photo
               </button>
               <button onClick={() => { onPhotoRemoved(); }} className="px-3 py-1.5 rounded-lg text-xs" style={{ color: COLORS.label, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)' }}>
@@ -878,80 +750,49 @@ function PhotoCapturePanel({
         </div>
       )}
 
-      {/* Method picker — Upload or Camera */}
+      {/* Method picker — Take Photo (mobile native camera) + Upload */}
       {showMethodPicker && (
-        <div className="grid grid-cols-2 gap-3">
-          <button onClick={() => fileInputRef.current?.click()}
-            className="flex flex-col items-center gap-2 p-4 rounded-xl transition-all hover:scale-[1.02]"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
-            <div style={{ color: COLORS.body }}><UploadIcon /></div>
-            <div className="text-center">
-              <p className="text-xs font-semibold" style={{ color: COLORS.heading }}>Upload</p>
-              <p className="text-[10px]" style={{ color: COLORS.label }}>From device</p>
-            </div>
-          </button>
-          <button onClick={startCamera} disabled={!device.supportsGetUserMedia}
-            className="flex flex-col items-center gap-2 p-4 rounded-xl transition-all hover:scale-[1.02] disabled:opacity-40"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', cursor: device.supportsGetUserMedia ? 'pointer' : 'not-allowed' }}>
-            <div style={{ color: COLORS.body }}><CameraIcon /></div>
-            <div className="text-center">
-              <p className="text-xs font-semibold" style={{ color: COLORS.heading }}>Camera</p>
-              <p className="text-[10px]" style={{ color: COLORS.label }}>{device.supportsGetUserMedia ? 'Take photo' : 'Not available'}</p>
-            </div>
-          </button>
-        </div>
-      )}
-
-      {/* Camera viewfinder */}
-      {cameraActive && (
-        <div className="space-y-3">
-          <div className="relative rounded-xl overflow-hidden bg-black mx-auto" style={{ maxWidth: 360 }}>
-            <video ref={videoRef} autoPlay playsInline muted
-              // @ts-ignore
-              webkit-playsinline="true"
-              className="w-full block"
-              style={{ transform: 'scaleX(-1)', objectFit: 'cover', minHeight: 240, maxHeight: 340 }} />
-            <FaceGuideOverlay isReady={cameraReady} />
-            <AnimatePresence>
-              {showFlash && (
-                <motion.div initial={{ opacity: 1 }} animate={{ opacity: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
-                  className="absolute inset-0 bg-white z-20" />
-              )}
-            </AnimatePresence>
-            {!cameraReady && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
+        <>
+          <div className={device.isMobile ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-1 gap-3'}>
+            {device.isMobile && (
+              <button onClick={() => cameraInputRef.current?.click()} aria-label="Take a photo with your camera"
+                className="flex flex-col items-center gap-2 p-4 rounded-xl transition-all hover:scale-[1.02]"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
+                <div style={{ color: COLORS.body }}><CameraIcon /></div>
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-white/20 border-t-white mx-auto mb-1" />
-                  <p className="text-white/60 text-[10px]">Starting camera...</p>
+                  <p className="text-xs font-semibold" style={{ color: COLORS.heading }}>Take Photo</p>
+                  <p className="text-[10px]" style={{ color: COLORS.label }}>Use your camera</p>
                 </div>
-              </div>
+              </button>
             )}
-          </div>
-          <div className="flex gap-2 justify-center">
-            <button onClick={capturePhoto} disabled={!cameraReady}
-              className="px-5 py-2 rounded-lg text-xs font-medium transition-all" style={{
-                background: 'linear-gradient(135deg, rgba(167,139,250,0.3), rgba(96,165,250,0.3))',
-                border: '1px solid rgba(167,139,250,0.5)', color: COLORS.heading, opacity: cameraReady ? 1 : 0.5,
-              }}>
-              {cameraReady ? 'Capture Photo' : 'Camera loading...'}
-            </button>
-            <button onClick={() => { stopCamera(); }} className="px-4 py-2 rounded-lg text-xs" style={{ color: COLORS.label, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)' }}>
-              Cancel
+            <button onClick={() => fileInputRef.current?.click()} aria-label="Upload a photo from your device"
+              className="flex flex-col items-center gap-2 p-4 rounded-xl transition-all hover:scale-[1.02]"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
+              <div style={{ color: COLORS.body }}><UploadIcon /></div>
+              <div className="text-center">
+                <p className="text-xs font-semibold" style={{ color: COLORS.heading }}>Upload</p>
+                <p className="text-[10px]" style={{ color: COLORS.label }}>{device.isMobile ? 'From your library' : 'JPEG, PNG, or WebP'}</p>
+              </div>
             </button>
           </div>
-        </div>
+          {changing && !!existingPhotoPath && (
+            <button onClick={() => { setChanging(false); setError(null); }} className="text-[10px] underline" style={{ color: COLORS.label }}>
+              Keep current photo
+            </button>
+          )}
+        </>
       )}
 
-      {/* Photo preview + analysis */}
-      {hasPhoto && photoPreview && !cameraActive && (
+      {/* Photo preview + optional analysis */}
+      {hasPhoto && photoPreview && (
         <div className="space-y-3">
           <div className="relative rounded-xl overflow-hidden mx-auto" style={{ maxWidth: 280 }}>
-            <img ref={imgCallbackRef} src={photoPreview} alt="Your photo" className="w-full block rounded-xl" style={{ objectFit: 'cover', maxHeight: 280 }} />
+            <img ref={imgCallbackRef} src={photoPreview} alt="Your photo" onLoad={onImgLoad} onError={onImgError} className="w-full block rounded-xl" style={{ objectFit: 'cover', maxHeight: 280 }} />
             {isAnalyzing && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-xl">
                 <div className="flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded-lg">
                   <div className="animate-spin rounded-full h-3 w-3 border-2 border-white/20 border-t-white" />
-                  <span className="text-white text-[10px]">Analyzing...</span>
+                  <span className="text-white text-[10px]">Analyzing…</span>
                 </div>
               </div>
             )}
@@ -967,14 +808,18 @@ function PhotoCapturePanel({
               <div className="absolute bottom-2 left-2 right-2">
                 <div className="flex items-center gap-2 bg-black/60 px-2 py-1 rounded-lg">
                   <div className="animate-spin rounded-full h-3 w-3 border-2 border-white/20 border-t-white" />
-                  <span className="text-white text-[10px]">Uploading...</span>
+                  <span className="text-white text-[10px]">Uploading…</span>
                 </div>
               </div>
             )}
           </div>
 
           {analysisResults && <AnalysisMetrics results={analysisResults} qualityScore={qualityScore} />}
-          {analysisError && <p className="text-xs p-2 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', color: '#fca5a5' }}>{analysisError}</p>}
+          {analysisError && (
+            <p className="text-[10px]" style={{ color: COLORS.label }}>
+              {analysisError} <span className="opacity-60">Analysis is optional for your Truth Card.</span>
+            </p>
+          )}
 
           <div className="flex gap-2 justify-center">
             <button onClick={startOver} disabled={isAnalyzing || uploading}
@@ -983,29 +828,30 @@ function PhotoCapturePanel({
             </button>
             {!analysisResults && !isAnalyzing && isModelLoaded && (
               <button onClick={analyzePhoto} className="px-4 py-1.5 rounded-lg text-xs font-medium" style={{ background: 'linear-gradient(135deg, rgba(167,139,250,0.2), rgba(96,165,250,0.2))', border: '1px solid rgba(167,139,250,0.4)', color: COLORS.heading }}>
-                Analyze Face
+                {analysisError ? 'Try Again' : 'Analyze Face'}
               </button>
             )}
           </div>
         </div>
       )}
 
-      {/* Face API loading indicator */}
-      {!isModelLoaded && (
+      {/* Face API loading indicator (only meaningful once a photo is present) */}
+      {!isModelLoaded && hasPhoto && !analysisResults && (
         <div className="flex items-center gap-2 p-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }}>
           <div className="animate-spin rounded-full h-3 w-3 border-2 border-white/20 border-t-pink-400" />
-          <span className="text-[10px]" style={{ color: COLORS.label }}>Loading face analysis engine... {typeof loadingProgress === 'string' ? loadingProgress : ''}</span>
+          <span className="text-[10px]" style={{ color: COLORS.label }}>Loading face analysis engine… {typeof loadingProgress === 'string' ? loadingProgress : ''}</span>
         </div>
       )}
 
-      {cameraError && <p className="text-xs p-2 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', color: '#fca5a5' }}>{cameraError}</p>}
+      {error && <p className="text-xs p-2 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', color: '#fca5a5' }}>{error}</p>}
 
-      <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" onChange={handleFileUpload} className="hidden" />
-      <canvas ref={canvasRef} className="hidden" />
+      {/* Hidden inputs: upload (iOS transcodes HEIC→JPEG here) + native camera */}
+      <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={onUploadChange} className="hidden" />
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="user" onChange={onCameraChange} className="hidden" />
 
       <p className="text-[10px]" style={{ color: COLORS.label }}>
-        For best results: good lighting, face camera directly.
-        {device.isIOS && ' Safari provides the best camera experience on iOS.'}
+        For best results: good lighting, face the camera directly.
+        {device.isIOS && ' iPhone photos are converted automatically when you choose “Take Photo”.'}
       </p>
     </div>
   );
