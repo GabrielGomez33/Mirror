@@ -207,20 +207,35 @@ type VoicePayload = {
 
       <DevSubsection id="intake-step-iq" title="Step 3 — IQStep">
         <p>
-          A timed sequence of visual-reasoning puzzles served from{' '}
-          <code>public/images/iq/</code>. The image set is{' '}
-          <strong>deliberately excluded</strong> from the service-worker
-          precache; only the puzzles needed for the user's session are
-          fetched. The score is reported as a percentile against a fixed
-          internal norm, not a clinical IQ — Mirror does not certify IQ
-          and is careful not to imply that.
+          A 30-item, untimed multiple-choice assessment spanning four
+          reasoning types — numerical, spatial, logical, and verbal. The
+          spatial items use SVGs from <code>public/images/iq/</code>, which
+          are <strong>deliberately excluded</strong> from the service-worker
+          precache. Question <em>and</em> option order are shuffled per
+          attempt (Fisher–Yates) for integrity, and <code>correctAnswer</code>
+          is matched by value so shuffling is safe. A dev-only guard validates
+          that every item's answer key exists among its options.
         </p>
+        <DevCallout kind="security" title="Estimate, not a clinical score">
+          Scoring derives entirely from the recorded answers (single source of
+          truth). Proportion-correct is <strong>chance-corrected</strong> (a
+          4-option item has a 25% floor) and mapped through a continuous,
+          monotonic curve to a clamped 55–145 range — no discontinuities, so
+          one answer never swings the score by a tier. Bands follow
+          conventional ranges (&lt;85 / 85–114 / 115–129 / 130+). It is a
+          self-assessment estimate; Mirror does not certify IQ and surfaces a
+          disclaimer in the results. Answer keys live client-side — true
+          anti-cheat would require server-side scoring.
+        </DevCallout>
         <DevFieldList
           rows={[
-            { name: 'iqAnswers',      type: 'Record<string, unknown>', description: 'Per-item answer keyed by puzzle id.' },
-            { name: 'iqResults.score', type: 'number',                description: 'Raw correctness score.' },
-            { name: 'iqResults.percentile', type: 'number',           description: 'Percentile against internal norm; the value rendered in MyMirror.' },
-            { name: 'iqResults.timeSpent',  type: 'number',           description: 'Total milliseconds the user spent in the step.' },
+            { name: 'iqAnswers',                 type: 'Record<string, string>', description: 'Per-item selected option value, keyed by question id.' },
+            { name: 'iqResults.rawScore',        type: 'number',                 description: 'Number of correct answers.' },
+            { name: 'iqResults.totalQuestions',  type: 'number',                 description: 'Total items presented (30).' },
+            { name: 'iqResults.iqScore',         type: 'number',                 description: 'Chance-corrected estimate, clamped 55–145.' },
+            { name: 'iqResults.category',        type: 'string',                 description: 'Very High / High / Average / Below Average.' },
+            { name: 'iqResults.strengths',       type: 'string[]',               description: 'Reasoning types scored above 70%.' },
+            { name: 'iqResults.categoryBreakdown', type: 'CategoryScore[]',      description: 'Per-type correct/total for transparency.' },
           ]}
         />
         <p>Next: <code>/intake/astrology</code>.</p>
