@@ -826,7 +826,7 @@ const AstroLogicalStep = () => {
       <div className="relative z-10 min-h-screen flex flex-col justify-center items-center p-6 text-center">
         <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1 }} className="w-full max-w-4xl mx-auto">
           {/* Main Card */}
-          <GlassCard enhanced gradient className="text-center space-y-6 max-h-[85vh] overflow-y-auto overflow-x-hidden m-[40px]">
+          <GlassCard enhanced gradient className="  text-center space-y-6 max-h-[85vh] overflow-y-auto overflow-x-hidden m-[40px]">
             {/* Header */}
             <motion.div initial={{ scale: 0.96 }} animate={{ scale: 1 }} transition={{ duration: 0.6 }} className="space-y-4 items-center justify-center flex flex-col">
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 via-purple-400 to-pink-400 flex items-center justify-center">
@@ -860,7 +860,7 @@ const AstroLogicalStep = () => {
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <label htmlFor="birth-date" className="text-white/80 text-sm">Birth Date</label>
+                            <label htmlFor="birth-date" className="text-white/80 text-sm">Birth Date <br /></label>
                             <input
                               id="birth-date"
                               type="date"
@@ -868,12 +868,13 @@ const AstroLogicalStep = () => {
                               aria-describedby="birth-date-help"
                               value={birthData.date}
                               onChange={(e) => setBirthData(prev => ({ ...prev, date: e.target.value }))}
-                              className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-white/40 focus:outline-none"
+                              className="w-3/4 p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-white/40 focus:outline-none"
+                              style={{borderRadius:'1rem'}}
                             />
                             <p id="birth-date-help" className="sr-only">Enter your date of birth in YYYY-MM-DD format</p>
                           </div>
                           <div className="space-y-2">
-                            <label htmlFor="birth-time" className="text-white/80 text-sm">Birth Time</label>
+                            <label htmlFor="birth-time" className="text-white/80 text-sm">Birth Time <br /></label>
                             <input
                               id="birth-time"
                               type="time"
@@ -882,7 +883,8 @@ const AstroLogicalStep = () => {
                               aria-describedby="birth-time-help"
                               value={birthData.time}
                               onChange={(e) => setBirthData(prev => ({ ...prev, time: e.target.value }))}
-                              className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-white/40 focus:outline-none"
+                              className="w-3/4 p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-white/40 focus:outline-none"
+                              style={{borderRadius:'1rem'}}
                             />
                             <p id="birth-time-help" className="sr-only">Enter your birth time to the nearest minute</p>
                           </div>
@@ -907,7 +909,8 @@ const AstroLogicalStep = () => {
                               placeholder="e.g., New York, NY, USA"
                               value={birthData.location}
                               onChange={(e) => setBirthData(prev => ({ ...prev, location: e.target.value }))}
-                              className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-white/40 focus:outline-none"
+                              className="w-3/4 p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-white/40 focus:outline-none"
+                              style={{borderRadius:'1rem'}}
                             />
                           </div>
                           <div className="flex items-center justify-center gap-2">

@@ -20,6 +20,13 @@ interface IQQuestion {
   ariaLabel?: string;
 }
 
+interface CategoryScore {
+  type: IQQuestion['type'];
+  label: string;
+  correct: number;
+  total: number;
+}
+
 interface IQResult {
   rawScore: number;
   totalQuestions: number;
@@ -27,6 +34,7 @@ interface IQResult {
   category: string;
   strengths: string[];
   description: string;
+  categoryBreakdown: CategoryScore[];
 }
 
 /** ---------- Question Bank (builds on your existing) ---------- */
@@ -156,14 +164,16 @@ const iqQuestions: IQQuestion[] = [
   {
     id: 'iq-log-1',
     type: 'logical',
-    text: 'All birds have wings. Some birds can fly. Therefore:',
+    text: 'All roses are flowers. Some flowers fade quickly. Therefore:',
     options: [
-      { text: 'All birds can fly.', value: 'All birds can fly.' },
-      { text: 'Some birds cannot fly.', value: 'Some birds cannot fly.' },
-      { text: 'No birds can fly.', value: 'No birds can fly.' },
-      { text: 'Birds with wings can always fly.', value: 'Birds with wings can always fly.' },
+      { text: 'All roses fade quickly.', value: 'All roses fade quickly.' },
+      { text: 'Some roses fade quickly.', value: 'Some roses fade quickly.' },
+      { text: 'No roses fade quickly.', value: 'No roses fade quickly.' },
+      { text: 'It cannot be determined whether any roses fade quickly.', value: 'It cannot be determined whether any roses fade quickly.' },
     ],
-    correctAnswer: 'Some birds cannot fly.',
+    // Valid: "some flowers fade quickly" says nothing about whether the
+    // rose-subset overlaps the fast-fading subset — it is undetermined.
+    correctAnswer: 'It cannot be determined whether any roses fade quickly.',
   },
   {
     id: 'iq-log-2',
@@ -180,14 +190,14 @@ const iqQuestions: IQQuestion[] = [
   {
     id: 'iq-log-3',
     type: 'logical',
-    text: 'Look at the series: F2, D4, B8, A16, ? What letter and number should come next?',
+    text: 'What comes next in the sequence: A1, C2, E4, G8, ?',
     options: [
-      { text: 'Z32', value: 'Z32' },
-      { text: 'Y32', value: 'Y32' },
-      { text: 'Z64', value: 'Z64' },
-      { text: 'A32', value: 'A32' },
+      { text: 'I16', value: 'I16' }, // letters +2 (A,C,E,G,I); numbers ×2 (1,2,4,8,16)
+      { text: 'H16', value: 'H16' },
+      { text: 'I8', value: 'I8' },
+      { text: 'J16', value: 'J16' },
     ],
-    correctAnswer: 'Z32',
+    correctAnswer: 'I16',
   },
   {
     id: 'iq-log-4',
@@ -413,17 +423,50 @@ const iqQuestions: IQQuestion[] = [
   },
 ];
 
+/** ---------- Integrity helpers ---------- */
+// Fisher–Yates shuffle (immutable). Used to randomize question + option order
+// per attempt so answer positions can't be memorized or shared.
+function shuffle<T>(arr: readonly T[]): T[] {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Build a fresh randomized quiz: shuffled questions, each with shuffled options.
+// correctAnswer is matched by value, so shuffling options is always safe.
+function buildQuiz(): IQQuestion[] {
+  return shuffle(iqQuestions).map(q => ({ ...q, options: shuffle(q.options) }));
+}
+
+// Dev-only authoring guard: catches answer-key drift (a correctAnswer that is
+// not among the options) and duplicate ids before they ship.
+if (import.meta.env.DEV) {
+  const seen = new Set<string>();
+  for (const q of iqQuestions) {
+    if (seen.has(q.id)) console.error(`[IQStep] duplicate question id: ${q.id}`);
+    seen.add(q.id);
+    if (!q.options.some(o => o.value === q.correctAnswer)) {
+      console.error(`[IQStep] ${q.id}: correctAnswer "${q.correctAnswer}" is not among its options`);
+    }
+  }
+}
+
 /** ---------- Component ---------- */
 const IQStep = () => {
   const navigate = useNavigate();
   const { updateIntake, markStepComplete } = useIntake();
 
   // State
+  // Randomized once per attempt (and again on Retake) for test integrity.
+  const [questions, setQuestions] = useState<IQQuestion[]>(() => buildQuiz());
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<Record<string, string | null>>({});
-  const [correctCount, setCorrectCount] = useState(0);
   const [showResult, setShowResult] = useState(false);
   const [selectedOptionValue, setSelectedOptionValue] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
 
   // Save guard
   const [saving, setSaving] = useState(false);
@@ -449,37 +492,64 @@ const IQStep = () => {
   useEffect(() => {
     try {
       localStorage.setItem('mirror:intake:lastStep', 'iq');
-    } catch {}
+    } catch { /* localStorage unavailable */ }
   }, []);
 
-  const currentQuestion = iqQuestions[currentQuestionIndex];
-  const totalQuestions = iqQuestions.length;
+  const currentQuestion = questions[currentQuestionIndex];
+  const totalQuestions = questions.length;
   const progress = ((currentQuestionIndex + 1) / totalQuestions) * 100;
 
-  // IQ Score Calculation (kept, with strengths by type)
-  const calculateIQScore = useCallback((score: number, total: number): IQResult => {
-    const percentageCorrect = (score / total) * 100;
-    let iqScore = 100;
-    let category = 'Average';
-    if (percentageCorrect >= 90)      { iqScore = Math.floor(130 + (percentageCorrect - 90) * 1.5); category = 'Very High'; }
-    else if (percentageCorrect >= 75) { iqScore = Math.floor(115 + (percentageCorrect - 75) * 1.0); category = 'High'; }
-    else if (percentageCorrect >= 50) { iqScore = Math.floor( 90 + (percentageCorrect - 50) * 0.5); category = 'Average'; }
-    else                              { iqScore = Math.floor( 70 +  percentageCorrect       * 0.4); category = 'Below Average'; }
+  // IQ Score Calculation — single source of truth (derives everything from the
+  // recorded answers), chance-corrected and smoothly monotonic.
+  //
+  // Why this replaces the old piecewise map:
+  //   - The old map had a ~13-point discontinuity at the 75% boundary, so one
+  //     question could swing the score ~15 points (non-monotonic, unfair).
+  //   - It ignored guessing: 4-option MC has a 25% chance floor.
+  //
+  // Method: convert proportion-correct (p) into ability above chance
+  //   ability = clamp((p - chance) / (1 - chance), 0, 1)
+  // then a continuous linear map anchored at ability 0.5 → 100 (±35 across the
+  // range), clamped to [55, 145]. Bands follow conventional IQ ranges. This is
+  // a self-assessment estimate, not a norm-referenced clinical score.
+  const calculateIQScore = useCallback((answers: Record<string, string | null>, quiz: IQQuestion[]): IQResult => {
+    const types: IQQuestion['type'][] = ['numerical', 'spatial', 'logical', 'verbal'];
+    const byType: Record<string, { correct: number; total: number }> = {};
+    types.forEach(t => { byType[t] = { correct: 0, total: 0 }; });
 
-    const types = ['numerical','spatial','logical','verbal'] as const;
-    const byType: Record<string, {correct: number; total: number}> = {};
-    types.forEach(t => byType[t] = { correct: 0, total: 0 });
-    iqQuestions.forEach(q => {
+    let rawScore = 0;
+    let chanceSum = 0;
+    quiz.forEach(q => {
       byType[q.type].total++;
-      if (userAnswers[q.id] != null && userAnswers[q.id] === q.correctAnswer) byType[q.type].correct++;
-    });
-    const strengths: string[] = [];
-    types.forEach(t => {
-      const s = byType[t];
-      if (s.total > 0 && s.correct / s.total > 0.7) {
-        strengths.push(`${t[0].toUpperCase()}${t.slice(1)} Reasoning`);
+      chanceSum += q.options.length > 0 ? 1 / q.options.length : 0.25;
+      if (answers[q.id] != null && answers[q.id] === q.correctAnswer) {
+        rawScore++;
+        byType[q.type].correct++;
       }
     });
+
+    const total = quiz.length;
+    const p = total > 0 ? rawScore / total : 0;
+    const chance = total > 0 ? chanceSum / total : 0.25; // ≈ 0.25 for 4-option MC
+    const ability = Math.max(0, Math.min(1, (p - chance) / (1 - chance)));
+    let iqScore = Math.round(100 + (ability - 0.5) * 70); // 0→65, 0.5→100, 1→135
+    iqScore = Math.max(55, Math.min(145, iqScore));
+
+    const category =
+      iqScore >= 130 ? 'Very High' :
+      iqScore >= 115 ? 'High' :
+      iqScore >= 85  ? 'Average' : 'Below Average';
+
+    const categoryBreakdown: CategoryScore[] = types.map(t => ({
+      type: t,
+      label: `${t[0].toUpperCase()}${t.slice(1)}`,
+      correct: byType[t].correct,
+      total: byType[t].total,
+    }));
+
+    const strengths = categoryBreakdown
+      .filter(c => c.total > 0 && c.correct / c.total > 0.7)
+      .map(c => `${c.label} Reasoning`);
     if (!strengths.length) strengths.push('Diverse cognitive abilities');
 
     const description =
@@ -488,22 +558,20 @@ const IQStep = () => {
       category === 'Average'   ? 'Solid and practical thinking skills, capable of handling most cognitive tasks.' :
                                  'May benefit from focused development in specific cognitive areas.';
 
-    return { rawScore: score, totalQuestions: total, iqScore, category, strengths, description };
-  }, [userAnswers]);
+    return { rawScore, totalQuestions: total, iqScore, category, strengths, description, categoryBreakdown };
+  }, []);
 
   // Answer handling with slight randomization to reduce timing side-channels
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const focusOption = (i: number) => optionRefs.current[i]?.focus();
 
   const handleAnswer = (optionValue: string) => {
+    if (selectedOptionValue) return; // guard against double-answer
     setSelectedOptionValue(optionValue);
-    const isCorrect = optionValue === currentQuestion.correctAnswer;
-    const newCorrectCount = isCorrect ? correctCount + 1 : correctCount;
 
     const delay = 600 + Math.floor(Math.random() * 90); // 600–689ms
     setTimeout(() => {
       setUserAnswers(prev => ({ ...prev, [currentQuestion.id]: optionValue }));
-      setCorrectCount(newCorrectCount);
 
       if (currentQuestionIndex < totalQuestions - 1) {
         setCurrentQuestionIndex(prev => prev + 1);
@@ -514,10 +582,10 @@ const IQStep = () => {
     }, delay);
   };
 
-  // Compute result
+  // Compute result from the authoritative answer record (single source of truth).
   const iqResult = useMemo(() => {
-    return showResult ? calculateIQScore(correctCount, totalQuestions) : null;
-  }, [showResult, correctCount, totalQuestions, calculateIQScore]);
+    return showResult ? calculateIQScore(userAnswers, questions) : null;
+  }, [showResult, userAnswers, questions, calculateIQScore]);
 
   // Guarded proceed: block navigation on save failure
   const handleNext = async () => {
@@ -535,8 +603,9 @@ const IQStep = () => {
     }
   };
 
-  // Focus first option on question change (keyboard UX)
+  // Focus first option on question change (keyboard UX); reset image state.
   useEffect(() => {
+    setImageError(false);
     const t = window.setTimeout(() => focusOption(0), 50);
     return () => window.clearTimeout(t);
   }, [currentQuestion.id]);
@@ -649,7 +718,7 @@ const IQStep = () => {
                         {currentQuestion.text}
                       </h3>
 
-                      {currentQuestion.image && (
+                      {currentQuestion.image && !imageError && (
                         <div className="mx-auto mb-4 max-w-[16rem] sm:max-w-xs w-full">
                           <motion.img
                             key={currentQuestion.image}
@@ -666,11 +735,27 @@ const IQStep = () => {
                               img.style.opacity = '1';
                             }}
                             onError={(e) => {
-                              const img = e.currentTarget as HTMLImageElement;
-                              console.warn('[IQ image failed]', img.src);
-                              img.style.opacity = '0';
+                              console.warn('[IQ image failed]', (e.currentTarget as HTMLImageElement).src);
+                              setImageError(true);
                             }}
                           />
+                        </div>
+                      )}
+
+                      {/* Image-load fallback: a visual question is unfair without
+                          its figure — tell the user and offer a retry. */}
+                      {currentQuestion.image && imageError && (
+                        <div className="mx-auto mb-4 max-w-xs w-full glass-card p-4 rounded-lg text-center">
+                          <p className="text-white/70 text-xs mb-2">
+                            The image for this question couldn’t load. Check your connection, then retry.
+                          </p>
+                          <GlassButton
+                            onClick={() => setImageError(false)}
+                            aria-label="Retry loading the question image"
+                            className="bg-white/10 hover:bg-white/20 text-xs py-1.5 px-4"
+                          >
+                            Retry image
+                          </GlassButton>
                         </div>
                       )}
                     </div>
@@ -807,7 +892,40 @@ const IQStep = () => {
                           </motion.span>
                         ))}
                       </div>
+
+                      {/* Per-category breakdown (transparency) */}
+                      <div className="mt-5 space-y-2 text-left">
+                        {iqResult.categoryBreakdown.map((c, i) => {
+                          const pct = c.total > 0 ? Math.round((c.correct / c.total) * 100) : 0;
+                          return (
+                            <motion.div
+                              key={c.type}
+                              initial={{ opacity: 0, x: -8 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: 0.55 + i * 0.06 }}
+                              className="flex items-center gap-3"
+                            >
+                              <span className="text-white/70 text-xs w-20 flex-shrink-0">{c.label}</span>
+                              <div className="flex-1 h-2 rounded-full bg-white/10 overflow-hidden">
+                                <div
+                                  className="h-full rounded-full bg-gradient-to-r from-cyan-400/70 to-teal-400/70"
+                                  style={{ width: `${Math.max(pct, 2)}%` }}
+                                />
+                              </div>
+                              <span className="text-white/60 text-xs font-mono w-14 text-right flex-shrink-0">
+                                {c.correct}/{c.total}
+                              </span>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
                     </motion.div>
+
+                    {/* Honesty disclaimer */}
+                    <p className="text-white/40 text-xs mx-auto max-w-xl">
+                      This is a brief self-assessment for reflection — not a clinical or
+                      norm-referenced IQ measurement. Scores are estimates based on this short test.
+                    </p>
 
                     {saveError && <div className="text-red-300 text-sm text-center">{saveError}</div>}
 
@@ -820,12 +938,13 @@ const IQStep = () => {
                     >
                       <GlassButton
                         onClick={() => {
-                          // restart
+                          // restart with a freshly randomized quiz
+                          setQuestions(buildQuiz());
                           setCurrentQuestionIndex(0);
                           setUserAnswers({});
-                          setCorrectCount(0);
                           setShowResult(false);
                           setSelectedOptionValue(null);
+                          setImageError(false);
                         }}
                         className="bg-white/10 hover:bg-white/20"
                       >
