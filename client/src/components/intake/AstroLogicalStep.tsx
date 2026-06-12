@@ -868,7 +868,7 @@ const AstroLogicalStep = () => {
                               aria-describedby="birth-date-help"
                               value={birthData.date}
                               onChange={(e) => setBirthData(prev => ({ ...prev, date: e.target.value }))}
-                              className="w-3/4 p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-white/40 focus:outline-none"
+                              className="w-5/6 sm:w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-white/40 focus:outline-none"
                               style={{borderRadius:'1rem'}}
                             />
                             <p id="birth-date-help" className="sr-only">Enter your date of birth in YYYY-MM-DD format</p>
@@ -883,7 +883,7 @@ const AstroLogicalStep = () => {
                               aria-describedby="birth-time-help"
                               value={birthData.time}
                               onChange={(e) => setBirthData(prev => ({ ...prev, time: e.target.value }))}
-                              className="w-3/4 p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-white/40 focus:outline-none"
+                              className="w-5/6 sm:w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-white/40 focus:outline-none"
                               style={{borderRadius:'1rem'}}
                             />
                             <p id="birth-time-help" className="sr-only">Enter your birth time to the nearest minute</p>
