@@ -26,6 +26,23 @@
 
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { useTheme } from '../../context/ThemeContext';
+
+// Petal/fog palettes per colorway. Sakura keeps the original pinks; cosmic
+// recolors the falling petals to soft blues/violets and uses a dark fog so
+// distant petals melt into the deep-indigo background instead of fading white.
+const PETAL_PALETTES: Record<'sakura' | 'cosmic', { petals: number[]; emissive: number; fog: number }> = {
+  sakura: {
+    petals: [0xffb3d9, 0xffc0cb, 0xff69b4, 0xffa0c9, 0xff1493, 0xffb6c1, 0xffc1cc],
+    emissive: 0xff69b4,
+    fog: 0xffffff,
+  },
+  cosmic: {
+    petals: [0xa5b4fc, 0x818cf8, 0xc4b5fd, 0x93c5fd, 0xddd6fe, 0xbfdbfe, 0xe0e7ff],
+    emissive: 0x818cf8,
+    fog: 0x1e1b4b,
+  },
+};
 
 interface PetalUserData {
   fallSpeed: number;
@@ -77,11 +94,13 @@ function chooseDensity(): { count: number; pixelRatio: number } {
 
 export default function BasicScene() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const { theme } = useTheme();
   // We render the fallback in JSX so SSR / fail-paths still get something.
   const [skipThree] = useState<boolean>(() => shouldSkipThree());
 
   useEffect(() => {
     if (skipThree) return;
+    const palette = PETAL_PALETTES[theme];
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -127,9 +146,7 @@ export default function BasicScene() {
       return geometry;
     }
 
-    const petalColors = [
-      0xffb3d9, 0xffc0cb, 0xff69b4, 0xffa0c9, 0xff1493, 0xffb6c1, 0xffc1cc,
-    ];
+    const petalColors = palette.petals;
 
     const petals: THREE.Mesh[] = [];
     const petalGeometry = createPetalGeometry();
@@ -142,7 +159,7 @@ export default function BasicScene() {
         side: THREE.DoubleSide,
         shininess: 100,
         specular: 0xffffff,
-        emissive: 0xff69b4,
+        emissive: palette.emissive,
         emissiveIntensity: 0.02,
       });
 
@@ -178,7 +195,7 @@ export default function BasicScene() {
 
     camera.position.z = 8;
     camera.position.y = 0;
-    scene.fog = new THREE.Fog(0xffffff, 10, 30);
+    scene.fog = new THREE.Fog(palette.fog, 10, 30);
 
     // ---- Animation loop with tab-visibility throttle ----------------------
     let animationId: number | null = null;
@@ -265,7 +282,7 @@ export default function BasicScene() {
       petalGeometry.dispose();
       renderer.dispose();
     };
-  }, [skipThree]);
+  }, [skipThree, theme]);
 
   // Static fallback (renders BEHIND the canvas always — if WebGL works
   // it's hidden under the transparent canvas; if WebGL is skipped we
@@ -274,7 +291,8 @@ export default function BasicScene() {
     <>
       <div
         aria-hidden="true"
-        className="fixed inset-0 -z-10 bg-gradient-to-br from-pink-100 via-pink-50 to-rose-100"
+        className="fixed inset-0 -z-10"
+        style={{ background: 'var(--scene-grad)' }}
       />
       {!skipThree && <canvas ref={canvasRef} id="three-canvas" />}
     </>

@@ -229,7 +229,7 @@ const PersonalityStep = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
             >
-              <GlassCard enhanced gradient className="text-center space-y-6 max-h-[85vh] overflow-y-auto overflow-x-hidden m-[40px]">
+              <GlassCard enhanced gradient className="text-center space-y-4 md:space-y-6 max-h-[85vh] overflow-y-auto overflow-x-hidden m-4 md:m-[40px]">
                 {/* Header block (icon + title) */}
                 <div className="space-y-4 items-center justify-center flex flex-col">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-purple-400 flex items-center justify-center">
@@ -311,16 +311,12 @@ const PersonalityStep = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <GlassCard enhanced gradient className="text-center space-y-6 max-h-[85vh] overflow-y-auto overflow-x-hidden m-[40px]">
+            <GlassCard enhanced gradient className="text-center space-y-4 md:space-y-6 max-h-[85vh] overflow-y-auto overflow-x-hidden m-4 md:m-[40px]">
               {!showResult ? (
                 <>
                   {/* Header block (icon + title) */}
                   <div className="space-y-4 items-center justify-center flex flex-col">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-purple-400 flex items-center justify-center">
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
+                    
                     <h2 className="text-3xl font-bold text-white text-shadow-soft">Personality Assessment</h2>
                     <p className="text-white/80">
                       Respond thoughtfully and honestly to each statement
@@ -346,13 +342,13 @@ const PersonalityStep = () => {
                       transition={{ duration: 0.3 }}
                       className="space-y-6"
                     >
-                      <div className="glass-card-enhanced p-6 rounded-xl mx-auto max-w-xl">
+                      <div className="glass-card-enhanced p-4 md:p-6 rounded-xl mx-auto max-w-xl">
                         <div className="mb-4">
                           <span className={`text-xs text-white/50 px-3 py-1 rounded-full ${getQuestionTypeInfo(currentQuestion).color}`}>
                             {getQuestionTypeInfo(currentQuestion).label}
                           </span>
                         </div>
-                        <h3 className="text-xl text-white font-medium mb-4 text-center">
+                        <h3 className="text-lg md:text-xl text-white font-medium mb-4 text-center">
                           {currentQuestion.text}
                         </h3>
                         
@@ -377,7 +373,7 @@ const PersonalityStep = () => {
 
                       {/* Options (answers) */}
                       {currentQuestion.category !== 'reflection' ? (
-                        <div role="radiogroup" className="space-y-3 mx-auto max-w-xl">
+                        <div role="radiogroup" className="space-y-2 mx-auto max-w-xl">
                           {currentQuestion.options.map((option, index) => (
                             <motion.button
                               key={option.value}
@@ -387,7 +383,7 @@ const PersonalityStep = () => {
                               onClick={() => handleAnswer(option)}
                               disabled={selectedOption !== null}
                               className={[
-                                'w-full p-4 rounded-xl transition-all duration-300',
+                                'w-full py-2.5 px-4 rounded-xl transition-all duration-300',
                                 'flex items-center justify-center text-center',
                                 'glass-card hover:scale-[1.02] hover:bg-black/20',
                                 selectedOption === option.value
@@ -396,7 +392,7 @@ const PersonalityStep = () => {
                                 selectedOption && selectedOption !== option.value ? 'opacity-50' : ''
                               ].join(' ')}
                             >
-                              <span className="text-white font-semibold text-lg md:text-xl">
+                              <span className="text-white font-semibold text-base md:text-lg">
                                 {option.text}
                               </span>
                             </motion.button>

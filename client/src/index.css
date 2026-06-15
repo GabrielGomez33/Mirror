@@ -1,19 +1,104 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind v4 entry. This single import pulls in the theme (incl. the default
+   color palette), preflight, and utilities. The old v3 `@tailwind base/
+   components/utilities` directives do NOT load v4's default `@theme`, so
+   color utilities (text-white, border-*-400, from-pink-*, etc.) silently
+   stopped generating — leaving black text and uncolored borders. */
+@import "tailwindcss";
 
+/* glass.css stays unlayered: it has always loaded (also imported in main.tsx),
+   so keeping its precedence unchanged avoids regressing already-styled screens. */
 @import './styles/glass.css';
-@import './styles/enhanced-glass.css';
-/* Phase 7: global PWA shell — safe-area, iOS quirks, a11y baseline,
-   reduced-motion, print sanity. Loaded before component CSS so
-   components can override. */
-@import './styles/pwa-shell.css';
-/* Enhanced Glass Effects for Authentication */
-@import './styles/auth-glass.css';
-/* NOTE: dev-terminal.css is intentionally NOT imported here.
-   Tailwind's @tailwind directives count as "statements" to PostCSS, so any
-   @import after them is dropped. The /dev page imports its own stylesheet
-   directly in DevPage.tsx, which also keeps the CSS lazy-loaded. */
+/* The three sheets below were silently DROPPED before the v4 entry fix (an
+   @import after the old `@tailwind` statements is invalid and discarded), and
+   only began loading once we switched to `@import "tailwindcss"`. Loaded
+   unlayered they now OVERRIDE Tailwind utilities — e.g. auth-glass.css defines
+   a global `.glass-card { padding: 24px }` that beat every element's p-4/py-2.5,
+   inflating cards and buttons app-wide. Importing them into cascade layers lets
+   them provide base/component styling while utilities (which live in a later
+   layer) still win, restoring pre-v4 behavior. */
+@import './styles/pwa-shell.css' layer(base);
+@import './styles/enhanced-glass.css' layer(components);
+@import './styles/auth-glass.css' layer(components);
+/* NOTE: dev-terminal.css is intentionally NOT imported here — the /dev page
+   imports its own stylesheet directly in DevPage.tsx, which keeps that CSS
+   lazy-loaded off the main bundle. */
+/* ============================================================================
+   Colorway tokens (see context/ThemeContext.tsx). A `data-theme` attribute on
+   <html> selects the palette; components read these vars instead of hardcoding
+   pink. Default = sakura. Add new themes by adding a [data-theme='x'] block.
+   --scene-grad : full-viewport app background (BasicScene fallback gradient)
+   --card-grad  : GlassCard `gradient` overlay (.sakura-gradient)
+   --accent / --accent-2 : primary gradient pair (progress fill, glows)
+   ========================================================================== */
+:root,
+[data-theme='sakura'] {
+  --scene-grad: linear-gradient(to bottom right, #fce7f3, #fdf2f8, #ffe4e6);
+  --card-grad: linear-gradient(
+    135deg,
+    rgba(255, 182, 193, 0.2) 0%,
+    rgba(255, 192, 203, 0.15) 25%,
+    rgba(255, 160, 180, 0.2) 50%,
+    rgba(255, 105, 135, 0.15) 75%,
+    rgba(255, 20, 147, 0.2) 100%
+  );
+  --accent: #f472b6;
+  --accent-2: #fb7185;
+
+  /* Magical navigation sphere (MagicalSphereNavigation + .sphere-nav-main).
+     --orb-glow is an rgb triplet used as rgba(var(--orb-glow), <alpha>). */
+  --orb-conic: conic-gradient(from 0deg, #ff69b4 0deg, #ff1493 72deg, #da70d6 144deg, #dda0dd 216deg, #ffc0cb 288deg, #ff69b4 360deg);
+  --orb-tint: linear-gradient(45deg, rgba(255, 255, 255, 0.2), rgba(255, 182, 193, 0.15), rgba(218, 112, 214, 0.1));
+  --orb-glow: 255, 105, 180;
+
+  /* GlobalDashboard chrome (inline-styled). *-ink / *-surface / *-glow are
+     rgb channel triplets used as rgba(var(--token), <alpha>) so every alpha
+     variant flips with the theme. Sakura = dark ink on light surfaces. */
+  --dash-ink: 61, 20, 40;
+  --dash-surface: 255, 255, 255;
+  --dash-glow: 198, 70, 155;
+  --dash-heading: #3d1428;
+  --dash-body: #2e1018;
+  --dash-subtle: #6b4050;
+  --dash-muted: #8a6070;
+  --dash-accent: #c6469b;
+  --dash-drawer: linear-gradient(180deg, rgb(212, 171, 175) 0%, rgba(198, 70, 155, 0.68) 100%);
+  --dash-drawer-tab: linear-gradient(180deg, rgba(212, 171, 175, 0.8), rgba(198, 70, 155, 0.6));
+  --dash-accent-grad: linear-gradient(135deg, #ff69b4, #ff1493);
+}
+
+[data-theme='cosmic'] {
+  --scene-grad: linear-gradient(135deg, #1e1b4b 0%, #312e81 45%, #1e40af 100%);
+  --card-grad: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.22) 0%,
+    rgba(139, 92, 246, 0.18) 35%,
+    rgba(59, 130, 246, 0.2) 70%,
+    rgba(129, 140, 248, 0.18) 100%
+  );
+  --accent: #818cf8;
+  --accent-2: #8b5cf6;
+
+  /* Cosmic navigation sphere: dark blue-grey + white hues. */
+  --orb-conic: conic-gradient(from 0deg, #e2e8f0 0deg, #64748b 72deg, #94a3b8 144deg, #334155 216deg, #cbd5e1 288deg, #e2e8f0 360deg);
+  --orb-tint: linear-gradient(45deg, rgba(255, 255, 255, 0.22), rgba(148, 163, 184, 0.16), rgba(100, 116, 139, 0.12));
+  --orb-glow: 148, 163, 184;
+
+  /* Cosmic dashboard: light ink/text on dark indigo surfaces — matches the
+     login colorway. Flipping the rgb channels inverts the scheme while the
+     existing inline alphas are preserved. */
+  --dash-ink: 214, 222, 255;
+  --dash-surface: 34, 44, 86;
+  --dash-glow: 99, 102, 241;
+  --dash-heading: #eef2ff;
+  --dash-body: #dfe4ff;
+  --dash-subtle: #aab3e6;
+  --dash-muted: #8b94c8;
+  --dash-accent: #a5b4fc;
+  --dash-drawer: linear-gradient(180deg, #2a2f63 0%, #1b1f44 100%);
+  --dash-drawer-tab: linear-gradient(180deg, rgba(99, 102, 241, 0.85), rgba(49, 46, 129, 0.7));
+  --dash-accent-grad: linear-gradient(135deg, #818cf8, #6366f1);
+}
+
 /* Ensure backdrop-filter works everywhere */
 * {
   -webkit-font-smoothing: antialiased;
@@ -38,4 +123,3 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
 }
-

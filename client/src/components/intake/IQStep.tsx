@@ -9,6 +9,26 @@ import BasicScene from '../three/BasicScene';
 // Use Vite base so assets work in dev and under a sub-path (e.g., /mirror/) in prod
 const IQ_ASSET = (file: string) => `${import.meta.env.BASE_URL}/images/iq/${file}`;
 
+// Version tag for the question bank below. The server keeps a matching answer
+// key under this string (mirror-server: controllers/iqNormsController.ts) and
+// uses it to score attempts and bucket self-norm samples. If you change the
+// questions or answers, bump this on BOTH sides so norms don't mix item sets.
+const ITEM_SET_VERSION = 'mirror-iq-v1';
+
+// Server endpoint that returns where a raw score falls in the distribution of
+// other Mirror users' scores (self-norm). Same relative base as SubmitStep.
+const NORMS_ENDPOINT = '/mirror/api/intake/iq/norms';
+
+interface NormResponse {
+  success: boolean;
+  ready: boolean;       // false until enough users have completed the test
+  n: number;            // verified samples in the norm
+  threshold: number;    // minimum n before a percentile is reported
+  percentile?: number;  // this score's percentile among Mirror users
+  band?: string;        // coarse label, e.g. "top 25%"
+  scope?: 'pooled' | 'age-band';
+}
+
 // Types
 interface IQQuestion {
   id: string;
@@ -35,6 +55,7 @@ interface IQResult {
   strengths: string[];
   description: string;
   categoryBreakdown: CategoryScore[];
+  itemSetVersion: string;
 }
 
 /** ---------- Question Bank (builds on your existing) ---------- */
@@ -441,6 +462,56 @@ function buildQuiz(): IQQuestion[] {
   return shuffle(iqQuestions).map(q => ({ ...q, options: shuffle(q.options) }));
 }
 
+// ---------- Resume-after-reload persistence ----------
+// The quiz is randomized per attempt (question order + option order), and the
+// current index / recorded answers are tied to that exact randomized array.
+// So a reload-safe snapshot has to include `questions` too — not just progress.
+const PROGRESS_KEY = 'mirror:intake:iq:progress';
+
+interface SavedProgress {
+  v: string; // item-set version; stale snapshots are discarded on bump
+  questions: IQQuestion[];
+  currentQuestionIndex: number;
+  userAnswers: Record<string, string | null>;
+  showResult: boolean;
+}
+
+function loadSavedProgress(): SavedProgress | null {
+  try {
+    const raw = localStorage.getItem(PROGRESS_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as SavedProgress;
+    if (
+      !data ||
+      data.v !== ITEM_SET_VERSION ||
+      !Array.isArray(data.questions) ||
+      data.questions.length === 0 ||
+      typeof data.currentQuestionIndex !== 'number' ||
+      typeof data.userAnswers !== 'object' ||
+      data.userAnswers === null
+    ) {
+      return null;
+    }
+    // Clamp the index so a corrupt value can never index out of bounds.
+    data.currentQuestionIndex = Math.max(
+      0,
+      Math.min(data.questions.length - 1, Math.floor(data.currentQuestionIndex)),
+    );
+    return data;
+  } catch {
+    return null; // unparseable / localStorage unavailable → start fresh
+  }
+}
+
+function clearSavedProgress() {
+  try {
+    localStorage.removeItem(PROGRESS_KEY);
+  } catch {
+    /* localStorage unavailable */
+  }
+}
+
+
 // Dev-only authoring guard: catches answer-key drift (a correctAnswer that is
 // not among the options) and duplicate ids before they ship.
 if (import.meta.env.DEV) {
@@ -460,17 +531,25 @@ const IQStep = () => {
   const { updateIntake, markStepComplete } = useIntake();
 
   // State
+  // Restore an in-progress (or completed) attempt from a prior session so a
+  // reload doesn't wipe the user's answers. Read once on first render.
+  const [saved] = useState<SavedProgress | null>(loadSavedProgress);
+
   // Randomized once per attempt (and again on Retake) for test integrity.
-  const [questions, setQuestions] = useState<IQQuestion[]>(() => buildQuiz());
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [userAnswers, setUserAnswers] = useState<Record<string, string | null>>({});
-  const [showResult, setShowResult] = useState(false);
+  const [questions, setQuestions] = useState<IQQuestion[]>(() => saved?.questions ?? buildQuiz());
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(() => saved?.currentQuestionIndex ?? 0);
+  const [userAnswers, setUserAnswers] = useState<Record<string, string | null>>(() => saved?.userAnswers ?? {});
+  const [showResult, setShowResult] = useState(() => saved?.showResult ?? false);
   const [selectedOptionValue, setSelectedOptionValue] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
 
   // Save guard
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Self-norm: how this score compares to other Mirror users (server-computed).
+  // null until fetched; .ready is false until enough users have completed.
+  const [norms, setNorms] = useState<NormResponse | null>(null);
 
   // Soft DevTools detection (friction)
   const [devtoolsOpen, setDevtoolsOpen] = useState(false);
@@ -494,6 +573,20 @@ const IQStep = () => {
       localStorage.setItem('mirror:intake:lastStep', 'iq');
     } catch { /* localStorage unavailable */ }
   }, []);
+
+  // Persist a reload-safe snapshot whenever progress changes.
+  useEffect(() => {
+    try {
+      const snapshot: SavedProgress = {
+        v: ITEM_SET_VERSION,
+        questions,
+        currentQuestionIndex,
+        userAnswers,
+        showResult,
+      };
+      localStorage.setItem(PROGRESS_KEY, JSON.stringify(snapshot));
+    } catch { /* quota exceeded / localStorage unavailable */ }
+  }, [questions, currentQuestionIndex, userAnswers, showResult]);
 
   const currentQuestion = questions[currentQuestionIndex];
   const totalQuestions = questions.length;
@@ -558,7 +651,7 @@ const IQStep = () => {
       category === 'Average'   ? 'Solid and practical thinking skills, capable of handling most cognitive tasks.' :
                                  'May benefit from focused development in specific cognitive areas.';
 
-    return { rawScore, totalQuestions: total, iqScore, category, strengths, description, categoryBreakdown };
+    return { rawScore, totalQuestions: total, iqScore, category, strengths, description, categoryBreakdown, itemSetVersion: ITEM_SET_VERSION };
   }, []);
 
   // Answer handling with slight randomization to reduce timing side-channels
@@ -587,6 +680,26 @@ const IQStep = () => {
     return showResult ? calculateIQScore(userAnswers, questions) : null;
   }, [showResult, userAnswers, questions, calculateIQScore]);
 
+  // Fetch the self-norm once results are shown. Best-effort: if it fails or the
+  // norm isn't ready yet, we fall back to the provisional estimate below.
+  useEffect(() => {
+    if (!showResult || !iqResult) return;
+    let cancelled = false;
+    const params = new URLSearchParams({
+      rawScore: String(iqResult.rawScore),
+      itemSetVersion: iqResult.itemSetVersion,
+    });
+    fetch(`${NORMS_ENDPOINT}?${params.toString()}`, {
+      headers: { Accept: 'application/json' },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: NormResponse | null) => {
+        if (!cancelled) setNorms(data && data.success ? data : null);
+      })
+      .catch(() => { if (!cancelled) setNorms(null); });
+    return () => { cancelled = true; };
+  }, [showResult, iqResult]);
+
   // Guarded proceed: block navigation on save failure
   const handleNext = async () => {
     if (!iqResult) return;
@@ -595,6 +708,7 @@ const IQStep = () => {
     try {
       await updateIntake({ iqResults: iqResult, iqAnswers: userAnswers });
       await markStepComplete('IQStep', { iqScore: iqResult.iqScore });
+      clearSavedProgress(); // committed to intake — don't resurrect this attempt
       navigate('/intake/astrology');
     } catch {
       setSaveError('We couldn’t save your results. Please check your connection and try again.');
@@ -652,7 +766,7 @@ const IQStep = () => {
           <GlassCard
             enhanced
             gradient
-            className="text-center space-y-6 max-h-[85vh] overflow-y-auto overflow-x-hidden m-[40px]"
+            className="text-center space-y-4 md:space-y-6 max-h-[85vh] overflow-y-auto overflow-x-hidden m-4 md:m-[40px]"
           >
             {/* Header */}
             <motion.div
@@ -661,11 +775,7 @@ const IQStep = () => {
               transition={{ duration: 0.5 }}
               className="space-y-4 items-center justify-center flex flex-col"
             >
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-400 to-teal-400 flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 13h18M3 6h18M3 20h18" />
-                </svg>
-              </div>
+              
               <h2 className="text-3xl font-bold text-white text-shadow-soft">IQ &amp; Cognitive Assessment</h2>
               <p className="text-white/80">
                 {showResult ? 'Your cognitive profile is ready!' : 'Test your numerical, spatial, logical, and verbal reasoning.'}
@@ -705,7 +815,7 @@ const IQStep = () => {
                     transition={{ duration: 0.3 }}
                     className="space-y-6"
                   >
-                    <div className="glass-card-enhanced p-6 rounded-xl mx-auto max-w-xl">
+                    <div className="glass-card-enhanced p-4 md:p-6 rounded-xl mx-auto max-w-xl">
                       <div className="mb-2">
                         <span className="text-xs text-white/50 bg-white/10 px-3 py-1 rounded-full capitalize">
                           {currentQuestion.type} Reasoning
@@ -713,20 +823,20 @@ const IQStep = () => {
                       </div>
                       <h3
                         id={`q-${currentQuestion.id}-label`}
-                        className="text-xl text-white font-medium mb-4 text-center"
+                        className="text-lg md:text-xl text-white font-medium mb-4 text-center"
                       >
                         {currentQuestion.text}
                       </h3>
 
                       {currentQuestion.image && !imageError && (
-                        <div className="mx-auto mb-4 max-w-[16rem] sm:max-w-xs w-full">
+                        <div className="mx-auto mb-3 max-w-[11rem] sm:max-w-[13rem] w-full">
                           <motion.img
                             key={currentQuestion.image}
                             src={currentQuestion.image}
                             alt={currentQuestion.ariaLabel ?? currentQuestion.text}
                             decoding="async"
                             loading="eager"
-                            className="block mx-auto max-h-48 sm:max-h-56 w-auto object-contain rounded-lg shadow-lg bg-white/5 p-3 border border-white/10"
+                            className="block mx-auto max-h-32 sm:max-h-40 w-auto object-contain rounded-lg shadow-lg bg-white/5 p-2 border border-white/10"
                             initial={{ scale: 0.95, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ duration: 0.35 }}
@@ -764,7 +874,7 @@ const IQStep = () => {
                     <div
                       role="radiogroup"
                       aria-labelledby={`q-${currentQuestion.id}-label`}
-                      className="space-y-3 mx-auto max-w-xl"
+                      className="space-y-2 mx-auto max-w-xl"
                       onKeyDown={(e) => {
                         const idx = optionRefs.current.findIndex((el) => el === document.activeElement);
                         const last = currentQuestion.options.length - 1;
@@ -806,7 +916,7 @@ const IQStep = () => {
                           onClick={() => !selectedOptionValue && handleAnswer(option.value)}
                           disabled={selectedOptionValue !== null}
                           className={[
-                            'w-full p-4 my-1 rounded-xl transition-all duration-300 select-none min-h-[52px]',
+                            'w-full py-2.5 px-4 my-0.5 rounded-xl transition-all duration-300 select-none min-h-[44px]',
                             // glossy look + darker hover for focus hint
                             selectedOptionValue === option.value
                               ? 'glass-card-enhanced bg-gradient-to-r from-cyan-400/30 to-teal-400/30 scale-105'
@@ -827,7 +937,7 @@ const IQStep = () => {
                           ].join(' ')}
                         >
                           {/* If you created a CSS class for larger text, this will use it; otherwise fallback utility sizes */}
-                          <span className="iq-option-text text-white font-semibold text-lg md:text-xl leading-relaxed tracking-wide">
+                          <span className="iq-option-text text-white font-semibold text-base md:text-lg leading-snug tracking-wide">
                             {option.text}
                           </span>
                         </motion.button>
@@ -865,6 +975,18 @@ const IQStep = () => {
                         Category: <span className="font-semibold text-teal-300">{iqResult.category}</span>
                       </p>
                       <p className="text-white/70">{iqResult.description}</p>
+
+                      {/* Self-norm: additive line, shown only once enough Mirror
+                          users have completed the test (server-gated). Until then
+                          the screen is unchanged. */}
+                      {norms?.ready && norms.percentile != null && (
+                        <p className="text-teal-200/90 text-sm mt-3 border-t border-white/10 pt-3">
+                          You scored higher than{' '}
+                          <span className="font-semibold">{norms.percentile}%</span>{' '}
+                          of other Mirror users
+                          {norms.band ? <> — <span className="font-semibold">{norms.band}</span></> : null}.
+                        </p>
+                      )}
                     </motion.div>
 
                     <motion.div

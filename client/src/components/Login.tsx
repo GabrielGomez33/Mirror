@@ -846,7 +846,7 @@ const LogUserIn: React.FC = () => {
             type="submit"
             disabled={isLoading || lockoutInfo.locked || !formReady}
             className={`${submitButtonClass} w-full`}
-            style={{ borderRadius: '1rem', minWidth:'23.5rem' }}
+            style={{ borderRadius: '1rem', minWidth:'22rem' }}
             aria-busy={isLoading}
           >
             {isLoading ? (

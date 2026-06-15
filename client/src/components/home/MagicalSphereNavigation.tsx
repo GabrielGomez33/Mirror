@@ -105,16 +105,16 @@ export default function MagicalSphereNavigation({ activePanel, onPanelChange }: 
               transitionDelay: isExpanded ? `${index * 0.1}s` : '0s',
               zIndex: isExpanded ? 1001 : 999,
               // Active state styling
-              boxShadow: isActive 
-                ? '0 15px 40px rgba(255, 105, 180, 0.4), 0 0 20px rgba(255, 105, 180, 0.6), inset 0 2px 0 rgba(255, 255, 255, 0.4)'
+              boxShadow: isActive
+                ? '0 15px 40px rgba(var(--orb-glow, 255, 105, 180), 0.4), 0 0 20px rgba(var(--orb-glow, 255, 105, 180), 0.6), inset 0 2px 0 rgba(255, 255, 255, 0.4)'
                 : undefined,
               transform: isActive && isExpanded
                 ? 'scale(1.15) translate(-50%, -50%)'
                 : isExpanded 
                   ? 'scale(1) translate(-50%, -50%)'
                   : 'scale(0) translate(-50%, -50%)',
-              border: isActive 
-                ? '2px solid rgba(255, 105, 180, 0.8)'
+              border: isActive
+                ? '2px solid rgba(var(--orb-glow, 255, 105, 180), 0.8)'
                 : '2px solid rgba(255, 255, 255, 0.2)'
             }}
           >
@@ -142,10 +142,10 @@ export default function MagicalSphereNavigation({ activePanel, onPanelChange }: 
                 width: '8px',
                 height: '8px',
                 borderRadius: '50%',
-                background: '#ff69b4',
+                background: 'rgb(var(--orb-glow, 255, 105, 180))',
                 transform: 'translate(-50%, -50%)',
                 animation: 'pulse 2s infinite',
-                boxShadow: '0 0 10px rgba(255, 105, 180, 0.8)'
+                boxShadow: '0 0 10px rgba(var(--orb-glow, 255, 105, 180), 0.8)'
               }} />
             )}
             
@@ -155,7 +155,7 @@ export default function MagicalSphereNavigation({ activePanel, onPanelChange }: 
               bottom: '-35px',
               left: '50%',
               transform: 'translateX(-50%)',
-              backgroundColor: isActive ? 'rgba(255, 105, 180, 0.9)' : 'rgba(0, 0, 0, 0.8)',
+              backgroundColor: isActive ? 'rgba(var(--orb-glow, 255, 105, 180), 0.9)' : 'rgba(0, 0, 0, 0.8)',
               color: 'white',
               padding: '4px 8px',
               borderRadius: '6px',
