@@ -6,13 +6,21 @@ import './styles/glass.css';
 import './styles/chat-glass.css';
 
 import App from './App.tsx'
+import { ThemeProvider, readStoredTheme } from './context/ThemeContext'
 import { initPWA } from './pwa'
 import { installIOSResizeBridge } from './utils/iosResizeBridge'
 
+// Apply the persisted colorway before first paint to avoid a flash of the
+// default (sakura) theme for users who chose cosmic. ThemeProvider keeps it
+// in sync from here on.
+document.documentElement.setAttribute('data-theme', readStoredTheme())
+
 createRoot(document.getElementById('root')!).render(
-     <BrowserRouter basename="/Mirror">
-         <App />
-     </BrowserRouter>,
+     <ThemeProvider>
+         <BrowserRouter basename="/Mirror">
+             <App />
+         </BrowserRouter>
+     </ThemeProvider>,
 )
 
 initPWA()

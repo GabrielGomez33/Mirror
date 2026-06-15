@@ -8,6 +8,12 @@ export interface Question {
   dimension: string;
   reverse?: boolean;
   facet?: string; // Specific sub-facet of the trait
+  /**
+   * For `attention` items only: the option `value` a careful reader must
+   * select. Kept with the question (not hardcoded in the UI) so the check and
+   * its prompt can never drift apart.
+   */
+  attentionExpectedValue?: string;
   options: {
     text: string;
     value: string;
@@ -389,6 +395,7 @@ export const scientificQuestions: Question[] = [
     text: 'To help us ensure data quality, please select "Somewhat agree" for this question',
     category: 'attention',
     dimension: 'quality',
+    attentionExpectedValue: '5', // "Somewhat agree"
     options: likertScale7Point
   },
   {
@@ -396,6 +403,7 @@ export const scientificQuestions: Question[] = [
     text: 'For quality assurance purposes, please choose "Disagree" as your response',
     category: 'attention',
     dimension: 'quality',
+    attentionExpectedValue: '2', // "Disagree"
     options: likertScale7Point
   },
 
@@ -410,6 +418,18 @@ export const scientificQuestions: Question[] = [
     ]
   }
 ];
+
+/**
+ * Returns the expected option value for an attention-check question, or null if
+ * the id is not an attention item. Source of truth for attention validation —
+ * the UI must read from here rather than hardcoding values.
+ */
+export function getAttentionExpectedValue(questionId: string): string | null {
+  const q = scientificQuestions.find(
+    (item) => item.id === questionId && item.category === 'attention'
+  );
+  return q?.attentionExpectedValue ?? null;
+}
 
 // Question validation and metadata
 export const questionMetadata = {
@@ -437,10 +457,10 @@ export const PERSONALITY_DISCLAIMER = `
 • Your responses reflect your current self-perception, which may change over time
 
 **Scientific Context:**
-• Based on established Big Five personality research
-• Uses psychometrically sound design principles
-• Includes data quality controls and reliability estimates
-• Results show confidence intervals to indicate measurement precision
+• Based on the established Big Five model, with items modeled on the Big Five Inventory-2 (BFI-2)
+• Balanced design (equal forward- and reverse-keyed items) to control for agreement bias
+• Percentiles are estimated against published reference norms and shown with confidence intervals
+• Includes response-validity checks and a per-profile reliability estimate
 
 **Professional Guidance:**
 If you're seeking assessment for clinical, therapeutic, or important life decisions, please consult with a licensed mental health professional who can provide comprehensive evaluation using validated clinical instruments.
@@ -450,5 +470,6 @@ export default {
   scientificQuestions,
   likertScale7Point,
   questionMetadata,
+  getAttentionExpectedValue,
   PERSONALITY_DISCLAIMER
 };

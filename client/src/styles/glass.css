@@ -81,15 +81,16 @@
     }
 }
 
-/* Sakura gradient overlay */
+/* Card gradient overlay — colorway-aware (see --card-grad in index.css).
+   Class name kept as .sakura-gradient for backwards compatibility. */
 .sakura-gradient {
-    background: linear-gradient(135deg, 
+    background: var(--card-grad, linear-gradient(135deg,
         rgba(255, 182, 193, 0.2) 0%,
         rgba(255, 192, 203, 0.15) 25%,
         rgba(255, 160, 180, 0.2) 50%,
         rgba(255, 105, 135, 0.15) 75%,
         rgba(255, 20, 147, 0.2) 100%
-    );
+    ));
 }
 
 /* Text shadow utility */
@@ -147,7 +148,7 @@
 }
 
 .glass-progress-fill {
-    background: linear-gradient(to right, #f472b6, #fb7185);
+    background: linear-gradient(to right, var(--accent, #f472b6), var(--accent-2, #fb7185));
     border-radius: 9999px;
     transition: width 0.3s ease;
 }

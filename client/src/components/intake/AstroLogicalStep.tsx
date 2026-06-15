@@ -5,6 +5,7 @@ import { useIntake } from '../../context/IntakeContext';
 import GlassCard, { GlassButton, GlassProgress } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import BasicScene from '../three/BasicScene';
+import CosmicLoader from '../ui/CosmicLoader';
 
 /**
  * PRODUCTION-READY AstroLogicalStep
@@ -826,7 +827,7 @@ const AstroLogicalStep = () => {
       <div className="relative z-10 min-h-screen flex flex-col justify-center items-center p-6 text-center">
         <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1 }} className="w-full max-w-4xl mx-auto">
           {/* Main Card */}
-          <GlassCard enhanced gradient className="  text-center space-y-6 max-h-[85vh] overflow-y-auto overflow-x-hidden m-[40px]">
+          <GlassCard enhanced gradient className="w-full  text-center space-y-6 max-h-[85vh] overflow-y-auto overflow-x-hidden">
             {/* Header */}
             <motion.div initial={{ scale: 0.96 }} animate={{ scale: 1 }} transition={{ duration: 0.6 }} className="space-y-4 items-center justify-center flex flex-col">
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 via-purple-400 to-pink-400 flex items-center justify-center">
@@ -955,25 +956,21 @@ const AstroLogicalStep = () => {
                       <div className="glass-card-enhanced p-6 rounded-xl mx-auto max-w-xl">
                         {!isCalculating ? (
                           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-4">
-                            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 mx-auto flex items-center justify-center">
+                            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-400 to-pink-200 mx-auto flex items-center justify-center">
                               <span className="text-3xl">✨</span>
                             </div>
                             <h3 className="text-2xl font-bold text-white">Ready to Calculate</h3>
                             <p className="text-white/70">Click below to generate your multi-tradition profile.</p>
                           </motion.div>
                         ) : (
-                          <motion.div role="status" aria-live="polite" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-                            <div className="relative">
-                              <motion.div animate={{ rotate: 360 }} transition={{ duration: 3, repeat: Infinity, ease: 'linear' }} className="w-32 h-32 rounded-full border-4 border-white/20 border-t-white/60 mx-auto" />
-                              <motion.div animate={{ rotate: -360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }} className="absolute inset-4 w-24 h-24 rounded-full border-4 border-white/10 border-r-white/40" />
-                              <div className="absolute inset-0 flex items-center justify-center"><span className="text-4xl">🌌</span></div>
-                            </div>
-                            <div className="space-y-2 text-white/80">
-                              <div>Aligning with celestial positions…</div>
-                              <div>Consulting ancient wisdom traditions…</div>
-                              <div>Revealing your cosmic signature…</div>
-                            </div>
-                          </motion.div>
+                          <CosmicLoader
+                            title="Generating Your Cosmic Blueprint"
+                            steps={[
+                              'Aligning with celestial positions…',
+                              'Consulting ancient wisdom traditions…',
+                              'Revealing your cosmic signature…',
+                            ]}
+                          />
                         )}
                       </div>
                     </div>

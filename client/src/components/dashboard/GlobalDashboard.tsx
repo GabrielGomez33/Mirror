@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getUserInfo, clearToken } from '../../utils/token';
 import { isWebSocketConnected } from '../../services/groupsWebSocket';
 import SubscriptionManager from '../paywall/SubscriptionManager';
+import ThemeToggle from '../ui/ThemeToggle';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { getPersonalIntelligenceApi } from '../../services/mirrorDashboard';
 import { deleteAccountApi, changePasswordApi, changeEmailApi } from '../../services/authApi';
@@ -24,15 +25,19 @@ import PushSettings from '../notifications/PushSettings';
 // COLORS — matches MyMirror / TruthStream / MirrorGroups
 // ============================================================================
 
+// Colorway-aware palette. Values resolve from CSS variables (see index.css
+// --dash-* tokens) so the whole drawer flips between the sakura (pink) and
+// cosmic (indigo) schemes with the active theme. rgb-channel tokens are used
+// via rgba(var(--token), <alpha>) so each translucency level switches too.
 const C = {
-  heading: '#3d1428',
-  body: '#2e1018',
-  subtle: '#6b4050',
-  muted: '#8a6070',
-  accent: '#c6469b',
-  cardBg: 'rgba(255, 255, 255, 0.35)',
-  cardBorder: 'rgba(255, 255, 255, 0.45)',
-  cardHover: 'rgba(255, 255, 255, 0.5)',
+  heading: 'var(--dash-heading, #3d1428)',
+  body: 'var(--dash-body, #2e1018)',
+  subtle: 'var(--dash-subtle, #6b4050)',
+  muted: 'var(--dash-muted, #8a6070)',
+  accent: 'var(--dash-accent, #c6469b)',
+  cardBg: 'rgba(var(--dash-surface, 255, 255, 255), 0.35)',
+  cardBorder: 'rgba(var(--dash-surface, 255, 255, 255), 0.45)',
+  cardHover: 'rgba(var(--dash-surface, 255, 255, 255), 0.5)',
 };
 
 const GLASS_CARD: React.CSSProperties = {
@@ -42,7 +47,7 @@ const GLASS_CARD: React.CSSProperties = {
   padding: '14px 16px',
   backdropFilter: 'blur(20px)',
   WebkitBackdropFilter: 'blur(20px)',
-  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(var(--dash-surface), 0.4)',
 };
 
 // ============================================================================
@@ -80,9 +85,9 @@ function ProfileToggle({
         width: 36,
         height: 36,
         background: isOpen
-          ? 'linear-gradient(135deg, #ff69b4, #da70d6, #ff1493)'
-          : 'rgba(255, 255, 255, 0.85)',
-        border: isOpen ? '2px solid rgba(255,255,255,0.7)' : '1.5px solid rgba(61, 20, 40, 0.18)',
+          ? 'var(--dash-accent-grad)'
+          : 'rgba(var(--dash-surface), 0.85)',
+        border: isOpen ? '2px solid rgba(var(--dash-surface),0.7)' : '1.5px solid rgba(var(--dash-ink), 0.18)',
         boxShadow: isOpen
           ? '0 6px 20px rgba(255, 105, 180, 0.55)'
           : '0 3px 10px rgba(0,0,0,0.15)',
@@ -120,7 +125,7 @@ function ProfileToggle({
             bottom: -2,
             background: isOnline ? 'linear-gradient(135deg, #22c55e, #16a34a)' : '#9ca3af',
             boxShadow: isOnline ? '0 0 6px rgba(34, 197, 94, 0.6)' : 'none',
-            border: '2px solid rgba(255, 255, 255, 0.9)',
+            border: '2px solid rgba(var(--dash-surface), 0.9)',
           }}
         />
       )}
@@ -169,7 +174,7 @@ function ColorWheelRing({
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: size }}>
       <div style={{ width: size, height: size, position: 'relative', flexShrink: 0 }}>
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)', display: 'block' }}>
-          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(61,20,40,0.08)" strokeWidth={strokeWidth} />
+          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(var(--dash-ink),0.08)" strokeWidth={strokeWidth} />
           <circle
             cx={size / 2} cy={size / 2} r={radius}
             fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"
@@ -184,7 +189,7 @@ function ColorWheelRing({
             fontFamily: 'monospace',
             fontWeight: 700,
             color,
-            textShadow: '0 1px 2px rgba(255,255,255,0.5)',
+            textShadow: '0 1px 2px rgba(var(--dash-surface),0.5)',
           }}>
             {pct}
           </span>
@@ -276,8 +281,8 @@ function FacialAnalysisDropdown({
     ...GLASS_CARD,
     marginTop: 10,
     padding: '14px 14px 12px',
-    background: 'rgba(255, 255, 255, 0.5)',
-    borderColor: 'rgba(255, 255, 255, 0.55)',
+    background: 'rgba(var(--dash-surface), 0.5)',
+    borderColor: 'rgba(var(--dash-surface), 0.55)',
     animation: 'avatarDropIn 0.25s ease-out',
   };
 
@@ -300,7 +305,7 @@ function FacialAnalysisDropdown({
       <div style={wrapperStyle} role="status" aria-live="polite">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div className="w-5 h-5 border-2 rounded-full animate-spin"
-            style={{ borderColor: 'rgba(198, 70, 155, 0.2)', borderTopColor: C.accent }} />
+            style={{ borderColor: 'rgba(var(--dash-glow), 0.2)', borderTopColor: C.accent }} />
           <span style={subtleStyle}>Loading your facial analysis…</span>
         </div>
       </div>
@@ -315,9 +320,9 @@ function FacialAnalysisDropdown({
           type="button"
           onClick={onRetry}
           style={{
-            background: 'rgba(198, 70, 155, 0.12)',
+            background: 'rgba(var(--dash-glow), 0.12)',
             color: C.accent,
-            border: '1px solid rgba(198, 70, 155, 0.25)',
+            border: '1px solid rgba(var(--dash-glow), 0.25)',
             fontSize: '0.7rem',
             fontWeight: 600,
             padding: '4px 10px',
@@ -342,9 +347,9 @@ function FacialAnalysisDropdown({
           type="button"
           onClick={onCompleteIntake}
           style={{
-            background: 'rgba(198, 70, 155, 0.15)',
+            background: 'rgba(var(--dash-glow), 0.15)',
             color: C.accent,
-            border: '1px solid rgba(198, 70, 155, 0.25)',
+            border: '1px solid rgba(var(--dash-glow), 0.25)',
             fontSize: '0.7rem',
             fontWeight: 600,
             padding: '5px 12px',
@@ -388,9 +393,9 @@ function FacialAnalysisDropdown({
           aspectRatio: '1 / 1',
           borderRadius: 14,
           overflow: 'hidden',
-          background: 'rgba(61, 20, 40, 0.06)',
-          border: '1px solid rgba(255, 255, 255, 0.55)',
-          boxShadow: '0 4px 16px rgba(61, 20, 40, 0.15), inset 0 1px 0 rgba(255,255,255,0.4)',
+          background: 'rgba(var(--dash-ink), 0.06)',
+          border: '1px solid rgba(var(--dash-surface), 0.55)',
+          boxShadow: '0 4px 16px rgba(var(--dash-ink), 0.15), inset 0 1px 0 rgba(var(--dash-surface),0.4)',
         }}>
           <img
             src={data.photoUrl}
@@ -417,7 +422,7 @@ function FacialAnalysisDropdown({
               padding: '3px 8px',
               borderRadius: 8,
               borderLeft: `3px solid ${dominantMeta.color}`,
-              background: 'rgba(255,255,255,0.85)',
+              background: 'rgba(var(--dash-surface),0.85)',
               fontSize: '0.65rem',
               fontWeight: 700,
               color: C.heading,
@@ -453,7 +458,7 @@ function FacialAnalysisDropdown({
             padding: '4px 9px',
             borderRadius: 10,
             borderLeft: `3px solid ${dominantMeta.color}`,
-            background: 'rgba(255,255,255,0.45)',
+            background: 'rgba(var(--dash-surface),0.45)',
             fontSize: '0.65rem',
             fontWeight: 600,
             color: C.heading,
@@ -549,7 +554,7 @@ function Section({ title, icon, open = false, badge, onToggle, children }: {
         </svg>
       </button>
       {isOpen && (
-        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: `1px solid rgba(61, 20, 40, 0.1)` }}>
+        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: `1px solid rgba(var(--dash-ink), 0.1)` }}>
           {children}
         </div>
       )}
@@ -605,7 +610,7 @@ function NItem({ notification, onAccept, onDecline, onDismiss, onNavigate, onMar
     <div
       className="flex items-start gap-2.5 p-2 rounded-xl transition-colors"
       style={{ cursor: isRowClickable ? 'pointer' : 'default' }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)'; }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(var(--dash-surface), 0.25)'; }}
       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
       onClick={isRowClickable ? handleRowClick : undefined}
       role={isRowClickable ? 'button' : undefined}
@@ -613,7 +618,7 @@ function NItem({ notification, onAccept, onDecline, onDismiss, onNavigate, onMar
       onKeyDown={isRowClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRowClick(); } } : undefined}
     >
       <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs flex-shrink-0" style={{
-        background: 'rgba(198, 70, 155, 0.12)', border: '1px solid rgba(198, 70, 155, 0.2)',
+        background: 'rgba(var(--dash-glow), 0.12)', border: '1px solid rgba(var(--dash-glow), 0.2)',
       }}>
         {getNotifIcon(notification.type)}
       </div>
@@ -640,7 +645,7 @@ function NItem({ notification, onAccept, onDecline, onDismiss, onNavigate, onMar
 
         {hasActions && notification.actions!.map((a) => (
           <button key={a.action} onClick={(e) => { e.stopPropagation(); if (notification.actionUrl) { onNavigate(notification.actionUrl); onMarkRead(notification.id); } }}
-            style={{ background: 'rgba(198, 70, 155, 0.1)', color: C.accent, border: '1px solid rgba(198, 70, 155, 0.2)', fontSize: '0.65rem', fontWeight: 600, padding: '2px 8px', borderRadius: 6, marginTop: 4 }}>
+            style={{ background: 'rgba(var(--dash-glow), 0.1)', color: C.accent, border: '1px solid rgba(var(--dash-glow), 0.2)', fontSize: '0.65rem', fontWeight: 600, padding: '2px 8px', borderRadius: 6, marginTop: 4 }}>
             {a.label}
           </button>
         ))}
@@ -684,8 +689,8 @@ const credInputBase: React.CSSProperties = {
   boxSizing: 'border-box',
   padding: '7px 10px',
   borderRadius: 8,
-  border: '1px solid rgba(61, 20, 40, 0.18)',
-  background: 'rgba(255,255,255,0.85)',
+  border: '1px solid rgba(var(--dash-ink), 0.18)',
+  background: 'rgba(var(--dash-surface),0.85)',
   fontFamily: "'Inter', sans-serif",
   fontSize: '0.78rem',
   color: C.heading,
@@ -695,9 +700,9 @@ const credTriggerBtn: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
-  background: 'rgba(61, 20, 40, 0.06)',
+  background: 'rgba(var(--dash-ink), 0.06)',
   color: C.heading,
-  border: '1px solid rgba(61, 20, 40, 0.18)',
+  border: '1px solid rgba(var(--dash-ink), 0.18)',
   fontSize: '0.72rem',
   fontWeight: 600,
   padding: '6px 12px',
@@ -708,7 +713,7 @@ const credTriggerBtn: React.CSSProperties = {
 };
 const credPrimaryBtn = (enabled: boolean): React.CSSProperties => ({
   flex: 1,
-  background: enabled ? 'linear-gradient(135deg, #c6469b, #a03680)' : 'rgba(61,20,40,0.18)',
+  background: enabled ? 'var(--dash-accent-grad)' : 'rgba(var(--dash-ink), 0.18)',
   color: '#fff',
   border: 'none',
   fontSize: '0.74rem',
@@ -721,7 +726,7 @@ const credPrimaryBtn = (enabled: boolean): React.CSSProperties => ({
 const credGhostBtn: React.CSSProperties = {
   background: 'transparent',
   color: C.subtle,
-  border: '1px solid rgba(61, 20, 40, 0.18)',
+  border: '1px solid rgba(var(--dash-ink), 0.18)',
   fontSize: '0.74rem',
   fontWeight: 600,
   padding: '8px 12px',
@@ -833,8 +838,8 @@ function ChangePasswordForm() {
       <div className="space-y-2">
         <p style={credNote}>Update the password you use to sign in. Changing it signs you out of other devices.</p>
         <button type="button" onClick={() => { setSuccess(null); setError(null); setOpen(true); }} style={credTriggerBtn}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(61, 20, 40, 0.12)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(61, 20, 40, 0.06)'; }}>
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(var(--dash-ink), 0.12)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(var(--dash-ink), 0.06)'; }}>
           Change Password
         </button>
       </div>
@@ -842,7 +847,7 @@ function ChangePasswordForm() {
   }
 
   return (
-    <div style={{ background: 'rgba(61,20,40,0.04)', border: '1px solid rgba(61,20,40,0.12)', borderRadius: 12, padding: '12px 12px 14px' }}>
+    <div style={{ background: 'rgba(var(--dash-ink),0.04)', border: '1px solid rgba(var(--dash-ink),0.12)', borderRadius: 12, padding: '12px 12px 14px' }}>
       <FormStatus error={error} success={success} />
       <PasswordField label="Current password" value={current} onChange={setCurrent} disabled={busy} autoComplete="current-password" />
       <PasswordField label="New password" value={next} onChange={setNext} disabled={busy} autoComplete="new-password" />
@@ -906,8 +911,8 @@ function ChangeEmailForm({ currentEmail }: { currentEmail?: string }) {
           Change your sign-in email. We'll send a confirmation link to the new address — it isn't changed until you click it.
         </p>
         <button type="button" onClick={() => { setSent(null); setError(null); setOpen(true); }} style={credTriggerBtn}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(61, 20, 40, 0.12)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(61, 20, 40, 0.06)'; }}>
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(var(--dash-ink), 0.12)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(var(--dash-ink), 0.06)'; }}>
           Change Email
         </button>
       </div>
@@ -915,7 +920,7 @@ function ChangeEmailForm({ currentEmail }: { currentEmail?: string }) {
   }
 
   return (
-    <div style={{ background: 'rgba(61,20,40,0.04)', border: '1px solid rgba(61,20,40,0.12)', borderRadius: 12, padding: '12px 12px 14px' }}>
+    <div style={{ background: 'rgba(var(--dash-ink),0.04)', border: '1px solid rgba(var(--dash-ink),0.12)', borderRadius: 12, padding: '12px 12px 14px' }}>
       <FormStatus error={error} success={sent} />
       {!sent && (
         <>
@@ -1159,8 +1164,8 @@ function AccountSettings({ onDeleted }: AccountSettingsProps) {
             boxSizing: 'border-box',
             padding: '7px 10px',
             borderRadius: 8,
-            border: '1px solid rgba(61, 20, 40, 0.18)',
-            background: 'rgba(255,255,255,0.85)',
+            border: '1px solid rgba(var(--dash-ink), 0.18)',
+            background: 'rgba(var(--dash-surface),0.85)',
             fontFamily: 'monospace',
             fontSize: '0.78rem',
             color: C.heading,
@@ -1194,8 +1199,8 @@ function AccountSettings({ onDeleted }: AccountSettingsProps) {
               boxSizing: 'border-box',
               padding: '7px 32px 7px 10px',
               borderRadius: 8,
-              border: '1px solid rgba(61, 20, 40, 0.18)',
-              background: 'rgba(255,255,255,0.85)',
+              border: '1px solid rgba(var(--dash-ink), 0.18)',
+              background: 'rgba(var(--dash-surface),0.85)',
               fontFamily: "'Inter', sans-serif",
               fontSize: '0.78rem',
               color: C.heading,
@@ -1276,9 +1281,9 @@ function AccountSettings({ onDeleted }: AccountSettingsProps) {
           onClick={reset}
           disabled={busy}
           style={{
-            background: 'rgba(255, 255, 255, 0.55)',
+            background: 'rgba(var(--dash-surface), 0.55)',
             color: C.heading,
-            border: '1px solid rgba(61, 20, 40, 0.18)',
+            border: '1px solid rgba(var(--dash-ink), 0.18)',
             fontSize: '0.72rem',
             fontWeight: 600,
             padding: '7px 12px',
@@ -1466,20 +1471,20 @@ export default function GlobalDashboard() {
         title="Open Dashboard"
         style={{
           width: 20, height: 40, transform: 'translateY(-50%)',
-          background: 'linear-gradient(180deg, rgba(212, 171, 175, 0.8), rgba(198, 70, 155, 0.6))',
+          background: 'var(--dash-drawer-tab)',
           backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-          borderRadius: '0 8px 8px 0', border: '1px solid rgba(255, 255, 255, 0.4)', borderLeft: 'none',
-          boxShadow: '2px 0 12px rgba(198, 70, 155, 0.15)',
+          borderRadius: '0 8px 8px 0', border: '1px solid rgba(var(--dash-surface), 0.4)', borderLeft: 'none',
+          boxShadow: '2px 0 12px rgba(var(--dash-glow), 0.15)',
         }}
-        onMouseEnter={(e) => { (e.currentTarget.style.width as any) = '26px'; e.currentTarget.style.boxShadow = '3px 0 18px rgba(198, 70, 155, 0.3)'; }}
-        onMouseLeave={(e) => { (e.currentTarget.style.width as any) = '20px'; e.currentTarget.style.boxShadow = '2px 0 12px rgba(198, 70, 155, 0.15)'; }}
+        onMouseEnter={(e) => { (e.currentTarget.style.width as any) = '26px'; e.currentTarget.style.boxShadow = '3px 0 18px rgba(var(--dash-glow), 0.3)'; }}
+        onMouseLeave={(e) => { (e.currentTarget.style.width as any) = '20px'; e.currentTarget.style.boxShadow = '2px 0 12px rgba(var(--dash-glow), 0.15)'; }}
       >
         <svg width="8" height="14" viewBox="0 0 8 14" fill="none">
           <path d="M1 1l6 6-6 6" stroke={C.heading} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         {unreadCount > 0 && (
           <div className="absolute -top-2 -right-2 min-w-4 h-4 px-1 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
-            style={{ background: 'linear-gradient(135deg, #ff69b4, #ff1493)', boxShadow: '0 2px 8px rgba(255, 20, 147, 0.5)' }}>
+            style={{ background: 'var(--dash-accent-grad)', boxShadow: '0 2px 8px rgba(var(--dash-glow), 0.5)' }}>
             {unreadCount > 9 ? '9+' : unreadCount}
           </div>
         )}
@@ -1496,18 +1501,18 @@ export default function GlobalDashboard() {
             style={{ width: 'min(360px, 88vw)', animation: isClosing ? undefined : 'slideIn .3s ease-out' }}>
 
             <div className="h-full flex flex-col overflow-hidden" style={{
-              background: 'linear-gradient(180deg, rgb(212, 171, 175) 0%, rgba(198, 70, 155, 0.68) 100%)',
+              background: 'var(--dash-drawer)',
               backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)',
-              borderRight: '1px solid rgba(255, 255, 255, 0.3)',
-              boxShadow: '6px 0 30px rgba(198, 70, 155, 0.12)',
+              borderRight: '1px solid rgba(var(--dash-surface), 0.3)',
+              boxShadow: '6px 0 30px rgba(var(--dash-glow), 0.12)',
             }}>
 
               {/* Top glow line */}
               <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, zIndex: 1,
-                background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), rgba(255, 182, 193, 0.5), transparent)' }} />
+                background: 'linear-gradient(90deg, transparent, rgba(var(--dash-surface), 0.6), rgba(var(--dash-glow), 0.5), transparent)' }} />
 
               {/* Header */}
-              <div className="p-4 pb-3" style={{ borderBottom: `1px solid rgba(61, 20, 40, 0.1)` }}>
+              <div className="p-4 pb-3" style={{ borderBottom: `1px solid rgba(var(--dash-ink), 0.1)` }}>
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
                     {userInfo && (
@@ -1521,7 +1526,7 @@ export default function GlobalDashboard() {
                     )}
                     <div>
                       <h2 style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700, fontSize: '1.1rem', color: C.heading,
-                        textShadow: '0 1px 3px rgba(255, 255, 255, 0.3)' }}>
+                        textShadow: '0 1px 3px rgba(var(--dash-surface), 0.3)' }}>
                         {userInfo?.username || 'Guest'}
                       </h2>
                       <p style={{ fontFamily: "'Inter', sans-serif", fontSize: '0.7rem', color: C.subtle }} className="truncate max-w-[150px]">
@@ -1530,9 +1535,9 @@ export default function GlobalDashboard() {
                     </div>
                   </div>
                   <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-full transition-colors"
-                    style={{ background: 'rgba(61, 20, 40, 0.06)', border: '1px solid rgba(61, 20, 40, 0.1)' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(61, 20, 40, 0.12)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(61, 20, 40, 0.06)'; }}>
+                    style={{ background: 'rgba(var(--dash-ink), 0.06)', border: '1px solid rgba(var(--dash-ink), 0.1)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(var(--dash-ink), 0.12)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(var(--dash-ink), 0.06)'; }}>
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                       <path d="M9 3L3 9M3 3l6 6" stroke={C.heading} strokeWidth="1.5" strokeLinecap="round" />
                     </svg>
@@ -1570,7 +1575,7 @@ export default function GlobalDashboard() {
                 {/* Notifications */}
                 <Section title="Notifications" icon="🔔" open={true}
                   badge={unreadCount > 0 ? (
-                    <span style={{ background: 'rgba(198, 70, 155, 0.15)', color: C.accent, fontSize: '0.6rem', fontWeight: 700,
+                    <span style={{ background: 'rgba(var(--dash-glow), 0.15)', color: C.accent, fontSize: '0.6rem', fontWeight: 700,
                       padding: '1px 7px', borderRadius: 10, fontFamily: "'Inter', sans-serif" }}>
                       {unreadCount} new
                     </span>
@@ -1629,9 +1634,9 @@ export default function GlobalDashboard() {
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: 6,
-                      background: 'rgba(61, 20, 40, 0.06)',
+                      background: 'rgba(var(--dash-ink), 0.06)',
                       color: C.heading,
-                      border: '1px solid rgba(61, 20, 40, 0.18)',
+                      border: '1px solid rgba(var(--dash-ink), 0.18)',
                       fontSize: '0.72rem',
                       fontWeight: 600,
                       padding: '6px 12px',
@@ -1640,8 +1645,8 @@ export default function GlobalDashboard() {
                       fontFamily: "'Inter', sans-serif",
                       WebkitTapHighlightColor: 'transparent',
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(61, 20, 40, 0.12)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(61, 20, 40, 0.06)'; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(var(--dash-ink), 0.12)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(var(--dash-ink), 0.06)'; }}
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -1650,12 +1655,17 @@ export default function GlobalDashboard() {
                     </svg>
                     Log Out
                   </button>
-                  <div style={{ height: 1, background: 'rgba(61, 20, 40, 0.08)', margin: '12px 0' }} />
+                  <div style={{ height: 1, background: 'rgba(var(--dash-ink), 0.08)', margin: '12px 0' }} />
                   <ChangePasswordForm />
-                  <div style={{ height: 1, background: 'rgba(61, 20, 40, 0.08)', margin: '12px 0' }} />
+                  <div style={{ height: 1, background: 'rgba(var(--dash-ink), 0.08)', margin: '12px 0' }} />
                   <ChangeEmailForm currentEmail={userInfo?.email} />
-                  <div style={{ height: 1, background: 'rgba(61, 20, 40, 0.08)', margin: '12px 0' }} />
+                  <div style={{ height: 1, background: 'rgba(var(--dash-ink), 0.08)', margin: '12px 0' }} />
                   <AccountSettings onDeleted={handleAccountDeleted} />
+                </Section>
+
+                {/* Appearance — app-wide colorway toggle */}
+                <Section title="Appearance" icon="🎨">
+                  <ThemeToggle />
                 </Section>
 
                 {/* System */}
@@ -1694,7 +1704,7 @@ export default function GlobalDashboard() {
               </div>
 
               {/* Footer */}
-              <div style={{ padding: '10px 16px', borderTop: `1px solid rgba(61, 20, 40, 0.08)` }}>
+              <div style={{ padding: '10px 16px', borderTop: `1px solid rgba(var(--dash-ink), 0.08)` }}>
                 <div
                   style={{
                     display: 'flex',
@@ -1756,11 +1766,11 @@ export default function GlobalDashboard() {
         @media (max-width: 360px) {
           .gd-emotion-grid { grid-template-columns: repeat(3, 1fr) !important; }
         }
-        .gd-scroll { scrollbar-width: thin; scrollbar-color: rgba(61, 20, 40, 0.15) transparent; }
+        .gd-scroll { scrollbar-width: thin; scrollbar-color: rgba(var(--dash-ink), 0.15) transparent; }
         .gd-scroll::-webkit-scrollbar { width: 3px; }
         .gd-scroll::-webkit-scrollbar-track { background: transparent; }
-        .gd-scroll::-webkit-scrollbar-thumb { background: rgba(61, 20, 40, 0.15); border-radius: 3px; }
-        .gd-scroll::-webkit-scrollbar-thumb:hover { background: rgba(61, 20, 40, 0.3); }
+        .gd-scroll::-webkit-scrollbar-thumb { background: rgba(var(--dash-ink), 0.15); border-radius: 3px; }
+        .gd-scroll::-webkit-scrollbar-thumb:hover { background: rgba(var(--dash-ink), 0.3); }
         body.dashboard-open .sphere-nav-container {
           opacity: 0 !important; pointer-events: none !important;
           transition: opacity 0.3s ease-out !important;
