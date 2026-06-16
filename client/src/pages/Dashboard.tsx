@@ -6,7 +6,6 @@
 
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import '../styles/enhanced-glass.css';
 import ZenGardenScene from '../components/three/ZenGardenScene';
 import MagicalSphereNavigation from '../components/home/MagicalSphereNavigation';
 import { useGroups } from '../context/GroupContext';

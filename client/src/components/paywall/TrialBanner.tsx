@@ -16,7 +16,6 @@
 
 import React, { useState, useCallback } from 'react';
 import { useSubscription } from '../../context/SubscriptionContext';
-import '../../styles/enhanced-glass.css';
 
 const C = {
 	heading: '#3d1428',

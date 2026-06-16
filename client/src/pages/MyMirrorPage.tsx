@@ -6,15 +6,14 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MyMirrorPanel } from '../components/home/MyMirrorPanel';
 import SakuraForestScene from '../components/three/SakuraForestScene';
-import '../styles/enhanced-glass.css';
 
 // ============================================================================
 // INLINE STYLE CONSTANTS (matching TruthStreamPage / MirrorGroupsPage)
 // ============================================================================
 
 const COLORS = {
-  heading: '#3d1428',
-  body: '#2e1018',
+  heading: 'var(--dash-heading, #3d1428)',
+  body: 'var(--dash-body, #2e1018)',
 };
 
 const GLASS_PANEL: React.CSSProperties = {
@@ -74,7 +73,7 @@ export default function MyMirrorPage() {
         }}
       >
         {/* Background gradient + Three.js scene */}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #fff1f2, #fce7f3, #f3e8ff)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'var(--mg-page-bg, linear-gradient(135deg, #fff1f2, #fce7f3, #f3e8ff))' }} />
         <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
           <SakuraForestScene />
         </div>

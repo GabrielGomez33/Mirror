@@ -124,10 +124,10 @@ export default function DataSharingPanel({ groupId }: DataSharingPanelProps) {
       {/* Header */}
       <div className="text-center">
         <span className="text-4xl mb-4 block">🔐</span>
-        <h3 className="enhanced-glass-heading text-lg mb-2" style={{ color: '#784552' }}>
+        <h3 className="enhanced-glass-heading text-lg mb-2" style={{ color: 'var(--mg-heading, #784552)' }}>
           Share Your Mirror Data
         </h3>
-        <p className="enhanced-glass-body text-sm" style={{ color: '#7e4151' }}>
+        <p className="enhanced-glass-body text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
           Choose what aspects of your Mirror profile to share with this group for collective
           insights and compatibility analysis.
         </p>
@@ -155,7 +155,7 @@ export default function DataSharingPanel({ groupId }: DataSharingPanelProps) {
 
       {/* Data Type Selection */}
       <div className="space-y-3">
-        <p className="enhanced-glass-text text-sm" style={{ color: '#6a1f33' }}>
+        <p className="enhanced-glass-text text-sm" style={{ color: 'var(--mg-label, #6a1f33)' }}>
           Select data to share:
         </p>
 
@@ -182,14 +182,14 @@ export default function DataSharingPanel({ groupId }: DataSharingPanelProps) {
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="enhanced-glass-heading text-sm" style={{ color: '#784552' }}>
+                    <span className="enhanced-glass-heading text-sm" style={{ color: 'var(--mg-heading, #784552)' }}>
                       {dataType.label}
                     </span>
                     {isAlreadyShared && (
                       <span className="text-green-400 text-xs">✓ Shared</span>
                     )}
                   </div>
-                  <p className="enhanced-glass-subtle text-xs mt-1" style={{ color: '#7e4151' }}>
+                  <p className="enhanced-glass-subtle text-xs mt-1" style={{ color: 'var(--mg-body, #7e4151)' }}>
                     {dataType.description}
                   </p>
                 </div>
@@ -213,7 +213,7 @@ export default function DataSharingPanel({ groupId }: DataSharingPanelProps) {
       {/* Consent Text */}
       {selectedTypes.size > 0 && (
         <div>
-          <label className="block enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
+          <label className="block enhanced-glass-text text-sm mb-2" style={{ color: 'var(--mg-label, #6a1f33)' }}>
             Consent Statement (optional)
           </label>
           <textarea
@@ -224,7 +224,7 @@ export default function DataSharingPanel({ groupId }: DataSharingPanelProps) {
             rows={3}
             maxLength={500}
           />
-          <p className="enhanced-glass-subtle text-xs mt-1 text-right" style={{ color: '#6a1f33' }}>
+          <p className="enhanced-glass-subtle text-xs mt-1 text-right" style={{ color: 'var(--mg-label, #6a1f33)' }}>
             {consentText.length}/500
           </p>
         </div>
@@ -232,31 +232,31 @@ export default function DataSharingPanel({ groupId }: DataSharingPanelProps) {
 
       {/* Privacy Notice */}
       <div className="bg-white/5 rounded-xl p-4">
-        <h4 className="enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
+        <h4 className="enhanced-glass-text text-sm mb-2" style={{ color: 'var(--mg-label, #6a1f33)' }}>
           Privacy Information
         </h4>
         <ul className="space-y-2 text-xs">
           <li className="flex items-start gap-2">
             <span className="text-green-400">✓</span>
-            <span className="enhanced-glass-subtle" style={{ color: '#7e4151' }}>
+            <span className="enhanced-glass-subtle" style={{ color: 'var(--mg-body, #7e4151)' }}>
               Your data is encrypted and only visible to group members
             </span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-green-400">✓</span>
-            <span className="enhanced-glass-subtle" style={{ color: '#7e4151' }}>
+            <span className="enhanced-glass-subtle" style={{ color: 'var(--mg-body, #7e4151)' }}>
               You can revoke sharing at any time
             </span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-green-400">✓</span>
-            <span className="enhanced-glass-subtle" style={{ color: '#7e4151' }}>
+            <span className="enhanced-glass-subtle" style={{ color: 'var(--mg-body, #7e4151)' }}>
               Data is used for group insights and compatibility analysis only
             </span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-green-400">✓</span>
-            <span className="enhanced-glass-subtle" style={{ color: '#7e4151' }}>
+            <span className="enhanced-glass-subtle" style={{ color: 'var(--mg-body, #7e4151)' }}>
               Leaving the group automatically removes your shared data
             </span>
           </li>
@@ -283,7 +283,7 @@ export default function DataSharingPanel({ groupId }: DataSharingPanelProps) {
         disabled={!hasNewSelections || isSharing}
         className="w-full enhanced-action-button py-3 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <span className="enhanced-glass-text font-medium" style={{ color: '#6a1f33' }}>
+        <span className="enhanced-glass-text font-medium" style={{ color: 'var(--mg-label, #6a1f33)' }}>
           {isSharing ? (
             <span className="flex items-center justify-center gap-2">
               <span className="animate-spin">⏳</span>

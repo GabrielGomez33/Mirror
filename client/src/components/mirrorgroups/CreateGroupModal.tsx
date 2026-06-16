@@ -171,9 +171,9 @@ const PRIVACY_OPTIONS: Array<{ value: GroupPrivacy; label: string; description: 
 // ============================================================================
 
 const COLORS = {
-  heading: '#784552',
-  body: '#7e4151',
-  label: '#6a1f33',
+  heading: 'var(--mg-heading, #784552)',
+  body: 'var(--mg-body, #7e4151)',
+  label: 'var(--mg-label, #6a1f33)',
   subtle: 'rgba(255,255,255,0.4)',
   error: '#f87171',
   errorBg: 'rgba(239,68,68,0.15)',

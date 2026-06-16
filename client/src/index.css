@@ -83,6 +83,21 @@
   --orb-tint: linear-gradient(45deg, rgba(255, 255, 255, 0.22), rgba(148, 163, 184, 0.16), rgba(100, 116, 139, 0.12));
   --orb-glow: 148, 163, 184;
 
+  /* MirrorGroups page: cosmic text matches the dashboard, dark page backdrop.
+     (Only defined for cosmic; sakura falls back to the inline literals.) */
+  --mg-heading: var(--dash-heading);
+  --mg-body: var(--dash-body);
+  --mg-label: var(--dash-subtle);
+  --mg-page-bg: linear-gradient(135deg, #12152e, #1a1f44, #221a40);
+  /* Journal "New Entry" modal scrim — opaque dark indigo on cosmic so the
+     light cosmic text reads and the page behind can't bleed through (sakura
+     uses the inline light fallback). */
+  --journal-modal-bg: #0b1024;
+  /* MyMirror dark accent text → lightened on cosmic for contrast. */
+  --mirror-amber: #fbbf24;
+  --mirror-pink: #f9a8d4;
+  --mirror-error: #fca5a5;
+
   /* Cosmic dashboard: light ink/text on dark indigo surfaces — matches the
      login colorway. Flipping the rgb channels inverts the scheme while the
      existing inline alphas are preserved. */
@@ -107,7 +122,7 @@
 
 /* Custom scrollbar for glass theme */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 0px;
 }
 
 ::-webkit-scrollbar-track {

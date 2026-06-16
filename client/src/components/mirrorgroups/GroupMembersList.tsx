@@ -52,7 +52,7 @@ export default function GroupMembersList({ groupId, members, canInvite = false, 
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="enhanced-glass-heading text-lg" style={{ color: '#784552' }}>
+        <h3 className="enhanced-glass-heading text-lg" style={{ color: 'var(--mg-heading, #784552)' }}>
           Members ({members.length})
         </h3>
         {canInvite && (
@@ -95,7 +95,7 @@ export default function GroupMembersList({ groupId, members, canInvite = false, 
       <div className="flex gap-4 text-sm">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-400"></div>
-          <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
+          <span className="enhanced-glass-subtle" style={{ color: 'var(--mg-label, #6a1f33)' }}>
             {members.filter((m) => m.isOnline).length}{' Online & '} {members.filter((m) => m.hasSharedData).length} Sharing Data
           </span>
         </div>
@@ -122,7 +122,7 @@ export default function GroupMembersList({ groupId, members, canInvite = false, 
       {sortedMembers.length === 0 && (
         <div className="text-center py-8">
           <span className="text-4xl mb-4 block">👥</span>
-          <p className="enhanced-glass-body" style={{ color: '#7e4151' }}>
+          <p className="enhanced-glass-body" style={{ color: 'var(--mg-body, #7e4151)' }}>
             {searchQuery ? 'No members found' : 'No members yet'}
           </p>
         </div>
@@ -272,7 +272,7 @@ function MemberCard({ member, groupId, isExpanded, onToggleExpand, currentUserRo
             <div className="flex items-center gap-2">
               <span
                 className="enhanced-glass-text font-medium truncate"
-                style={{ color: '#784552' }}
+                style={{ color: 'var(--mg-heading, #784552)' }}
               >
                 {member.displayName || member.username}
               </span>
@@ -298,7 +298,7 @@ function MemberCard({ member, groupId, isExpanded, onToggleExpand, currentUserRo
                   member.isOnline ? 'bg-green-400' : 'bg-gray-400'
                 }`}
               />
-              <span className="enhanced-glass-subtle text-xs mt-1" style={{ color: '#6a1f33' }}>
+              <span className="enhanced-glass-subtle text-xs mt-1" style={{ color: 'var(--mg-label, #6a1f33)' }}>
                 {member.isOnline
                   ? 'Online'
                   : member.lastActive
@@ -360,10 +360,10 @@ function MemberCard({ member, groupId, isExpanded, onToggleExpand, currentUserRo
               {/* Bio - only if profile shared */}
               {hasSharedProfile && extendedDetails?.bio && (
                 <div className="bg-white/5 rounded-lg p-3">
-                  <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: '#6a1f33' }}>
+                  <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: 'var(--mg-label, #6a1f33)' }}>
                     Bio
                   </p>
-                  <p className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+                  <p className="enhanced-glass-text text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
                     {extendedDetails.bio}
                   </p>
                 </div>
@@ -372,18 +372,18 @@ function MemberCard({ member, groupId, isExpanded, onToggleExpand, currentUserRo
               {/* Basic Info Grid */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-white/5 rounded-lg p-3">
-                  <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: '#6a1f33' }}>
+                  <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: 'var(--mg-label, #6a1f33)' }}>
                     Joined Group
                   </p>
-                  <p className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+                  <p className="enhanced-glass-text text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
                     {new Date(member.joinedAt).toLocaleDateString()}
                   </p>
                 </div>
                 <div className="bg-white/5 rounded-lg p-3">
-                  <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: '#6a1f33' }}>
+                  <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: 'var(--mg-label, #6a1f33)' }}>
                     Last Active
                   </p>
-                  <p className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+                  <p className="enhanced-glass-text text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
                     {member.isOnline
                       ? 'Online now'
                       : member.lastActive
@@ -398,40 +398,40 @@ function MemberCard({ member, groupId, isExpanded, onToggleExpand, currentUserRo
                 <div className="grid grid-cols-2 gap-3">
                   {extendedDetails?.email && (
                     <div className="bg-white/5 rounded-lg p-3">
-                      <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: '#6a1f33' }}>
+                      <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: 'var(--mg-label, #6a1f33)' }}>
                         Email
                       </p>
-                      <p className="enhanced-glass-text text-sm truncate" style={{ color: '#7e4151' }}>
+                      <p className="enhanced-glass-text text-sm truncate" style={{ color: 'var(--mg-body, #7e4151)' }}>
                         {extendedDetails.email}
                       </p>
                     </div>
                   )}
                   {extendedDetails?.phone && (
                     <div className="bg-white/5 rounded-lg p-3">
-                      <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: '#6a1f33' }}>
+                      <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: 'var(--mg-label, #6a1f33)' }}>
                         Phone
                       </p>
-                      <p className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+                      <p className="enhanced-glass-text text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
                         {extendedDetails.phone}
                       </p>
                     </div>
                   )}
                   {extendedDetails?.birthdate && (
                     <div className="bg-white/5 rounded-lg p-3">
-                      <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: '#6a1f33' }}>
+                      <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: 'var(--mg-label, #6a1f33)' }}>
                         Birthdate
                       </p>
-                      <p className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+                      <p className="enhanced-glass-text text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
                         {formatBirthdate(extendedDetails.birthdate)}
                       </p>
                     </div>
                   )}
                   {extendedDetails?.location && (
                     <div className="bg-white/5 rounded-lg p-3">
-                      <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: '#6a1f33' }}>
+                      <p className="enhanced-glass-subtle text-xs mb-1" style={{ color: 'var(--mg-label, #6a1f33)' }}>
                         Location
                       </p>
-                      <p className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+                      <p className="enhanced-glass-text text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
                         {extendedDetails.location}
                       </p>
                     </div>
@@ -441,7 +441,7 @@ function MemberCard({ member, groupId, isExpanded, onToggleExpand, currentUserRo
 
               {/* Shared Data */}
               <div className="bg-white/5 rounded-lg p-3">
-                <p className="enhanced-glass-subtle text-xs mb-2" style={{ color: '#6a1f33' }}>
+                <p className="enhanced-glass-subtle text-xs mb-2" style={{ color: 'var(--mg-label, #6a1f33)' }}>
                   Shared Data with Group
                 </p>
                 {member.hasSharedData && member.sharedDataTypes.length > 0 ? (
@@ -457,7 +457,7 @@ function MemberCard({ member, groupId, isExpanded, onToggleExpand, currentUserRo
                     ))}
                   </div>
                 ) : (
-                  <p className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+                  <p className="enhanced-glass-text text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
                     Not sharing data
                   </p>
                 )}

@@ -9,7 +9,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { useAuth } from '../../context/AuthContext';
-import '../../styles/enhanced-glass.css';
 
 // ============================================================================
 // PAYPAL SDK LOADER

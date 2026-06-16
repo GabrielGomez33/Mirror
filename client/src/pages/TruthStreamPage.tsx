@@ -14,15 +14,14 @@ import AnalysisDashboard from '../components/truthstream/AnalysisDashboard';
 import ReceivedReviews from '../components/truthstream/ReceivedReviews';
 import GivenReviews from '../components/truthstream/GivenReviews';
 import ZenBridgeScene from '../components/three/ZenBridgeScene';
-import '../styles/enhanced-glass.css';
 
 // ============================================================================
 // INLINE STYLE CONSTANTS (matching MirrorGroupsPage)
 // ============================================================================
 
 const COLORS = {
-  heading: '#3d1428',
-  body: '#2e1018',
+  heading: 'var(--dash-heading, #3d1428)',
+  body: 'var(--dash-body, #2e1018)',
 };
 
 const GLASS_PANEL: React.CSSProperties = {
@@ -229,7 +228,7 @@ export default function TruthStreamPage() {
         }}
       >
         {/* Background gradient + Three.js scene */}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #fff1f2, #fce7f3, #f3e8ff)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'var(--mg-page-bg, linear-gradient(135deg, #fff1f2, #fce7f3, #f3e8ff))' }} />
         <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
           <ZenBridgeScene />
         </div>

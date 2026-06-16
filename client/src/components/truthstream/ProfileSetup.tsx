@@ -31,9 +31,9 @@ const SHAREABLE_OPTIONS: { value: TruthStreamShareableType; label: string; icon:
 ];
 
 const COLORS = {
-  heading: '#3d1428',
-  body: '#4a1c30',
-  label: '#2d0a16',
+  heading: 'var(--dash-heading, #3d1428)',
+  body: 'var(--dash-body, #4a1c30)',
+  label: 'var(--mg-label, #2d0a16)',
 };
 
 // ============================================================================
@@ -1146,7 +1146,7 @@ function VocalRecordingPanel({
             <GlassySakuraOrb level={Math.min(1, audioLevel)} spectrum={audioWaveform} active={true} size={180} className="opacity-100" />
           </div>
           <button onClick={stopRecording} className="px-5 py-2 rounded-lg text-xs font-medium"
-            style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)', color: '#991b1b' }}>
+            style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)', color: 'var(--mirror-error, #991b1b)' }}>
             Stop Recording
           </button>
         </motion.div>

@@ -226,10 +226,10 @@ export default function GroupChat({ groupId }: GroupChatProps) {
         <div className="flex items-center gap-3">
           <span className="text-2xl">💬</span>
           <div>
-            <h3 className="enhanced-glass-heading text-base" style={{ color: '#784552' }}>
+            <h3 className="enhanced-glass-heading text-base" style={{ color: 'var(--mg-heading, #784552)' }}>
               Group Chat
             </h3>
-            <p className="enhanced-glass-subtle text-xs" style={{ color: '#6a1f33' }}>
+            <p className="enhanced-glass-subtle text-xs" style={{ color: 'var(--mg-label, #6a1f33)' }}>
               {currentMembers.length} members
             </p>
           </div>
@@ -242,7 +242,7 @@ export default function GroupChat({ groupId }: GroupChatProps) {
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <span className="text-4xl mb-2 block animate-pulse">💭</span>
-              <p className="enhanced-glass-subtle text-sm" style={{ color: '#7e4151' }}>
+              <p className="enhanced-glass-subtle text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
                 Loading messages...
               </p>
             </div>
@@ -251,10 +251,10 @@ export default function GroupChat({ groupId }: GroupChatProps) {
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <span className="text-4xl mb-4 block">🌟</span>
-              <p className="enhanced-glass-body text-sm mb-2" style={{ color: '#7e4151' }}>
+              <p className="enhanced-glass-body text-sm mb-2" style={{ color: 'var(--mg-body, #7e4151)' }}>
                 No messages yet
               </p>
-              <p className="enhanced-glass-subtle text-xs" style={{ color: '#6a1f33' }}>
+              <p className="enhanced-glass-subtle text-xs" style={{ color: 'var(--mg-label, #6a1f33)' }}>
                 Start the conversation!
               </p>
             </div>
@@ -291,7 +291,7 @@ export default function GroupChat({ groupId }: GroupChatProps) {
                       )}
                       <span
                         className={`text-xs ${isDina ? 'font-medium text-purple-300' : 'enhanced-glass-subtle'}`}
-                        style={isDina ? {} : { color: '#6a1f33' }}
+                        style={isDina ? {} : { color: 'var(--mg-label, #6a1f33)' }}
                       >
                         {isDina ? 'Dina AI' : message.username}
                       </span>
@@ -313,14 +313,14 @@ export default function GroupChat({ groupId }: GroupChatProps) {
                   >
                     <p
                       className={`text-sm whitespace-pre-wrap break-words ${isDina ? 'text-purple-100' : 'enhanced-glass-body'}`}
-                      style={isDina ? {} : { color: '#7e4151' }}
+                      style={isDina ? {} : { color: 'var(--mg-body, #7e4151)' }}
                     >
                       {message.content}
                     </p>
                   </div>
                   <p
                     className={`text-xs mt-1 ${message.isOwn ? 'text-right mr-1' : 'ml-1'}`}
-                    style={{ color: isDina ? '#a855f7' : '#6a1f33', opacity: 0.7 }}
+                    style={{ color: isDina ? '#a855f7' : 'var(--mg-label, #6a1f33)', opacity: 0.7 }}
                   >
                     {formatTime(message.timestamp)}
                   </p>
@@ -359,7 +359,7 @@ export default function GroupChat({ groupId }: GroupChatProps) {
             )}
           </button>
         </div>
-        <p className="enhanced-glass-subtle text-xs mt-2 text-center" style={{ color: '#6a1f33' }}>
+        <p className="enhanced-glass-subtle text-xs mt-2 text-center" style={{ color: 'var(--mg-label, #6a1f33)' }}>
           Press Enter to send, Shift+Enter for new line
           <span className="mx-2">·</span>
           <span className="text-purple-300/70">Type @Dina to ask the AI assistant</span>
