@@ -1512,7 +1512,7 @@ export default function GlobalDashboard() {
                 background: 'linear-gradient(90deg, transparent, rgba(var(--dash-surface), 0.6), rgba(var(--dash-glow), 0.5), transparent)' }} />
 
               {/* Header */}
-              <div className="p-4 pb-3" style={{ borderBottom: `1px solid rgba(var(--dash-ink), 0.1)` }}>
+              <div className="p-4 pb-3" style={{ borderBottom: `1px solid rgba(var(--dash-ink), 0.1)`, paddingTop: 'calc(1rem + var(--safe-area-inset-top, 0px))' }}>
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
                     {userInfo && (
