@@ -8,7 +8,6 @@
 
 import React from 'react';
 import { useSubscription } from '../../context/SubscriptionContext';
-import '../../styles/enhanced-glass.css';
 
 // ============================================================================
 // COMPONENT

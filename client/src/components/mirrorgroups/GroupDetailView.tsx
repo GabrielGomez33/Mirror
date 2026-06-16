@@ -166,7 +166,7 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
     return (
       <div className="enhanced-glass-panel p-8 text-center">
         <div className="animate-spin text-4xl mb-4">⏳</div>
-        <p className="enhanced-glass-text" style={{ color: '#7e4151' }}>
+        <p className="enhanced-glass-text" style={{ color: 'var(--mg-body, #7e4151)' }}>
           Loading group details...
         </p>
       </div>
@@ -176,14 +176,14 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
   if (!currentGroup) {
     return (
       <div className="enhanced-glass-panel p-8 text-center">
-        <p className="enhanced-glass-text" style={{ color: '#7e4151' }}>
+        <p className="enhanced-glass-text" style={{ color: 'var(--mg-body, #7e4151)' }}>
           Group not found
         </p>
         <button
           onClick={onBack}
           className="enhanced-action-button mt-4 px-6 py-2"
         >
-          <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
+          <span className="enhanced-glass-text" style={{ color: 'var(--mg-label, #6a1f33)' }}>
             Go Back
           </span>
         </button>
@@ -202,7 +202,7 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
             onClick={onBack}
             className="flex items-center gap-2 text-white/70 hover:text-white transition-colors"
             style={{
-               color: 'rgb(120, 69, 82)',
+               color: 'var(--mg-heading, rgb(120, 69, 82))',
                textShadow: '0 3px 12px rgba(0, 0, 0, .4), 0 1px 3px rgba(255, 255, 255, .15)',
            }}
           >
@@ -294,7 +294,7 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
 
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <h1 style={{ color: '#784552', fontSize: '1.1rem', fontWeight: 700, margin: 0, fontFamily: "'Poppins', sans-serif", lineHeight: 1.2 }}>
+              <h1 style={{ color: 'var(--mg-heading, #784552)', fontSize: '1.1rem', fontWeight: 700, margin: 0, fontFamily: "'Poppins', sans-serif", lineHeight: 1.2 }}>
                 {currentGroup.name}
               </h1>
               <span
@@ -303,7 +303,7 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
                 <span className="text-white/90">{privacyBadge.label}</span>
               </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, fontSize: '0.75rem', color: '#6a1f33' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, fontSize: '0.75rem', color: 'var(--mg-label, #6a1f33)' }}>
               <span>👥 {currentMembers.length}/{currentGroup.maxMembers} members</span>
               <span>🕐 {currentGroup.lastActivity ? formatRelativeTime(currentGroup.lastActivity) : 'Recently'}</span>
             </div>
@@ -339,7 +339,7 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
                     </span>
                   </div>
                 </div>
-                <span style={{ fontSize: 9, fontWeight: 600, color: '#6a1f33', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{stat.label}</span>
+                <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--mg-label, #6a1f33)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{stat.label}</span>
               </div>
             );
           })}
@@ -373,7 +373,7 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
             <span>{tab.icon}</span>
             <span
               className="enhanced-glass-text text-sm"
-              style={{ color: activeTab === tab.id ? '#784552' : '#7e4151' }}
+              style={{ color: activeTab === tab.id ? 'var(--mg-heading, #784552)' : 'var(--mg-body, #7e4151)' }}
             >
               {tab.label}
             </span>
@@ -468,7 +468,7 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
             <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#dc2626', marginBottom: '1rem' }}>
               {'\u26A0\uFE0F'} Delete Group?
             </h3>
-            <p style={{ color: '#7e4151', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '1.5rem' }}>
+            <p style={{ color: 'var(--mg-body, #7e4151)', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '1.5rem' }}>
               This action <strong>cannot be undone</strong>. All group data, chat history, and member
               connections will be permanently deleted.
             </p>
@@ -560,10 +560,10 @@ function OverviewTab({ group, members, insights, onAnalyze, isAnalyzing, canInvi
     <div className="space-y-6">
       {insights?.llmSynthesis && (
         <div className="enhanced-glass-card">
-          <h3 className="enhanced-glass-heading text-lg mb-3" style={{ color: '#784552' }}>
+          <h3 className="enhanced-glass-heading text-lg mb-3" style={{ color: 'var(--mg-heading, #784552)' }}>
             Group Insights Summary
           </h3>
-          <p className="enhanced-glass-body mb-4" style={{ color: '#7e4151' }}>
+          <p className="enhanced-glass-body mb-4" style={{ color: 'var(--mg-body, #7e4151)' }}>
             {insights.llmSynthesis.overview}
           </p>
           {insights.llmSynthesis.keyInsights.length > 0 && (
@@ -571,7 +571,7 @@ function OverviewTab({ group, members, insights, onAnalyze, isAnalyzing, canInvi
               {insights.llmSynthesis.keyInsights.slice(0, 3).map((insight, i) => (
                 <div key={i} className="flex items-start gap-2">
                   <span className="text-pink-400">•</span>
-                  <span className="enhanced-glass-subtle text-sm" style={{ color: '#7e4151' }}>
+                  <span className="enhanced-glass-subtle text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
                     {insight}
                   </span>
                 </div>
@@ -584,7 +584,7 @@ function OverviewTab({ group, members, insights, onAnalyze, isAnalyzing, canInvi
       {!insights?.llmSynthesis && (
         <div className="enhanced-glass-card text-center">
           <span className="text-4xl mb-4 block">🧪</span>
-          <p className="enhanced-glass-body mb-4" style={{ color: '#7e4151' }}>
+          <p className="enhanced-glass-body mb-4" style={{ color: 'var(--mg-body, #7e4151)' }}>
             {members.filter((m) => m.hasSharedData).length < 2
               ? 'Need at least 2 members sharing data to generate insights'
               : 'No analysis has been run yet'}
@@ -594,7 +594,7 @@ function OverviewTab({ group, members, insights, onAnalyze, isAnalyzing, canInvi
             disabled={isAnalyzing || members.filter((m) => m.hasSharedData).length < 2}
             className="enhanced-action-button px-6 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
+            <span className="enhanced-glass-text" style={{ color: 'var(--mg-label, #6a1f33)' }}>
               {isAnalyzing ? 'Analyzing...' : 'Run Analysis'}
             </span>
           </button>
@@ -603,7 +603,7 @@ function OverviewTab({ group, members, insights, onAnalyze, isAnalyzing, canInvi
 
       <div className="enhanced-glass-card">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="enhanced-glass-heading text-lg" style={{ color: '#784552' }}>
+          <h3 className="enhanced-glass-heading text-lg" style={{ color: 'var(--mg-heading, #784552)' }}>
             Members
           </h3>
           {canInvite && (
@@ -635,7 +635,7 @@ function OverviewTab({ group, members, insights, onAnalyze, isAnalyzing, canInvi
               className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/10"
             >
               <span>{member.avatar || '👤'}</span>
-              <span className="enhanced-glass-subtle text-sm" style={{ color: '#7e4151' }}>
+              <span className="enhanced-glass-subtle text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
                 {member.displayName || member.username}
               </span>
               {member.role === 'creator' && <span className="text-yellow-400 text-xs">👑</span>}
@@ -649,25 +649,25 @@ function OverviewTab({ group, members, insights, onAnalyze, isAnalyzing, canInvi
       </div>
 
       <div className="enhanced-glass-card">
-        <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#784552' }}>
+        <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: 'var(--mg-heading, #784552)' }}>
           Group Settings
         </h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px 16px', fontSize: '0.8rem' }}>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ color: '#6a1f33', fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Type</span>
-            <span style={{ color: '#7e4151', textTransform: 'capitalize' }}>{group.type}</span>
+            <span style={{ color: 'var(--mg-label, #6a1f33)', fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Type</span>
+            <span style={{ color: 'var(--mg-body, #7e4151)', textTransform: 'capitalize' }}>{group.type}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ color: '#6a1f33', fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Privacy</span>
-            <span style={{ color: '#7e4151', textTransform: 'capitalize' }}>{group.privacy}</span>
+            <span style={{ color: 'var(--mg-label, #6a1f33)', fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Privacy</span>
+            <span style={{ color: 'var(--mg-body, #7e4151)', textTransform: 'capitalize' }}>{group.privacy}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ color: '#6a1f33', fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Created</span>
-            <span style={{ color: '#7e4151' }}>{group.createdAt ? new Date(group.createdAt).toLocaleDateString() : 'N/A'}</span>
+            <span style={{ color: 'var(--mg-label, #6a1f33)', fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Created</span>
+            <span style={{ color: 'var(--mg-body, #7e4151)' }}>{group.createdAt ? new Date(group.createdAt).toLocaleDateString() : 'N/A'}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ color: '#6a1f33', fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Max Members</span>
-            <span style={{ color: '#7e4151' }}>{group.maxMembers}</span>
+            <span style={{ color: 'var(--mg-label, #6a1f33)', fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Max Members</span>
+            <span style={{ color: 'var(--mg-body, #7e4151)' }}>{group.maxMembers}</span>
           </div>
         </div>
       </div>

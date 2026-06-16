@@ -9,9 +9,9 @@ import RevieweeTruthCard from './RevieweeTruthCard';
 import type { QuestionnaireSection, QuestionnaireQuestion, TruthCardData } from '../../types/truthstream';
 
 const COLORS = {
-  heading: '#3d1428',
-  body: '#4a1c30',
-  label: '#2d0a16',
+  heading: 'var(--dash-heading, #3d1428)',
+  body: 'var(--dash-body, #4a1c30)',
+  label: 'var(--mg-label, #2d0a16)',
 };
 
 // ============================================================================

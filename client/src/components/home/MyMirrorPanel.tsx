@@ -316,7 +316,7 @@ const ScoreRing: React.FC<{
         </div>
       </div>
       {label && (
-        <span style={{ fontSize: 10, textAlign: 'center', margin: 0, color: '#4a1a2e', textShadow: '0 1px 3px rgba(126,65,81,0.3)', fontWeight: 500 }}>{label}</span>
+        <span style={{ fontSize: 10, textAlign: 'center', margin: 0, color: 'var(--mg-body, #4a1a2e)', textShadow: '0 1px 3px rgba(126,65,81,0.3)', fontWeight: 500 }}>{label}</span>
       )}
     </div>
   );
@@ -343,7 +343,7 @@ const AnimatedBar: React.FC<{
       transition={{ delay: index * 0.04, duration: 0.25 }}
       style={{ display: 'flex', alignItems: 'center', gap: 10 }}
     >
-      <span style={{ fontSize: 12, width: 120, textAlign: 'right', flexShrink: 0, margin: 0, color: '#4a1a2e', textShadow: '0 1px 2px rgba(126,65,81,0.25)', fontWeight: 500 }}>
+      <span style={{ fontSize: 12, width: 120, textAlign: 'right', flexShrink: 0, margin: 0, color: 'var(--mg-body, #4a1a2e)', textShadow: '0 1px 2px rgba(126,65,81,0.25)', fontWeight: 500 }}>
         {label}
       </span>
       <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
@@ -429,13 +429,13 @@ const GlassBadge: React.FC<{ label: string; sublabel?: string; color: string }> 
 // ============================================================================
 
 const THEME = {
-  textPrimary: '#6a1f33',
-  textBody: '#7e4151',
-  textHeading: '#784552',
+  textPrimary: 'var(--mg-label, #6a1f33)',
+  textBody: 'var(--mg-body, #7e4151)',
+  textHeading: 'var(--mg-heading, #784552)',
 };
 
 const chip = (text: string) =>
-  <span key={text} className="text-xs px-3 py-1.5 rounded-full" style={{ color: THEME.textPrimary, textShadow: '0px 1px 3px #7e4151', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.08)', letterSpacing: '0.01em' }}>{text}</span>;
+  <span key={text} className="text-xs px-3 py-1.5 rounded-full" style={{ color: THEME.textPrimary, textShadow: '0px 1px 3px var(--mg-body, #7e4151)', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.08)', letterSpacing: '0.01em' }}>{text}</span>;
 
 const getElementSymbol = (element?: string) => {
   switch ((element || '').toLowerCase()) {
@@ -691,7 +691,7 @@ export function MyMirrorPanel() {
       <div className="enhanced-glass-panel enhanced-panel-mymirror h-full">
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white/30" />
-          <span className="ml-4 enhanced-glass-text" style={{ color: THEME.textPrimary, textShadow: '0px 1px 3px #7e4151' }}>
+          <span className="ml-4 enhanced-glass-text" style={{ color: THEME.textPrimary, textShadow: '0px 1px 3px var(--mg-body, #7e4151)' }}>
             Loading your Mirror...
           </span>
         </div>
@@ -706,7 +706,7 @@ export function MyMirrorPanel() {
           <div className="text-center">
             <p className="enhanced-glass-text mb-4" style={{ color: THEME.textPrimary }}>Unable to load your Mirror</p>
             <button onClick={() => fetchDashboard()} className="enhanced-action-button px-6 py-2">
-              <span className="enhanced-glass-text font-medium" style={{ color: THEME.textPrimary, textShadow: '0px 1px 3px #7e4151' }}>Retry</span>
+              <span className="enhanced-glass-text font-medium" style={{ color: THEME.textPrimary, textShadow: '0px 1px 3px var(--mg-body, #7e4151)' }}>Retry</span>
             </button>
           </div>
         </div>
@@ -726,10 +726,10 @@ export function MyMirrorPanel() {
       {/* Header */}
       <div className="enhanced-glass-card">
         <div className="welcome-header mb-6">
-          <h1 className="welcome-title" style={{ color: THEME.textPrimary, textShadow: '0px 1px 3px #7e4151' }}>
+          <h1 className="welcome-title" style={{ color: THEME.textPrimary, textShadow: '0px 1px 3px var(--mg-body, #7e4151)' }}>
             Welcome back, {userName}
           </h1>
-          <p className="welcome-subtitle" style={{ color: THEME.textPrimary, textShadow: '0px 1px 3px #7e4151' }}>
+          <p className="welcome-subtitle" style={{ color: THEME.textPrimary, textShadow: '0px 1px 3px var(--mg-body, #7e4151)' }}>
             {snap?.currentLifePhase || 'Your reflection journey continues'}
           </p>
           {(
@@ -737,7 +737,7 @@ export function MyMirrorPanel() {
               {refreshing ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white/50" />
-                  <span style={{ color: THEME.textPrimary, textShadow: '0px 1px 3px #7e4151' }}>Updating insights...</span>
+                  <span style={{ color: THEME.textPrimary, textShadow: '0px 1px 3px var(--mg-body, #7e4151)' }}>Updating insights...</span>
                 </>
               ) : null}
             </div>
@@ -763,7 +763,7 @@ export function MyMirrorPanel() {
 
           <div className="flex-1">
             <h2 className="enhanced-glass-heading text-xl mb-1" style={{ color: THEME.textHeading }}>Mirror Intelligence</h2>
-            <p className="enhanced-glass-subtle text-sm mb-2" style={{ color: THEME.textPrimary, textShadow: '0px 1px 3px #7e4151' }}>
+            <p className="enhanced-glass-subtle text-sm mb-2" style={{ color: THEME.textPrimary, textShadow: '0px 1px 3px var(--mg-body, #7e4151)' }}>
               {snap?.dominantTraits?.[0] || 'Authentic Self'} • {snap?.astrologicalHighlights?.sunSign} ☉ / {snap?.astrologicalHighlights?.moonSign} ☽ {getElementSymbol(snap?.astrologicalHighlights?.dominantElement)}
             </p>
             <button
@@ -878,7 +878,7 @@ export function MyMirrorPanel() {
               ? 'bg-white/20 text-white shadow'
               : 'bg-white/10 text-white/80 hover:bg-white/20'} backdrop-blur-sm`}
             style={{
-              textShadow: '0px 1px 3px #7e4151',
+              textShadow: '0px 1px 3px var(--mg-body, #7e4151)',
               ...(t.id === 'analysis' && !analysis ? {
                 borderBottom: '2px solid rgba(244,114,182,0.5)',
               } : {}),
@@ -930,7 +930,7 @@ export function MyMirrorPanel() {
                   <div key={s.label} className="enhanced-glass-card text-center">
                     <div className="text-2xl mb-1">{s.icon}</div>
                     <div className="font-bold" style={{ color: THEME.textHeading }}>{s.value}</div>
-                    <div className="text-xs" style={{ color: THEME.textPrimary, textShadow: '0px 1px 3px #7e4151' }}>{s.label}</div>
+                    <div className="text-xs" style={{ color: THEME.textPrimary, textShadow: '0px 1px 3px var(--mg-body, #7e4151)' }}>{s.label}</div>
                   </div>
                 ))}
               </div>
@@ -1037,7 +1037,7 @@ export function MyMirrorPanel() {
                                       {/* Score + Confidence */}
                                       <div className="flex items-center gap-3 mb-2">
                                         <span className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{
-                                          background: 'rgba(244,114,182,0.15)', color: '#be185d',
+                                          background: 'rgba(244,114,182,0.15)', color: 'var(--mirror-pink, #be185d)',
                                         }}>
                                           Score: {analysis.overallScore}
                                         </span>
@@ -1141,7 +1141,7 @@ export function MyMirrorPanel() {
                     {pollTimedOut ? 'Analysis Taking Longer Than Expected' : 'Personal Mirror Report'}
                   </h3>
                   {pollTimedOut && (
-                    <p className="text-sm mb-2" style={{ color: '#b45309', textShadow: '0 1px 3px rgba(0,0,0,0.15)' }}>
+                    <p className="text-sm mb-2" style={{ color: 'var(--mirror-amber, #b45309)', textShadow: '0 1px 3px rgba(0,0,0,0.15)' }}>
                       Generation is still processing in the background. Check back shortly.
                     </p>
                   )}
@@ -1158,31 +1158,31 @@ export function MyMirrorPanel() {
               {/* Analysis text visibility overrides */}
               <style>{`
                 .mirror-analysis-report .enhanced-glass-heading {
-                  color: #3d1428 !important;
+                  color: var(--dash-heading, #3d1428) !important;
                   text-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 1px 2px rgba(255,255,255,0.1) !important;
                 }
                 .mirror-analysis-report .enhanced-glass-body {
-                  color: #4a1a2e !important;
+                  color: var(--mg-body, #4a1a2e) !important;
                   text-shadow: 0 1px 4px rgba(0,0,0,0.2) !important;
                 }
                 .mirror-analysis-report .enhanced-glass-text {
-                  color: #3d1428 !important;
+                  color: var(--dash-heading, #3d1428) !important;
                   text-shadow: 0 1px 3px rgba(126,65,81,0.3) !important;
                 }
                 .mirror-analysis-report .enhanced-glass-subtle {
-                  color: #5a2d3e !important;
+                  color: var(--mg-label, #5a2d3e) !important;
                   text-shadow: 0 1px 3px rgba(126,65,81,0.25) !important;
                 }
                 .mirror-analysis-report h2, .mirror-analysis-report h3 {
-                  color: #3d1428 !important;
+                  color: var(--dash-heading, #3d1428) !important;
                   text-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 1px 2px rgba(255,255,255,0.1) !important;
                 }
                 .mirror-analysis-report p {
-                  color: #4a1a2e !important;
+                  color: var(--mg-body, #4a1a2e) !important;
                   text-shadow: 0 1px 4px rgba(0,0,0,0.15) !important;
                 }
                 .mirror-analysis-report ul li {
-                  color: #4a1a2e !important;
+                  color: var(--mg-body, #4a1a2e) !important;
                   text-shadow: 0 1px 3px rgba(0,0,0,0.15) !important;
                 }
               `}</style>

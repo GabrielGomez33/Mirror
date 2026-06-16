@@ -11,7 +11,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { verifyEmailToken } from '../services/emailVerificationApi';
 import { confirmEmailChangeApi } from '../services/authApi';
-import '../styles/enhanced-glass.css';
 
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();

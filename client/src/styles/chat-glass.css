@@ -10,6 +10,25 @@
   --chat-text-color-muted: rgba(120, 69, 82, 0.65);
 }
 
+/* Cosmic colorway: light chat text (matches the dashboard) + indigo avatar /
+   own-bubble accents. Higher specificity than the rules above and placed after
+   them, so these win whenever <html data-theme="cosmic">. */
+[data-theme='cosmic'] .chat-window-container,
+[data-theme='cosmic'] .chat-window-container * {
+  --chat-text-color: #e9edff;
+  --chat-text-color-light: rgba(233, 237, 255, 0.85);
+  --chat-text-color-muted: rgba(180, 189, 230, 0.72);
+}
+
+[data-theme='cosmic'] .chat-avatar-circle {
+  background: linear-gradient(135deg, rgba(129, 140, 248, 0.45), rgba(99, 102, 241, 0.38));
+}
+
+[data-theme='cosmic'] .chat-bubble-own {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.30), rgba(129, 140, 248, 0.20));
+  border-color: rgba(129, 140, 248, 0.32);
+}
+
 /* ===== CHAT WINDOW CONTAINER ===== */
 .chat-window-container {
   display: flex;
@@ -466,7 +485,7 @@
 
 .chat-reply-bar {
   width: 3px;
-  background: linear-gradient(180deg, #ff69b4, #da70d6);
+  background: linear-gradient(180deg, #84a2e3, #283e78);
   border-radius: 2px;
   flex-shrink: 0;
 }

@@ -13,9 +13,9 @@ import { buildStorageRetrieveUrl } from '../../utils/storageUrl';
 // ============================================================================
 
 const COLORS = {
-  heading: '#3d1428',
-  body: '#4a1c30',
-  label: '#2d0a16',
+  heading: 'var(--dash-heading, #3d1428)',
+  body: 'var(--dash-body, #4a1c30)',
+  label: 'var(--mg-label, #2d0a16)',
   accent: '#f472b6',
   accentAlt: '#a78bfa',
 };

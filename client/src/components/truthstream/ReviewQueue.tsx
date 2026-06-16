@@ -5,9 +5,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { useTruthStream } from '../../context/TruthStreamContext';
 
 const COLORS = {
-  heading: '#3d1428',
-  body: '#4a1c30',
-  label: '#2d0a16',
+  heading: 'var(--dash-heading, #3d1428)',
+  body: 'var(--dash-body, #4a1c30)',
+  label: 'var(--mg-label, #2d0a16)',
 };
 
 // Refresh interval for expiry timers (60 seconds)

@@ -8,7 +8,6 @@ import { isWebSocketConnected } from '../services/groupsWebSocket';
 import CreateGroupModal from '../components/mirrorgroups/CreateGroupModal';
 import GroupDetailView from '../components/mirrorgroups/GroupDetailView';
 import ZenPondScene2 from '../components/three/ZenPondScene2';
-import '../styles/enhanced-glass.css';
 import type { Group, GroupType } from '../types/groups';
 import { searchPublicGroups } from '../services/groupsApi';
 
@@ -17,9 +16,9 @@ import { searchPublicGroups } from '../services/groupsApi';
 // ============================================================================
 
 const COLORS = {
-  heading: 'rgb(120, 69, 82)',
-  body: '#7e4151',
-  label: '#6a1f33',
+  heading: 'var(--mg-heading, rgb(120, 69, 82))',
+  body: 'var(--mg-body, #7e4151)',
+  label: 'var(--mg-label, #6a1f33)',
   cardBg: 'rgba(255, 255, 255, 0.04)',
   cardBgHover: 'rgba(255, 255, 255, 0.07)',
   cardBorder: 'rgba(255, 255, 255, 0.08)',
@@ -566,7 +565,7 @@ export default function MirrorGroupsPage() {
   if (selectedGroupId) {
     return (
       <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #fff1f2, #fce7f3, #f3e8ff)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'var(--mg-page-bg, linear-gradient(135deg, #fff1f2, #fce7f3, #f3e8ff))' }} />
         <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
           <ZenPondScene2 />
         </div>
@@ -602,7 +601,7 @@ export default function MirrorGroupsPage() {
         }}
       >
         {/* Background */}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #fff1f2, #fce7f3, #f3e8ff)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'var(--mg-page-bg, linear-gradient(135deg, #fff1f2, #fce7f3, #f3e8ff))' }} />
         <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}><ZenPondScene2 /></div>
 
         {/* Content */}

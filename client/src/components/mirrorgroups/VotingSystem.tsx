@@ -25,7 +25,7 @@ export default function VotingSystem({ groupId, votes, pastVotes = [] }: VotingS
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="enhanced-glass-heading text-lg" style={{ color: '#784552' }}>
+        <h3 className="enhanced-glass-heading text-lg" style={{ color: 'var(--mg-heading, #784552)' }}>
           Group Voting
         </h3>
         {!showNewVote && (
@@ -33,7 +33,7 @@ export default function VotingSystem({ groupId, votes, pastVotes = [] }: VotingS
             onClick={() => setShowNewVote(true)}
             className="enhanced-action-button px-4 py-2"
           >
-            <span className="enhanced-glass-text text-sm" style={{ color: '#6a1f33' }}>
+            <span className="enhanced-glass-text text-sm" style={{ color: 'var(--mg-label, #6a1f33)' }}>
               + New Vote
             </span>
           </button>
@@ -52,7 +52,7 @@ export default function VotingSystem({ groupId, votes, pastVotes = [] }: VotingS
       {/* Active Votes */}
       {activeVotes.length > 0 && (
         <div className="space-y-4">
-          <h4 className="enhanced-glass-text text-sm" style={{ color: '#6a1f33' }}>
+          <h4 className="enhanced-glass-text text-sm" style={{ color: 'var(--mg-label, #6a1f33)' }}>
             Active Votes ({activeVotes.length})
           </h4>
           {activeVotes.map((vote) => (
@@ -71,10 +71,10 @@ export default function VotingSystem({ groupId, votes, pastVotes = [] }: VotingS
       {activeVotes.length === 0 && !isLoadingVotes && !showNewVote && (
         <div className="text-center py-8">
           <span className="text-4xl mb-4 block">🗳️</span>
-          <p className="enhanced-glass-body mb-2" style={{ color: '#7e4151' }}>
+          <p className="enhanced-glass-body mb-2" style={{ color: 'var(--mg-body, #7e4151)' }}>
             No active votes
           </p>
-          <p className="enhanced-glass-subtle text-sm" style={{ color: '#6a1f33' }}>
+          <p className="enhanced-glass-subtle text-sm" style={{ color: 'var(--mg-label, #6a1f33)' }}>
             Start a vote to gather group decisions
           </p>
         </div>
@@ -83,7 +83,7 @@ export default function VotingSystem({ groupId, votes, pastVotes = [] }: VotingS
       {/* Completed Votes */}
       {completedVotes.length > 0 && (
         <div className="space-y-4">
-          <h4 className="enhanced-glass-text text-sm" style={{ color: '#6a1f33' }}>
+          <h4 className="enhanced-glass-text text-sm" style={{ color: 'var(--mg-label, #6a1f33)' }}>
             Vote History ({completedVotes.length})
           </h4>
           {completedVotes.map((vote) => (
@@ -170,7 +170,7 @@ function ActiveVoteCard({ vote, groupId, onCastVote, onSelect }: ActiveVoteCardP
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
           <span>{getVoteTypeIcon(vote.voteType)}</span>
-          <span className="enhanced-glass-heading text-sm" style={{ color: '#784552' }}>
+          <span className="enhanced-glass-heading text-sm" style={{ color: 'var(--mg-heading, #784552)' }}>
             {vote.topic}
           </span>
         </div>
@@ -184,12 +184,12 @@ function ActiveVoteCard({ vote, groupId, onCastVote, onSelect }: ActiveVoteCardP
       </div>
 
       {vote.argument && (
-        <p className="enhanced-glass-subtle text-sm mb-3" style={{ color: '#7e4151' }}>
+        <p className="enhanced-glass-subtle text-sm mb-3" style={{ color: 'var(--mg-body, #7e4151)' }}>
           {vote.argument}
         </p>
       )}
 
-      <p className="enhanced-glass-subtle text-xs mb-3" style={{ color: '#6a1f33' }}>
+      <p className="enhanced-glass-subtle text-xs mb-3" style={{ color: 'var(--mg-label, #6a1f33)' }}>
         Proposed by {vote.proposerUsername}
       </p>
 
@@ -214,7 +214,7 @@ function ActiveVoteCard({ vote, groupId, onCastVote, onSelect }: ActiveVoteCardP
                       : 'border-white/30'
                   }`}
                 />
-                <span className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+                <span className="enhanced-glass-text text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
                   {option}
                 </span>
               </div>
@@ -237,7 +237,7 @@ function ActiveVoteCard({ vote, groupId, onCastVote, onSelect }: ActiveVoteCardP
             disabled={!selectedOption || timeLeft === 0}
             className="flex-1 enhanced-action-button py-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
+            <span className="enhanced-glass-text" style={{ color: 'var(--mg-label, #6a1f33)' }}>
               Submit Vote
             </span>
           </button>
@@ -331,7 +331,7 @@ function CompletedVoteCard({ vote }: { vote: Vote }) {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className="text-green-400">✓</span>
-            <span className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+            <span className="enhanced-glass-text text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
               {vote.topic}
             </span>
           </div>
@@ -351,7 +351,7 @@ function CompletedVoteCard({ vote }: { vote: Vote }) {
         </div>
 
         {winningResult && (
-          <p className="enhanced-glass-subtle text-xs" style={{ color: '#6a1f33' }}>
+          <p className="enhanced-glass-subtle text-xs" style={{ color: 'var(--mg-label, #6a1f33)' }}>
             Winner: <span className="text-pink-400 font-medium">{winningResult.option}</span>
             {' '}({winningResult.percentage.toFixed(0)}%)
           </p>
@@ -366,7 +366,7 @@ function CompletedVoteCard({ vote }: { vote: Vote }) {
               <div key={idx} className="flex items-center gap-3">
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="enhanced-glass-text text-xs" style={{ color: '#7e4151' }}>
+                    <span className="enhanced-glass-text text-xs" style={{ color: 'var(--mg-body, #7e4151)' }}>
                       {result.option}
                     </span>
                     <span className="text-xs text-white/60">
@@ -452,7 +452,7 @@ function NewVoteInlineForm({ groupId, onClose, onSubmit }: NewVoteInlineFormProp
   return (
     <div className="enhanced-glass-card border-l-4 border-purple-400">
       <div className="flex items-center justify-between mb-4">
-        <h4 className="enhanced-glass-heading text-lg" style={{ color: '#784552' }}>
+        <h4 className="enhanced-glass-heading text-lg" style={{ color: 'var(--mg-heading, #784552)' }}>
           Create New Vote
         </h4>
         <button
@@ -466,7 +466,7 @@ function NewVoteInlineForm({ groupId, onClose, onSubmit }: NewVoteInlineFormProp
       <div className="space-y-4">
         {/* Topic */}
         <div>
-          <label className="block enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
+          <label className="block enhanced-glass-text text-sm mb-2" style={{ color: 'var(--mg-label, #6a1f33)' }}>
             Question *
           </label>
           <input
@@ -481,7 +481,7 @@ function NewVoteInlineForm({ groupId, onClose, onSubmit }: NewVoteInlineFormProp
 
         {/* Argument */}
         <div>
-          <label className="block enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
+          <label className="block enhanced-glass-text text-sm mb-2" style={{ color: 'var(--mg-label, #6a1f33)' }}>
             Context (optional)
           </label>
           <textarea
@@ -496,7 +496,7 @@ function NewVoteInlineForm({ groupId, onClose, onSubmit }: NewVoteInlineFormProp
 
         {/* Vote Type */}
         <div>
-          <label className="block enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
+          <label className="block enhanced-glass-text text-sm mb-2" style={{ color: 'var(--mg-label, #6a1f33)' }}>
             Vote Type
           </label>
           <div className="flex gap-2">
@@ -514,7 +514,7 @@ function NewVoteInlineForm({ groupId, onClose, onSubmit }: NewVoteInlineFormProp
                 }`}
               >
                 <span className="mr-2">{type.icon}</span>
-                <span className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+                <span className="enhanced-glass-text text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
                   {type.label}
                 </span>
               </button>
@@ -525,7 +525,7 @@ function NewVoteInlineForm({ groupId, onClose, onSubmit }: NewVoteInlineFormProp
         {/* Options for Multiple Choice */}
         {voteType === 'multiple_choice' && (
           <div>
-            <label className="block enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
+            <label className="block enhanced-glass-text text-sm mb-2" style={{ color: 'var(--mg-label, #6a1f33)' }}>
               Options
             </label>
             <div className="space-y-2">
@@ -563,7 +563,7 @@ function NewVoteInlineForm({ groupId, onClose, onSubmit }: NewVoteInlineFormProp
 
         {/* Duration */}
         <div>
-          <label className="block enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
+          <label className="block enhanced-glass-text text-sm mb-2" style={{ color: 'var(--mg-label, #6a1f33)' }}>
             Duration: {duration} seconds
           </label>
           <input
@@ -595,7 +595,7 @@ function NewVoteInlineForm({ groupId, onClose, onSubmit }: NewVoteInlineFormProp
           disabled={!topic.trim() || isSubmitting}
           className="flex-1 enhanced-action-button py-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
+          <span className="enhanced-glass-text" style={{ color: 'var(--mg-label, #6a1f33)' }}>
             {isSubmitting ? 'Creating...' : 'Start Vote'}
           </span>
         </button>
@@ -621,46 +621,46 @@ function VoteDetailModal({ vote, onClose }: VoteDetailModalProps) {
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative w-full max-w-lg enhanced-glass-panel p-6">
-        <h3 className="enhanced-glass-heading text-xl mb-4" style={{ color: '#784552' }}>
+        <h3 className="enhanced-glass-heading text-xl mb-4" style={{ color: 'var(--mg-heading, #784552)' }}>
           {vote.topic}
         </h3>
 
         {vote.argument && (
-          <p className="enhanced-glass-body mb-4" style={{ color: '#7e4151' }}>
+          <p className="enhanced-glass-body mb-4" style={{ color: 'var(--mg-body, #7e4151)' }}>
             {vote.argument}
           </p>
         )}
 
         <div className="grid grid-cols-2 gap-4 text-sm mb-6">
           <div>
-            <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
+            <span className="enhanced-glass-subtle" style={{ color: 'var(--mg-label, #6a1f33)' }}>
               Type:
             </span>
-            <span className="enhanced-glass-text ml-2 capitalize" style={{ color: '#7e4151' }}>
+            <span className="enhanced-glass-text ml-2 capitalize" style={{ color: 'var(--mg-body, #7e4151)' }}>
               {vote.voteType.replace('_', ' ')}
             </span>
           </div>
           <div>
-            <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
+            <span className="enhanced-glass-subtle" style={{ color: 'var(--mg-label, #6a1f33)' }}>
               Duration:
             </span>
-            <span className="enhanced-glass-text ml-2" style={{ color: '#7e4151' }}>
+            <span className="enhanced-glass-text ml-2" style={{ color: 'var(--mg-body, #7e4151)' }}>
               {vote.durationSeconds}s
             </span>
           </div>
           <div>
-            <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
+            <span className="enhanced-glass-subtle" style={{ color: 'var(--mg-label, #6a1f33)' }}>
               Proposed by:
             </span>
-            <span className="enhanced-glass-text ml-2" style={{ color: '#7e4151' }}>
+            <span className="enhanced-glass-text ml-2" style={{ color: 'var(--mg-body, #7e4151)' }}>
               {vote.proposerUsername}
             </span>
           </div>
           <div>
-            <span className="enhanced-glass-subtle" style={{ color: '#6a1f33' }}>
+            <span className="enhanced-glass-subtle" style={{ color: 'var(--mg-label, #6a1f33)' }}>
               Status:
             </span>
-            <span className="enhanced-glass-text ml-2 capitalize" style={{ color: '#7e4151' }}>
+            <span className="enhanced-glass-text ml-2 capitalize" style={{ color: 'var(--mg-body, #7e4151)' }}>
               {vote.status}
             </span>
           </div>
@@ -670,7 +670,7 @@ function VoteDetailModal({ vote, onClose }: VoteDetailModalProps) {
           onClick={onClose}
           className="w-full enhanced-action-button py-2"
         >
-          <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
+          <span className="enhanced-glass-text" style={{ color: 'var(--mg-label, #6a1f33)' }}>
             Close
           </span>
         </button>

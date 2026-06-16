@@ -17,11 +17,11 @@ import {
 // ============================================================================
 
 const THEME = {
-  textPrimary: '#6a1f33',
-  textBody: '#7e4151',
-  textHeading: '#784552',
-  textSubtle: '#7e4151', // Same as textBody for consistency
-  textShadow: '0px 1px 3px #7e4151',
+  textPrimary: 'var(--mg-label, #6a1f33)',
+  textBody: 'var(--mg-body, #7e4151)',
+  textHeading: 'var(--mg-heading, #784552)',
+  textSubtle: 'var(--mg-body, #7e4151)', // Same as textBody for consistency
+  textShadow: '0px 1px 3px var(--mg-body, #7e4151)',
 };
 
 const EMOTIONS = [
@@ -395,21 +395,23 @@ function JournalTabInner() {
         {/* Date Navigation (hidden during search) */}
         {!searchQuery && (
           <div className="enhanced-glass-card mb-4">
-            <div className="flex items-center justify-between">
-              <button
-                onClick={goToPreviousDay}
-                className="enhanced-action-button px-4 py-2 hover:scale-105 transition-transform"
-                aria-label="Previous day"
-              >
-                <span style={{ color: THEME.textPrimary }}>← Prev</span>
-              </button>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 flex justify-start">
+                <button
+                  onClick={goToPreviousDay}
+                  className="enhanced-action-button px-3 sm:px-4 py-2 hover:scale-105 transition-transform"
+                  aria-label="Previous day"
+                >
+                  <span className="whitespace-nowrap" style={{ color: THEME.textPrimary }}>← Prev</span>
+                </button>
+              </div>
 
-              <div className="flex flex-col items-center">
-                <div className="text-2xl font-bold" style={{ color: THEME.textHeading, textShadow: THEME.textShadow }}>
-                  {selectedDate.toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric', 
-                    year: 'numeric' 
+              <div className="flex flex-col items-center text-center px-1">
+                <div className="text-lg sm:text-2xl font-bold" style={{ color: THEME.textHeading, textShadow: THEME.textShadow }}>
+                  {selectedDate.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
                   })}
                 </div>
                 {!isToday && (
@@ -423,14 +425,16 @@ function JournalTabInner() {
                 )}
               </div>
 
-              <button
-                onClick={goToNextDay}
-                disabled={isToday}
-                className={`enhanced-action-button px-4 py-2 hover:scale-105 transition-transform ${isToday ? 'opacity-50 cursor-not-allowed' : ''}`}
-                aria-label="Next day"
-              >
-                <span style={{ color: THEME.textPrimary }}>Next →</span>
-              </button>
+              <div className="flex-1 flex justify-end">
+                <button
+                  onClick={goToNextDay}
+                  disabled={isToday}
+                  className={`enhanced-action-button px-3 sm:px-4 py-2 hover:scale-105 transition-transform ${isToday ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  aria-label="Next day"
+                >
+                  <span className="whitespace-nowrap" style={{ color: THEME.textPrimary }}>Next →</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -820,14 +824,15 @@ function CreateEntryModal({ date, onClose, onSuccess }: CreateEntryModalProps) {
       <div 
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
         style={{
-          backgroundColor: 'rgba(255, 247, 252)',
+          backgroundColor: 'var(--journal-modal-bg, rgba(255, 247, 252))',
           backdropFilter: 'blur(40px)',
           WebkitBackdropFilter: 'blur(40px) saturate(50%)',
           borderRadius: '20px',
         }}
       >
-        <div 
-          className="enhanced-glass-panel w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        <div
+          className="enhanced-glass-panel w-full max-w-2xl"
+          style={{ maxHeight: '100%', overflowY: 'auto' }}
           onClick={(e) => e.stopPropagation()}
         >
           <form onSubmit={handleSubmit}>
@@ -895,14 +900,21 @@ function CreateEntryModal({ date, onClose, onSuccess }: CreateEntryModalProps) {
                     key={time.value}
                     type="button"
                     onClick={() => setTimeOfDay(time.value)}
-                    className={`enhanced-glass-card py-3 hover:scale-105 transition-transform ${
-                      timeOfDay === time.value ? 'ring-2 ring-pink-400/50' : ''
-                    }`}
+                    className="flex flex-col items-center gap-1.5 bg-transparent border-0 p-0 hover:scale-105 transition-transform"
+                    aria-pressed={timeOfDay === time.value}
                   >
-                    <div className="text-2xl mb-1">{time.icon}</div>
-                    <div className="text-xs" style={{ color: THEME.textPrimary }}>
+                    <span
+                      className={`flex items-center justify-center rounded-full text-xl w-12 h-12 border transition-all ${
+                        timeOfDay === time.value
+                          ? 'bg-white/15 border-pink-400/60 ring-2 ring-pink-400/40'
+                          : 'bg-white/10 border-white/15'
+                      }`}
+                    >
+                      {time.icon}
+                    </span>
+                    <span className="text-[0.7rem] leading-tight text-center" style={{ color: THEME.textPrimary }}>
                       {time.value}
-                    </div>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -1076,7 +1088,7 @@ function CreateEntryModal({ date, onClose, onSuccess }: CreateEntryModalProps) {
         <div 
           className="fixed inset-0 z-[60] flex items-center justify-center p-4"
           style={{
-            backgroundColor: 'rgba(255, 247, 252)',
+            backgroundColor: 'var(--journal-modal-bg, rgba(255, 247, 252))',
             backdropFilter: 'blur(50px) saturate(30%)',
             WebkitBackdropFilter: 'blur(50px) saturate(30%)',
             borderRadius: '20px'

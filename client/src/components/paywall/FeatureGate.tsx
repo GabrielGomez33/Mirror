@@ -17,7 +17,6 @@
 
 import React, { useCallback } from 'react';
 import { useSubscription } from '../../context/SubscriptionContext';
-import '../../styles/enhanced-glass.css';
 
 // ============================================================================
 // FEATURE DESCRIPTIONS (for upgrade prompts)

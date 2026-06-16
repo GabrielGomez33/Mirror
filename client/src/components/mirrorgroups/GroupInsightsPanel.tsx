@@ -63,10 +63,10 @@ export default function GroupInsightsPanel({
     return (
       <div className="text-center py-8">
         <div className="animate-spin text-4xl mb-4">🧠</div>
-        <p className="enhanced-glass-body" style={{ color: '#7e4151' }}>
+        <p className="enhanced-glass-body" style={{ color: 'var(--mg-body, #7e4151)' }}>
           Generating AI insights...
         </p>
-        <p className="enhanced-glass-subtle text-sm mt-2" style={{ color: '#6a1f33' }}>
+        <p className="enhanced-glass-subtle text-sm mt-2" style={{ color: 'var(--mg-label, #6a1f33)' }}>
           Dina is analyzing group dynamics, compatibility, and patterns
         </p>
         <div className="mt-4 flex items-center justify-center gap-2">
@@ -85,10 +85,10 @@ export default function GroupInsightsPanel({
     return (
       <div className="text-center py-8">
         <span className="text-5xl mb-4 block">🔮</span>
-        <p className="enhanced-glass-body mb-4" style={{ color: '#7e4151' }}>
+        <p className="enhanced-glass-body mb-4" style={{ color: 'var(--mg-body, #7e4151)' }}>
           No insights available yet
         </p>
-        <p className="enhanced-glass-subtle text-sm mb-6" style={{ color: '#6a1f33' }}>
+        <p className="enhanced-glass-subtle text-sm mb-6" style={{ color: 'var(--mg-label, #6a1f33)' }}>
           Run an analysis to discover group dynamics, compatibility, and collective patterns
         </p>
 
@@ -126,7 +126,7 @@ export default function GroupInsightsPanel({
           disabled={isSubmitting}
           className="enhanced-action-button px-6 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
+          <span className="enhanced-glass-text" style={{ color: 'var(--mg-label, #6a1f33)' }}>
             {isSubmitting ? 'Starting Analysis...' : 'Generate Insights'}
           </span>
         </button>
@@ -142,7 +142,7 @@ export default function GroupInsightsPanel({
       {llmSynthesis && (
         <div className="enhanced-glass-card border-l-4 border-purple-400">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="enhanced-glass-heading text-lg" style={{ color: '#784552' }}>
+            <h3 className="enhanced-glass-heading text-lg" style={{ color: 'var(--mg-heading, #784552)' }}>
               {llmSynthesis.title || 'Group Intelligence Summary'}
             </h3>
             <div className="flex items-center gap-2">
@@ -161,21 +161,21 @@ export default function GroupInsightsPanel({
             </div>
           </div>
 
-          <p className="enhanced-glass-body mb-4" style={{ color: '#7e4151' }}>
+          <p className="enhanced-glass-body mb-4" style={{ color: 'var(--mg-body, #7e4151)' }}>
             {llmSynthesis.overview}
           </p>
 
           {/* Key Insights */}
           {llmSynthesis.keyInsights?.length > 0 && (
             <div className="mb-4">
-              <h4 className="enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
+              <h4 className="enhanced-glass-text text-sm mb-2" style={{ color: 'var(--mg-label, #6a1f33)' }}>
                 Key Insights
               </h4>
               <ul className="space-y-2">
                 {llmSynthesis.keyInsights.map((insight, i) => (
                   <li key={i} className="flex items-start gap-2">
                     <span className="text-pink-400 mt-1">✦</span>
-                    <span className="enhanced-glass-subtle text-sm" style={{ color: '#7e4151' }}>
+                    <span className="enhanced-glass-subtle text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
                       {insight}
                     </span>
                   </li>
@@ -187,14 +187,14 @@ export default function GroupInsightsPanel({
           {/* Recommendations */}
           {llmSynthesis.recommendations?.length > 0 && (
             <div className="bg-white/5 rounded-lg p-4">
-              <h4 className="enhanced-glass-text text-sm mb-2" style={{ color: '#6a1f33' }}>
+              <h4 className="enhanced-glass-text text-sm mb-2" style={{ color: 'var(--mg-label, #6a1f33)' }}>
                 Recommendations
               </h4>
               <ul className="space-y-2">
                 {llmSynthesis.recommendations.map((rec, i) => (
                   <li key={i} className="flex items-start gap-2">
                     <span className="text-green-400 mt-1">→</span>
-                    <span className="enhanced-glass-subtle text-sm" style={{ color: '#7e4151' }}>
+                    <span className="enhanced-glass-subtle text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
                       {rec}
                     </span>
                   </li>
@@ -209,7 +209,7 @@ export default function GroupInsightsPanel({
               {llmSynthesis.narrative.strengths && (
                 <div className="bg-green-500/10 rounded-lg p-3">
                   <h5 className="text-green-300 text-xs font-medium mb-1">Strengths</h5>
-                  <p className="enhanced-glass-subtle text-xs" style={{ color: '#7e4151' }}>
+                  <p className="enhanced-glass-subtle text-xs" style={{ color: 'var(--mg-body, #7e4151)' }}>
                     {llmSynthesis.narrative.strengths}
                   </p>
                 </div>
@@ -217,7 +217,7 @@ export default function GroupInsightsPanel({
               {llmSynthesis.narrative.challenges && (
                 <div className="bg-amber-500/10 rounded-lg p-3">
                   <h5 className="text-amber-300 text-xs font-medium mb-1">Challenges</h5>
-                  <p className="enhanced-glass-subtle text-xs" style={{ color: '#7e4151' }}>
+                  <p className="enhanced-glass-subtle text-xs" style={{ color: 'var(--mg-body, #7e4151)' }}>
                     {llmSynthesis.narrative.challenges}
                   </p>
                 </div>
@@ -225,7 +225,7 @@ export default function GroupInsightsPanel({
               {llmSynthesis.narrative.opportunities && (
                 <div className="bg-blue-500/10 rounded-lg p-3">
                   <h5 className="text-blue-300 text-xs font-medium mb-1">Opportunities</h5>
-                  <p className="enhanced-glass-subtle text-xs" style={{ color: '#7e4151' }}>
+                  <p className="enhanced-glass-subtle text-xs" style={{ color: 'var(--mg-body, #7e4151)' }}>
                     {llmSynthesis.narrative.opportunities}
                   </p>
                 </div>
@@ -238,7 +238,7 @@ export default function GroupInsightsPanel({
       {/* Compatibility Matrix */}
       {compatibility && compatibility.scores?.length > 0 && (
         <div className="enhanced-glass-card">
-          <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#784552' }}>
+          <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: 'var(--mg-heading, #784552)' }}>
             Compatibility Matrix
           </h3>
 
@@ -271,7 +271,7 @@ export default function GroupInsightsPanel({
 
           {/* Top Pairs */}
           <div className="space-y-2">
-            <h4 className="enhanced-glass-text text-sm" style={{ color: '#6a1f33' }}>
+            <h4 className="enhanced-glass-text text-sm" style={{ color: 'var(--mg-label, #6a1f33)' }}>
               Top Compatible Pairs
             </h4>
             {compatibility.scores
@@ -287,7 +287,7 @@ export default function GroupInsightsPanel({
       {/* Collective Patterns */}
       {patterns.length > 0 && (
         <div className="enhanced-glass-card">
-          <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#784552' }}>
+          <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: 'var(--mg-heading, #784552)' }}>
             Collective Patterns
           </h3>
           <div className="grid grid-cols-2 gap-4">
@@ -301,7 +301,7 @@ export default function GroupInsightsPanel({
       {/* Conflict Risks */}
       {conflicts.length > 0 && (
         <div className="enhanced-glass-card">
-          <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: '#784552' }}>
+          <h3 className="enhanced-glass-heading text-lg mb-4" style={{ color: 'var(--mg-heading, #784552)' }}>
             Potential Friction Points
           </h3>
           <div className="space-y-3">
@@ -320,7 +320,7 @@ export default function GroupInsightsPanel({
       {/* Insights History */}
       <div className="enhanced-glass-card">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="enhanced-glass-heading text-lg" style={{ color: '#784552' }}>
+          <h3 className="enhanced-glass-heading text-lg" style={{ color: 'var(--mg-heading, #784552)' }}>
             Insights History
           </h3>
           <button
@@ -355,7 +355,7 @@ export default function GroupInsightsPanel({
                     className="w-full p-3 flex items-center justify-between hover:bg-white/5 transition-colors text-left"
                   >
                     <div>
-                      <h4 className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+                      <h4 className="enhanced-glass-text text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
                         {historyInsight.title || 'Group Analysis'}
                       </h4>
                       <p className="text-white/50 text-xs mt-1">
@@ -384,7 +384,7 @@ export default function GroupInsightsPanel({
 
                   {expandedHistoryId === historyInsight.id && (
                     <div className="p-4 border-t border-white/10 space-y-3">
-                      <p className="enhanced-glass-subtle text-sm" style={{ color: '#7e4151' }}>
+                      <p className="enhanced-glass-subtle text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
                         {historyInsight.overview}
                       </p>
 
@@ -460,11 +460,11 @@ export default function GroupInsightsPanel({
             disabled={isSubmitting}
             className="enhanced-action-button px-6 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span className="enhanced-glass-text" style={{ color: '#6a1f33' }}>
+            <span className="enhanced-glass-text" style={{ color: 'var(--mg-label, #6a1f33)' }}>
               {isSubmitting ? 'Starting Analysis...' : 'Refresh Analysis'}
             </span>
           </button>
-          <p className="enhanced-glass-subtle text-xs mt-2" style={{ color: '#6a1f33' }}>
+          <p className="enhanced-glass-subtle text-xs mt-2" style={{ color: 'var(--mg-label, #6a1f33)' }}>
             Last analyzed: {insights.lastAnalyzed ? new Date(insights.lastAnalyzed).toLocaleString() : 'Never'}
           </p>
         </div>
@@ -492,11 +492,11 @@ function CompatibilityPair({ pair, rank }: { pair: CompatibilityScore; rank: num
       </span>
       <div className="flex-1">
         <div className="flex items-center gap-2">
-          <span className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+          <span className="enhanced-glass-text text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
             {pair.username1}
           </span>
           <span className="text-white/30">↔</span>
-          <span className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+          <span className="enhanced-glass-text text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
             {pair.username2}
           </span>
         </div>
@@ -522,11 +522,11 @@ function PatternCard({ pattern }: { pattern: CollectivePattern }) {
     <div className={`p-3 rounded-lg ${config.bg} border ${config.border}`}>
       <div className="flex items-center gap-2 mb-2">
         <span>{config.icon}</span>
-        <span className="enhanced-glass-text text-sm capitalize" style={{ color: '#784552' }}>
+        <span className="enhanced-glass-text text-sm capitalize" style={{ color: 'var(--mg-heading, #784552)' }}>
           {pattern.category}
         </span>
       </div>
-      <p className="enhanced-glass-subtle text-xs mb-2" style={{ color: '#7e4151' }}>
+      <p className="enhanced-glass-subtle text-xs mb-2" style={{ color: 'var(--mg-body, #7e4151)' }}>
         {pattern.description}
       </p>
       <div className="flex items-center justify-between text-xs text-white/50">
@@ -551,7 +551,7 @@ function ConflictCard({ conflict }: { conflict: ConflictRisk }) {
     <div className={`p-3 rounded-lg border ${config.color}`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className="enhanced-glass-text text-sm" style={{ color: '#7e4151' }}>
+          <span className="enhanced-glass-text text-sm" style={{ color: 'var(--mg-body, #7e4151)' }}>
             {conflict.username1} ↔ {conflict.username2}
           </span>
         </div>
@@ -559,13 +559,13 @@ function ConflictCard({ conflict }: { conflict: ConflictRisk }) {
           {conflict.severity.toUpperCase()}
         </span>
       </div>
-      <p className="enhanced-glass-subtle text-sm mb-2" style={{ color: '#7e4151' }}>
+      <p className="enhanced-glass-subtle text-sm mb-2" style={{ color: 'var(--mg-body, #7e4151)' }}>
         {conflict.description}
       </p>
       {conflict.mitigationStrategies?.length > 0 && (
         <div className="bg-white/5 rounded p-2 mt-2">
           <p className="text-xs text-green-300 mb-1">Suggested:</p>
-          <p className="enhanced-glass-subtle text-xs" style={{ color: '#7e4151' }}>
+          <p className="enhanced-glass-subtle text-xs" style={{ color: 'var(--mg-body, #7e4151)' }}>
             {conflict.mitigationStrategies[0]}
           </p>
         </div>

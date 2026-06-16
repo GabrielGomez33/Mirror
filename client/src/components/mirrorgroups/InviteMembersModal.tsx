@@ -10,9 +10,9 @@ import type { GroupMember } from '../../types/groups';
 import { getUserInfo } from '../../utils/token';
 
 const THEME = {
-  textHeading: '#784552',
-  textPrimary: '#7e4151',
-  textSubtle: '#6a1f33',
+  textHeading: 'var(--mg-heading, #784552)',
+  textPrimary: 'var(--mg-body, #7e4151)',
+  textSubtle: 'var(--mg-label, #6a1f33)',
 };
 
 interface InviteMembersPanelProps {
