@@ -358,12 +358,7 @@ const DevPage: React.FC = () => {
                 borderTop: '1px solid var(--dt-border)',
               }}
             >
-              <p>
-                <span style={{ color: 'var(--dt-green)' }}>$</span>{' '}
-                These docs live with the code at{' '}
-                <code>client/src/components/dev/sections/</code> — one React
-                file per section, source of truth is the manifest.
-              </p>
+              
             </footer>
           </main>
 

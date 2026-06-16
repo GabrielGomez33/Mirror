@@ -154,14 +154,7 @@ const MapPage: React.FC = () => {
             borderTop: '1px solid var(--dt-border)',
           }}
         >
-          <p>
-            <span style={{ color: 'var(--dt-green)' }}>$</span>{' '}
-            Source of truth lives at{' '}
-            <code>client/src/components/map/siteRoutes.ts</code>. To add a
-            new route, append it to the appropriate category's{' '}
-            <code>children</code> array and the tree updates automatically
-            — no JSX or CSS edits needed.
-          </p>
+          
         </footer>
       </main>
 

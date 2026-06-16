@@ -30,6 +30,9 @@ const PaymentFailedBanner: React.FC = () => {
           : 'linear-gradient(135deg, rgba(217, 119, 6, 0.15), rgba(180, 83, 9, 0.15))',
         backdropFilter: 'blur(20px)',
         borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+        // Clear the device notch / status bar when this is the topmost element
+        // (past_due is mutually exclusive with trialing, so no banner sits above it).
+        paddingTop: 'calc(0.75rem + var(--safe-area-inset-top, 0px))',
       }}
     >
       {/* Warning icon */}

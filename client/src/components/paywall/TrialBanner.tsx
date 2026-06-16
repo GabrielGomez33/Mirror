@@ -76,7 +76,7 @@ const TrialBanner: React.FC = () => {
 				top: 0,
 				zIndex: 50,
 				width: '100%',
-				padding: '8px 12px',
+				padding: 'calc(8px + var(--safe-area-inset-top, 0px)) 12px 8px 12px',
 				display: 'flex',
 				justifyContent: 'center',
 				fontFamily: "'Inter', sans-serif",

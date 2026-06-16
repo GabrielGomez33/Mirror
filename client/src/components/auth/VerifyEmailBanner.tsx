@@ -124,7 +124,7 @@ const VerifyEmailBanner: React.FC = () => {
         aria-live="polite"
         style={{
           position: 'fixed',
-          top: '1rem',
+          top: 'calc(1rem + var(--safe-area-inset-top, 0px))',
           left: 0,
           right: 0,
           margin: '0 auto',
