@@ -499,7 +499,7 @@ const PersonalityStep = () => {
       <div className="relative z-10 min-h-screen flex flex-col justify-center items-center p-6 text-center">
         <div className="w-full max-w-2xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
-            <GlassCard enhanced gradient className="text-center space-y-6 max-h-[85vh] overflow-y-auto overflow-x-hidden m-[40px]">
+            <GlassCard enhanced gradient className="text-center space-y-6 max-h-[85vh] overflow-y-auto overflow-x-hidden ">
               {showResult ? (
                 scoringError ? (
                   <ScoringErrorCard message={scoringError} onRetry={retryScoring} onRestart={restartAssessment} />
