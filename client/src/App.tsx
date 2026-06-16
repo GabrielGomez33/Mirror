@@ -49,6 +49,7 @@ import MyMirrorPage from './pages/MyMirrorPage';
 import DevPage from './pages/DevPage';
 import MapPage from './pages/MapPage';
 import TermsPage from './pages/TermsPage';
+import FeedbackPage from './pages/FeedbackPage';
 
 // -----------------------------------------------------------------------------
 // Config: prefer same-origin; honor VITE_API_URL if explicitly set
@@ -404,6 +405,22 @@ const App: React.FC = () => {
                   redirectTo="/login"
                 >
                   <MapPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Feedback & Support — Requires Authentication only.
+                Intentionally NOT gated by intake or subscription: a user must
+                always be able to reach customer service. */}
+            <Route
+              path="/feedback"
+              element={
+                <ProtectedRoute
+                  accessLevel={AccessLevel.AUTHENTICATED}
+                  securityLevel={SecurityLevel.BASIC}
+                  redirectTo="/login"
+                >
+                  <FeedbackPage />
                 </ProtectedRoute>
               }
             />
