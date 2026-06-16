@@ -1716,6 +1716,7 @@ export default function GlobalDashboard() {
                   }}
                 >
                   {([
+                    ['Feedback & Support', '/feedback'],
                     ['Site Map', '/map'],
                     ['Terms & Conditions', '/termsandconditions'],
                     ['Dev', '/dev'],
