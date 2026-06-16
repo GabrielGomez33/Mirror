@@ -33,15 +33,15 @@ import {
 
 // Match PushSettings' palette so the two cards read as one panel.
 const C = {
-	heading: '#3d1428',
-	body: '#2e1018',
-	subtle: '#6b4050',
-	muted: '#8a6070',
-	accent: '#c6469b',
-	accentSoft: 'rgba(198, 70, 155, 0.12)',
-	warning: '#b8770e',
-	danger: '#a8324c',
-	success: '#1e7a52',
+	heading: 'var(--dash-heading, #3d1428)',
+	body: 'var(--dash-body, #2e1018)',
+	subtle: 'var(--dash-subtle, #6b4050)',
+	muted: 'var(--dash-muted, #8a6070)',
+	accent: 'var(--dash-accent, #c6469b)',
+	accentSoft: 'rgba(var(--dash-glow), 0.12)',
+	warning: 'var(--mirror-amber, #b8770e)',
+	danger: 'var(--mirror-error, #a8324c)',
+	success: 'var(--mirror-success, #1e7a52)',
 };
 
 const GLOBAL_SCOPE = 'global';
@@ -51,8 +51,8 @@ const GLOBAL_SCOPE = 'global';
 // ============================================================================
 
 const containerStyle: React.CSSProperties = {
-	background: 'rgba(255, 255, 255, 0.5)',
-	border: '1px solid rgba(255, 255, 255, 0.55)',
+	background: 'rgba(var(--dash-surface), 0.5)',
+	border: '1px solid rgba(var(--dash-surface), 0.55)',
 	borderRadius: 12,
 	padding: '10px 12px',
 	backdropFilter: 'blur(12px)',
@@ -94,7 +94,7 @@ const rowStyle: React.CSSProperties = {
 	alignItems: 'flex-start',
 	gap: 10,
 	padding: '8px 0',
-	borderTop: '1px solid rgba(46, 16, 24, 0.08)',
+	borderTop: '1px solid rgba(var(--dash-ink), 0.08)',
 };
 
 const rowLabelStyle: React.CSSProperties = {
@@ -377,7 +377,7 @@ interface ToggleSwitchProps {
 const ToggleSwitch: React.FC<ToggleSwitchProps> = ({ on, saving, ariaLabel, onClick }) => {
 	const trackBg = on
 		? 'linear-gradient(135deg, #f472b6, #fb7185)'
-		: 'rgba(46, 16, 24, 0.18)';
+		: 'rgba(var(--dash-ink), 0.18)';
 	return (
 		<button
 			type="button"

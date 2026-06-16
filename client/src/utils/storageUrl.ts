@@ -2,6 +2,8 @@
 // Shared utility for building secure storage retrieval URLs.
 // Uses the server's /mirror/api/storage/retrieve/:userId/:tier/:filename endpoint.
 
+import { getToken } from './token';
+
 /**
  * Tier used for a given media type.
  * Must stay in sync with the server's TYPE_TO_TIER mapping in storageController.ts.
@@ -66,7 +68,10 @@ export function buildStorageRetrieveUrl(
 
   const resolvedTier = tier || inferTierFromFilename(trimmed);
   const base = (import.meta as any).env?.VITE_API_URL || '';
-  const token = localStorage.getItem('mirror_jwt');
+  // Read via the storage-backend-aware accessor: tokens live in sessionStorage
+  // when "Remember Me" is off, so a raw localStorage read would miss them and
+  // produce an unauthenticated URL (401 for <img>/<audio> media).
+  const token = getToken('mirror_jwt');
   const authParam = token ? `?token=${encodeURIComponent(token)}` : '';
 
   return `${base}/mirror/api/storage/retrieve/${encodeURIComponent(String(userId))}/${resolvedTier}/${encodeURIComponent(trimmed)}${authParam}`;

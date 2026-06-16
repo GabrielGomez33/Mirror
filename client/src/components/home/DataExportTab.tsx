@@ -6,6 +6,7 @@
 // ============================================================================
 
 import React, { useState, useRef } from 'react';
+import { getToken } from '../../utils/token';
 
 const THEME = {
   heading: '#3d1428',
@@ -35,7 +36,7 @@ export default function DataExportTab() {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('mirror_jwt');
+      const token = getToken('mirror_jwt');
       const res = await fetch('/mirror/api/user/export', {
         headers: { Authorization: `Bearer ${token}` },
       });

@@ -18,9 +18,9 @@ import React, { useState, useCallback } from 'react';
 import { useSubscription } from '../../context/SubscriptionContext';
 
 const C = {
-	heading: '#3d1428',
-	subtle: '#6b4050',
-	muted: '#8a6070',
+	heading: 'var(--dash-heading, #3d1428)',
+	subtle: 'var(--dash-subtle, #6b4050)',
+	muted: 'var(--dash-muted, #8a6070)',
 };
 
 const TrialBanner: React.FC = () => {
@@ -64,8 +64,8 @@ const TrialBanner: React.FC = () => {
 		buttonShadow = '0 4px 12px rgba(245, 158, 11, 0.4)';
 	} else {
 		urgencyLabel = `${trialDaysLeft} days left in your free trial`;
-		accentColor = '#c6469b';
-		buttonGradient = 'linear-gradient(135deg, #f472b6, #fb7185)';
+		accentColor = 'var(--dash-accent, #c6469b)';
+		buttonGradient = 'var(--dash-accent-grad, linear-gradient(135deg, #f472b6, #fb7185))';
 		buttonShadow = '0 4px 12px rgba(244, 114, 182, 0.3)';
 	}
 

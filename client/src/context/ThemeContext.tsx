@@ -24,7 +24,7 @@ import {
 export type Theme = 'sakura' | 'cosmic';
 
 export const THEME_STORAGE_KEY = 'mirror:theme';
-const DEFAULT_THEME: Theme = 'sakura';
+const DEFAULT_THEME: Theme = 'cosmic';
 
 export function isTheme(v: unknown): v is Theme {
   return v === 'sakura' || v === 'cosmic';
