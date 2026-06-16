@@ -7,6 +7,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTruthStream } from '../../context/TruthStreamContext';
 import { getTruthCard } from '../../services/truthStreamApi';
+import { getToken } from '../../utils/token';
 import { useFaceApi } from '../../hooks/useFaceApi';
 import { motion, AnimatePresence } from 'framer-motion';
 import GlassySakuraOrb from '../visualizers/GlassySakuraOrb';
@@ -143,7 +144,7 @@ async function uploadToStorage(
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000);
-    const token = localStorage.getItem('mirror_jwt');
+    const token = getToken('mirror_jwt');
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
     const res = await fetch(`${baseUrl}${STORAGE_ENDPOINT}`, {
