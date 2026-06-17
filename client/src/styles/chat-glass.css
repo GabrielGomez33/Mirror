@@ -1025,7 +1025,7 @@
 
 .chat-input-hint {
   margin-top: 6px;
-  text-align: right;
+  /*text-align: right;*/
 }
 
 .chat-input-hint span {

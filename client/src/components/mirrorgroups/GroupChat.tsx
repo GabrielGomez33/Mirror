@@ -359,7 +359,7 @@ export default function GroupChat({ groupId }: GroupChatProps) {
             )}
           </button>
         </div>
-        <p className="enhanced-glass-subtle text-xs mt-2 text-center" style={{ color: 'var(--mg-label, #6a1f33)' }}>
+        <p className="enhanced-glass-subtle text-xs mt-2 text-center" style={{ textAlign:'left', color: 'var(--mg-label, #6a1f33)' }}>
           Press Enter to send, Shift+Enter for new line
           <span className="mx-2">·</span>
           <span className="text-purple-300/70">Type @Dina to ask the AI assistant</span>

@@ -67,7 +67,7 @@ const ScrollToTopButton: React.FC<ScrollToTopButtonProps> = ({
       aria-hidden={!visible}
       style={{
         position: 'fixed',
-        //right: 'calc(1rem + env(safe-area-inset-right, 0px))',
+        right: 'calc(1.4rem + env(safe-area-inset-right, 0px))',
         bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))',
         zIndex: 60,
         width: 36,
