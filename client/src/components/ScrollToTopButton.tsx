@@ -68,7 +68,7 @@ const ScrollToTopButton: React.FC<ScrollToTopButtonProps> = ({
       style={{
         position: 'fixed',
         right: 'calc(1.4rem + env(safe-area-inset-right, 0px))',
-        bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))',
+        bottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
         zIndex: 60,
         width: 36,
         height: 36,
