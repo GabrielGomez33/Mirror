@@ -7,6 +7,7 @@ import { useGroups } from '../context/GroupContext';
 import { isWebSocketConnected } from '../services/groupsWebSocket';
 import CreateGroupModal from '../components/mirrorgroups/CreateGroupModal';
 import GroupDetailView from '../components/mirrorgroups/GroupDetailView';
+import ScrollToTopButton from '../components/ScrollToTopButton';
 import ZenPondScene2 from '../components/three/ZenPondScene2';
 import type { Group, GroupType } from '../types/groups';
 import { searchPublicGroups } from '../services/groupsApi';
@@ -569,11 +570,14 @@ export default function MirrorGroupsPage() {
         <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
           <ZenPondScene2 />
         </div>
-        <div style={{ position: 'relative', zIndex: 10, minHeight: '100vh', padding: isMobile ? '1rem' : '1.5rem' }}>
+        <div style={{ position: 'relative', zIndex: 10, minHeight: '100vh', padding: isMobile ? '1rem' : '1.5rem', paddingTop: `calc(${isMobile ? '1rem' : '1.5rem'} + env(safe-area-inset-top, 0px))` }}>
           <div style={{ maxWidth: '56rem', margin: '0 auto' }}>
             <GroupDetailView groupId={selectedGroupId} onBack={() => setSelectedGroupId(null)} />
           </div>
         </div>
+        {/* Page-level scroll-to-top (not the chat's internal scroll) — helps
+            users return to the header when the chat pane fills the screen. */}
+        <ScrollToTopButton />
       </div>
     );
   }
@@ -611,6 +615,9 @@ export default function MirrorGroupsPage() {
             zIndex: 10,
             minHeight: '100vh',
             padding: isMobile ? '0.75rem' : '1.5rem',
+            // Clear the device notch / status bar so the "Back to Dashboard"
+            // header isn't tucked under it on mobile (full-bleed page, no NavBar).
+            paddingTop: `calc(${isMobile ? '0.75rem' : '1.5rem'} + env(safe-area-inset-top, 0px))`,
           }}
         >
           <div style={{ maxWidth: '72rem', margin: '0 auto' }}>
