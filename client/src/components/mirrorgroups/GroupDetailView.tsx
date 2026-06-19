@@ -217,7 +217,8 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
                   e.stopPropagation();
                   setShowDeleteConfirm(true);
                 }}
-				className="mb-4 flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 transition-all duration-200 group"
+				        className="px-4 py-2 flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/20 transition-all duration-200 group"
+                style={{background:'transparent', color:'red'}}
                 type="button"
               >
                 Delete
@@ -228,11 +229,12 @@ export default function GroupDetailView({ groupId, onBack }: GroupDetailViewProp
                 e.stopPropagation();
                 setShowLeaveConfirm(!showLeaveConfirm);
               }}
-              className={`px-4 py-2 rounded-lg border text-sm transition-colors cursor-pointer ${
+              className={`px-4 py-2 rounded-lg  text-sm transition-colors cursor-pointer ${
                 showLeaveConfirm
                   ? 'bg-red-500/40 border-red-500/50 text-red-200'
                   : 'bg-red-500/20 border-red-500/30 text-red-300 hover:bg-red-500/30'
               }`}
+              style={{background:'transparent'}}
               type="button"
             >
               {showLeaveConfirm ? 'Cancel' : 'Leave'}

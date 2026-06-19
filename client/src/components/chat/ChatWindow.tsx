@@ -2,7 +2,6 @@
 // Main chat window component with message list and input
 
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useChat } from '../../context/ChatContext';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
@@ -277,14 +276,8 @@ export default function ChatWindow({ groupId, groupName, onClose }: ChatWindowPr
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Scroll to bottom button — portaled to <body> so it escapes the
-          .chat-window-container backdrop-filter. backdrop-filter establishes a
-          containing block for position:fixed, which would otherwise anchor this
-          button to the (inset, scrolling) chat panel instead of the viewport —
-          breaking its safe-area calc and its alignment with the page-level
-          scroll-to-top button. At <body> both buttons resolve `right` against
-          the screen, so they share the same right edge / column exactly. */}
-      {!isAtBottom && createPortal(
+      {/* Scroll to bottom button */}
+      {!isAtBottom && (
         <button
           onClick={scrollToBottom}
           className="chat-scroll-bottom-btn"
@@ -300,8 +293,7 @@ export default function ChatWindow({ groupId, groupName, onClose }: ChatWindowPr
           >
             <path d="M12 5v14M19 12l-7 7-7-7" />
           </svg>
-        </button>,
-        document.body
+        </button>
       )}
 
       {/* Reply preview */}
