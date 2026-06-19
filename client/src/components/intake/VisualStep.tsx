@@ -3,14 +3,17 @@
 //
 // What changed and why
 // ─────────────────────────────────────────────────────────────────────────
-// 1. Removed the in-browser getUserMedia camera capture entirely.
-//      - The live <video>/<canvas> capture path was fragile (black-screen on
-//        mobile WebKit, double-stream races, gesture timing) and the "Take
-//        photo" button frequently did nothing.
-//      - Mobile capture is now handled natively by the OS via a file <input>
-//        with capture="user", which is far more reliable and also lets iOS
-//        transcode HEIC → JPEG automatically on selection.
-//      - Desktop users upload a file (no native webcam dependency).
+// 1. Photo intake is upload-only (no camera capture).
+//      - The original in-browser getUserMedia <video>/<canvas> capture path was
+//        fragile (black-screen on mobile WebKit, double-stream races, gesture
+//        timing) and was removed.
+//      - A later native-camera "Take Photo" tile (a file <input capture="user">)
+//        was ALSO removed: it was gated on UA-based device detection that
+//        rendered inconsistently ("sometimes it shows, sometimes it doesn't")
+//        and offered nothing over picking a library photo — which on iOS also
+//        transcodes HEIC → JPEG automatically on selection.
+//      - All users (mobile + desktop) now upload a file through one reliable
+//        chooser, with no native webcam/camera dependency.
 //
 // 2. Fixed "some photos never auto-analyze".
 //      - The <img> now has an explicit onError handler. Previously, an image
@@ -110,7 +113,7 @@ function validateImageFile(file: File): string | null {
   const nameLower = (file.name || '').toLowerCase();
 
   if (HEIC_RE.test(nameLower) || file.type === 'image/heic' || file.type === 'image/heif') {
-    return 'HEIC/HEIF photos are not supported here. On iPhone, set Camera → Formats → "Most Compatible", or pick a JPEG/PNG. Tip: "Take Photo" converts automatically.';
+    return 'HEIC/HEIF photos aren’t supported directly. On iPhone, choosing the photo from your library usually converts it to JPEG automatically — otherwise set Camera → Formats → "Most Compatible", or pick a JPEG/PNG.';
   }
 
   const typeOk = ALLOWED_IMAGE_TYPES.includes(file.type);
@@ -135,13 +138,6 @@ function validateImageFile(file: File): string | null {
 const UploadIcon = () => (
   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-  </svg>
-);
-
-const CameraIcon = () => (
-  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
   </svg>
 );
 
@@ -330,7 +326,6 @@ const VisualStep: React.FC = () => {
   // Refs
   const imgRef = useRef<HTMLImageElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const actionAreaRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(true);
   const isAnalyzingRef = useRef(false);
@@ -542,7 +537,7 @@ const VisualStep: React.FC = () => {
   }, [clearWatchdog, updateIntake]);
 
   // ============================================================================
-  // FILE INTAKE (shared by Upload + Take Photo)
+  // FILE INTAKE (photo upload)
   // ============================================================================
   const acceptFile = useCallback((file: File, source: 'upload' | 'camera') => {
     const validationError = validateImageFile(file);
@@ -578,12 +573,6 @@ const VisualStep: React.FC = () => {
     if (file) acceptFile(file, 'upload');
   }, [acceptFile]);
 
-  const onCameraChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (file) acceptFile(file, 'camera');
-  }, [acceptFile]);
-
   // ============================================================================
   // RESET / NAVIGATION
   // ============================================================================
@@ -602,7 +591,6 @@ const VisualStep: React.FC = () => {
     });
     updateIntake({ photo: undefined, faceAnalysis: undefined });
     if (uploadInputRef.current) uploadInputRef.current.value = '';
-    if (cameraInputRef.current) cameraInputRef.current.value = '';
   }, [clearWatchdog, updateIntake]);
 
   // Facial analysis is REQUIRED — handleNext only advances once a face has
@@ -747,28 +735,13 @@ const VisualStep: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   className="space-y-3"
                 >
-                  <div className={device.isMobile ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-1 gap-3'}>
-                    {/* Take photo — mobile only (native OS camera via capture) */}
-                    {device.isMobile && (
-                      <button
-                        type="button"
-                        onClick={() => cameraInputRef.current?.click()}
-                        aria-label="Take a photo with your camera"
-                        className="enhanced-glass-card group relative text-center"
-                        style={{ padding: 20, borderRadius: 16, cursor: 'pointer', marginBottom: 0 }}
-                      >
-                        <div className="flex flex-col items-center gap-2">
-                          <div className="text-white/70 group-hover:text-white transition-colors">
-                            <CameraIcon />
-                          </div>
-                          <div>
-                            <p className="glass-card-text" style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Take Photo</p>
-                            <p className="glass-card-text" style={{ fontSize: 12, margin: 0, opacity: 0.5 }}>Use your camera</p>
-                          </div>
-                        </div>
-                      </button>
-                    )}
-
+                  {/* Single, reliable intake path: upload from the device.
+                      The native-camera "Take Photo" tile was removed — it was
+                      gated on flaky UA-based device detection (hence the
+                      "sometimes it shows, sometimes it doesn't" behavior) and
+                      offered no capability over picking a library photo, which
+                      on iOS also transcodes HEIC → JPEG automatically. */}
+                  <div className="grid grid-cols-1 gap-3">
                     {/* Upload */}
                     <button
                       type="button"
@@ -782,9 +755,9 @@ const VisualStep: React.FC = () => {
                           <UploadIcon />
                         </div>
                         <div>
-                          <p className="glass-card-text" style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Upload</p>
+                          <p className="glass-card-text" style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Upload a photo</p>
                           <p className="glass-card-text" style={{ fontSize: 12, margin: 0, opacity: 0.5 }}>
-                            {device.isMobile ? 'From your library' : 'JPEG, PNG, or WebP'}
+                            {device.isMobile ? 'From your photo library' : 'JPEG, PNG, or WebP'}
                           </p>
                         </div>
                       </div>
@@ -800,7 +773,7 @@ const VisualStep: React.FC = () => {
                   <div className="glass-card" style={{ padding: 12, borderRadius: 12 }}>
                     <p className="glass-card-text" style={{ fontSize: 12, margin: 0, opacity: 0.6, lineHeight: 1.5 }}>
                       For best results: good lighting, face the camera directly, neutral expression, no sunglasses.
-                      {device.isIOS && ' iPhone photos are converted automatically when you choose "Take Photo".'}
+                      {device.isIOS && ' iPhone HEIC photos are converted to JPEG automatically when you upload from your library.'}
                     </p>
                   </div>
                 </motion.div>
@@ -924,22 +897,14 @@ const VisualStep: React.FC = () => {
           </GlassCard>
           </div>
 
-          {/* Hidden inputs.
-              - Upload: library/file chooser (iOS transcodes HEIC → JPEG here).
-              - Camera: capture="user" opens the native front camera on mobile. */}
+          {/* Hidden input — Upload: library/file chooser. On iOS, selecting a
+              HEIC photo through this chooser transcodes it to JPEG here because
+              the accept list omits HEIC. */}
           <input
             ref={uploadInputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp"
             onChange={onUploadChange}
-            className="hidden"
-          />
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="user"
-            onChange={onCameraChange}
             className="hidden"
           />
         </motion.div>

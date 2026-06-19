@@ -216,13 +216,6 @@ const EXPRESSION_META: Record<string, { label: string; color: string; glow: stri
 // ============================================================================
 // SVG ICONS
 // ============================================================================
-const CameraIcon = () => (
-  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
-  </svg>
-);
-
 const UploadIcon = () => (
   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
@@ -556,7 +549,6 @@ function PhotoCapturePanel({
 
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);   // library / file chooser
-  const cameraInputRef = useRef<HTMLInputElement>(null); // native camera (capture="user")
   const imgRef = useRef<HTMLImageElement>(null);
   const mountedRef = useRef(true);
   const isAnalyzingRef = useRef(false);
@@ -665,11 +657,11 @@ function PhotoCapturePanel({
     setError('We couldn’t read that image. Please choose a JPEG, PNG, or WebP photo.');
   }, [clearWatchdog]);
 
-  // ── File intake (shared by Upload + Take Photo); uploads immediately ──
+  // ── File intake (photo upload); uploads immediately ──
   const acceptFile = useCallback((file: File) => {
     const nameLower = (file.name || '').toLowerCase();
     if (/\.(heic|heif)$/i.test(nameLower) || file.type === 'image/heic' || file.type === 'image/heif') {
-      setError('HEIC/HEIF photos aren’t supported. On iPhone use “Take Photo”, or set Camera → Formats → “Most Compatible”.');
+      setError('HEIC/HEIF photos aren’t supported directly. On iPhone, choosing the photo from your library usually converts it to JPEG automatically — otherwise set Camera → Formats → “Most Compatible”, or pick a JPEG/PNG.');
       return;
     }
     const typeOk = ALLOWED_IMAGE_TYPES.has(file.type);
@@ -704,12 +696,6 @@ function PhotoCapturePanel({
     if (file) acceptFile(file);
   }, [acceptFile]);
 
-  const onCameraChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (file) acceptFile(file);
-  }, [acceptFile]);
-
   const startOver = useCallback(() => {
     clearWatchdog();
     if (photoPreview && photoPreview.startsWith('blob:')) { try { URL.revokeObjectURL(photoPreview); } catch { /* noop */ } }
@@ -722,7 +708,6 @@ function PhotoCapturePanel({
     setAnalysisError(null);
     setError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    if (cameraInputRef.current) cameraInputRef.current.value = '';
     onPhotoRemoved();
   }, [clearWatchdog, photoPreview, onPhotoRemoved]);
 
@@ -751,28 +736,20 @@ function PhotoCapturePanel({
         </div>
       )}
 
-      {/* Method picker — Take Photo (mobile native camera) + Upload */}
+      {/* Method picker — upload only. The native-camera "Take Photo" tile was
+          removed: it was gated on flaky UA-based device detection and offered
+          nothing over picking a library photo, which on iOS also transcodes
+          HEIC → JPEG automatically. */}
       {showMethodPicker && (
         <>
-          <div className={device.isMobile ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-1 gap-3'}>
-            {device.isMobile && (
-              <button onClick={() => cameraInputRef.current?.click()} aria-label="Take a photo with your camera"
-                className="flex flex-col items-center gap-2 p-4 rounded-xl transition-all hover:scale-[1.02]"
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
-                <div style={{ color: COLORS.body }}><CameraIcon /></div>
-                <div className="text-center">
-                  <p className="text-xs font-semibold" style={{ color: COLORS.heading }}>Take Photo</p>
-                  <p className="text-[10px]" style={{ color: COLORS.label }}>Use your camera</p>
-                </div>
-              </button>
-            )}
+          <div className="grid grid-cols-1 gap-3">
             <button onClick={() => fileInputRef.current?.click()} aria-label="Upload a photo from your device"
               className="flex flex-col items-center gap-2 p-4 rounded-xl transition-all hover:scale-[1.02]"
               style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
               <div style={{ color: COLORS.body }}><UploadIcon /></div>
               <div className="text-center">
-                <p className="text-xs font-semibold" style={{ color: COLORS.heading }}>Upload</p>
-                <p className="text-[10px]" style={{ color: COLORS.label }}>{device.isMobile ? 'From your library' : 'JPEG, PNG, or WebP'}</p>
+                <p className="text-xs font-semibold" style={{ color: COLORS.heading }}>Upload a photo</p>
+                <p className="text-[10px]" style={{ color: COLORS.label }}>{device.isMobile ? 'From your photo library' : 'JPEG, PNG, or WebP'}</p>
               </div>
             </button>
           </div>
@@ -846,13 +823,13 @@ function PhotoCapturePanel({
 
       {error && <p className="text-xs p-2 rounded-lg" style={{ background: 'rgba(239,68,68,0.1)', color: '#fca5a5' }}>{error}</p>}
 
-      {/* Hidden inputs: upload (iOS transcodes HEIC→JPEG here) + native camera */}
+      {/* Hidden input: upload chooser (on iOS, selecting a HEIC photo here
+          transcodes it to JPEG because the accept list omits HEIC). */}
       <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={onUploadChange} className="hidden" />
-      <input ref={cameraInputRef} type="file" accept="image/*" capture="user" onChange={onCameraChange} className="hidden" />
 
       <p className="text-[10px]" style={{ color: COLORS.label }}>
         For best results: good lighting, face the camera directly.
-        {device.isIOS && ' iPhone photos are converted automatically when you choose “Take Photo”.'}
+        {device.isIOS && ' iPhone HEIC photos are converted to JPEG automatically when you upload from your library.'}
       </p>
     </div>
   );
