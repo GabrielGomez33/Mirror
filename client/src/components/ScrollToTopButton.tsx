@@ -8,6 +8,11 @@
 // notably the MirrorGroup detail view's Chat tab, where the chat pane can fill
 // most of the screen and push the "Back to Groups" header off-screen.
 //
+// Visually it MIRRORS .chat-scroll-bottom-btn (chat-glass.css): same 36px round
+// dark-glass pill, same hover (darken + scale 1.1), same right-edge column — so
+// the two controls read as a matched pair. It just sits lower, on the bottom
+// right "lip" below the message box, while the chat button floats higher (7rem).
+//
 // Behaviour / robustness:
 //   - Reveals only after the window has scrolled past `threshold` px.
 //   - Rendered through a portal to <body> so a transformed/blurred ancestor can
@@ -33,6 +38,7 @@ const ScrollToTopButton: React.FC<ScrollToTopButtonProps> = ({
   label = 'Scroll to top of page',
 }) => {
   const [visible, setVisible] = useState(false);
+  const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
     const read = () =>
@@ -61,38 +67,46 @@ const ScrollToTopButton: React.FC<ScrollToTopButtonProps> = ({
     <button
       type="button"
       onClick={handleClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
       aria-label={label}
       title={label}
       tabIndex={visible ? 0 : -1}
       aria-hidden={!visible}
       style={{
+        // Same right column as .chat-scroll-bottom-btn; sits on the bottom lip
+        // (the chat button floats higher at 7rem, so the two stack without
+        // overlapping).
         position: 'fixed',
-        right: 'calc(1.4rem + env(safe-area-inset-right, 0px))',
-        bottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
+        right: 'calc(1rem + env(safe-area-inset-right, 0px))',
+        bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))',
         zIndex: 60,
         width: 36,
         height: 36,
-        borderRadius: 999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'var(--mg-fab-bg, rgba(255, 255, 255, 0.16))',
-        border: '1px solid rgba(255, 255, 255, 0.28)',
-        color: 'var(--mg-heading, rgb(120, 69, 82))',
-        boxShadow: '0 6px 22px rgba(0, 0, 0, 0.18)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
+        border: 'none',
+        borderRadius: '50%',
+        // Matches .chat-scroll-bottom-btn dark-glass palette + hover.
+        background: hovered ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.6)',
+        color: hovered ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.8)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
         cursor: 'pointer',
         WebkitTapHighlightColor: 'transparent',
         opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(8px)',
+        transform: hovered ? 'scale(1.1)' : 'scale(1)',
         pointerEvents: visible ? 'auto' : 'none',
-        transition: 'opacity 0.2s ease, transform 0.2s ease, box-shadow 0.15s ease',
+        transition: 'all 0.2s ease',
       }}
     >
       <svg
-        width="20"
-        height="20"
+        width="18"
+        height="18"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
