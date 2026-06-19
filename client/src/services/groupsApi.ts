@@ -124,7 +124,7 @@ const cache = new SimpleCache();
 function sanitizeString(input: string, maxLength: number = 1000): string {
   if (!input) return '';
 
-  let sanitized = input
+  const sanitized = input
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
     .replace(/javascript:/gi, '')
     .replace(/on\w+\s*=/gi, '');
@@ -811,10 +811,16 @@ class GroupsApiClient {
       durationSeconds: Math.min(Math.max(request.durationSeconds || 60, 30), 300),
     };
 
-    return this.makeRequest<ApiResponse<Vote>>(`/${groupId}/votes/propose`, {
+    const result = await this.makeRequest<ApiResponse<Vote>>(`/${groupId}/votes/propose`, {
       method: 'POST',
       body: JSON.stringify(sanitized),
     });
+
+    // A new proposal changes the votes list. Drop any cached votes GET for this
+    // group (notably the 60s-cached vote history) so the next fetch is fresh.
+    cache.invalidate(`groups:/${groupId}/votes`);
+
+    return result;
   }
 
   async castVote(
@@ -822,13 +828,20 @@ class GroupsApiClient {
     voteId: string,
     request: CastVoteRequest
   ): Promise<ApiResponse<{ message: string }>> {
-    return this.makeRequest<ApiResponse<{ message: string }>>(
+    const result = await this.makeRequest<ApiResponse<{ message: string }>>(
       `/${groupId}/votes/${voteId}/cast`,
       {
         method: 'POST',
         body: JSON.stringify(request),
       }
     );
+
+    // A cast can complete the vote (final voter / quorum), moving it from the
+    // active list into history. Invalidate the cached votes GET so a refetch
+    // immediately after reflects the new tallies / completion.
+    cache.invalidate(`groups:/${groupId}/votes`);
+
+    return result;
   }
 
   async getActiveVotes(groupId: string): Promise<Vote[]> {
@@ -879,10 +892,14 @@ class GroupsApiClient {
     groupId: string,
     voteId: string
   ): Promise<ApiResponse<{ message: string }>> {
-    return this.makeRequest<ApiResponse<{ message: string }>>(
+    const result = await this.makeRequest<ApiResponse<{ message: string }>>(
       `/${groupId}/votes/${voteId}/cancel`,
       { method: 'POST' }
     );
+
+    cache.invalidate(`groups:/${groupId}/votes`);
+
+    return result;
   }
 
   // ==================== CONVERSATION INSIGHTS ====================
