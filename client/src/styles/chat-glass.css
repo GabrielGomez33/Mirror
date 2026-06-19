@@ -1025,7 +1025,7 @@
 
 .chat-input-hint {
   margin-top: 6px;
-  text-align: center;
+  text-align: right;
 }
 
 .chat-input-hint span {
@@ -1058,12 +1058,29 @@
   transition: all 0.2s ease;
   z-index: 1000;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+
+  /* iOS hit-test fix — why taps "passed through" to the message behind it:
+     this fixed button visually overlaps .chat-messages-container, which is a
+     momentum/overflow-y scroller. On iOS Safari a position:fixed element over
+     an async-scrolled (compositor-driven) region gets hit-tested against the
+     scroller's STALE main-thread position, so the tap is routed THROUGH the
+     button into the message bubble underneath — firing its onClick
+     (selectMessage) and opening the reaction/reply banner. Promoting the button
+     to its own GPU layer (translateZ + will-change) makes the compositor
+     hit-test the button itself, so the tap lands on it. touch-action removes the
+     tap delay. The page scroll-to-top button never hit this: it sits BELOW the
+     scroller, over the input row, so it has nothing async-scrolled to fall into. */
+  transform: translateZ(0);
+  will-change: transform;
+  touch-action: manipulation;
+  pointer-events: auto;
 }
 
 .chat-scroll-bottom-btn:hover {
   background: rgba(0, 0, 0, 0.8);
   color: rgba(255, 255, 255, 1);
-  transform: scale(1.1);
+  /* keep translateZ so the dedicated layer (and its correct hit-testing) persists */
+  transform: translateZ(0) scale(1.1);
 }
 
 /* Both floating FABs hide while the dashboard drawer is open so they don't
