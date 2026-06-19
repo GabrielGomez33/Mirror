@@ -2,29 +2,26 @@
 //
 // Floating "scroll to the top of the PAGE" control.
 //
-// This is deliberately distinct from any in-pane scroll affordance (e.g. the
-// chat's own scroll-to-bottom button): it scrolls the document/window, returning
-// the user to the page header from deep inside long, scroll-heavy views — most
-// notably the MirrorGroup detail view's Chat tab, where the chat pane can fill
-// most of the screen and push the "Back to Groups" header off-screen.
+// Distinct from any in-pane scroll affordance (e.g. the chat's scroll-to-bottom
+// button): it scrolls the document/window, returning the user to the page header
+// from deep inside long, scroll-heavy views — most notably the MirrorGroup chat
+// tab, where the chat pane can fill the screen and push the header off-screen.
 //
-// Visually it MIRRORS .chat-scroll-bottom-btn (chat-glass.css): same 36px round
-// dark-glass pill, same hover (darken + scale 1.1), same right-edge column — so
-// the two controls read as a matched pair. It just sits lower, on the bottom
-// right "lip" below the message box, while the chat button floats higher (7rem).
+// All positioning/visuals live in ScrollToTopButton.css so they can be
+// responsive (desktop hugs the bottom; mobile sits above the iOS home
+// indicator). This component only owns behaviour + the show/hide state.
 //
-// Behaviour / robustness:
+// Robustness:
 //   - Reveals only after the window has scrolled past `threshold` px.
-//   - Rendered through a portal to <body> so a transformed/blurred ancestor can
-//     never trap its `position: fixed` (a real gotcha on this page, which uses
-//     backdrop-filter heavily).
+//   - Portaled to <body> so a transformed/blurred ancestor can't trap its
+//     position:fixed (the group page uses backdrop-filter heavily), and so it
+//     shares the exact same viewport anchor as the chat scroll-to-bottom button.
 //   - Honors prefers-reduced-motion (instant jump instead of smooth scroll).
-//   - Clears the device safe-area on the bottom/right so it isn't under a home
-//     indicator or rounded corner.
-//   - Stays out of the focus order and is hidden from a11y tools while invisible.
+//   - Out of the focus order / hidden from a11y tools while invisible.
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import '../styles/ScrollToTopButton.css';
 
 interface ScrollToTopButtonProps {
   /** Reveal the button once the window has scrolled this many px. */
@@ -38,7 +35,6 @@ const ScrollToTopButton: React.FC<ScrollToTopButtonProps> = ({
   label = 'Scroll to top of page',
 }) => {
   const [visible, setVisible] = useState(false);
-  const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
     const read = () =>
@@ -67,42 +63,11 @@ const ScrollToTopButton: React.FC<ScrollToTopButtonProps> = ({
     <button
       type="button"
       onClick={handleClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onFocus={() => setHovered(true)}
-      onBlur={() => setHovered(false)}
       aria-label={label}
       title={label}
       tabIndex={visible ? 0 : -1}
       aria-hidden={!visible}
-      style={{
-        // Same right column as .chat-scroll-bottom-btn; sits on the bottom lip
-        // (the chat button floats higher at 7rem, so the two stack without
-        // overlapping).
-        position: 'fixed',
-        right: 'calc(1rem + env(safe-area-inset-right, 0px))',
-        bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))',
-        zIndex: 60,
-        width: 36,
-        height: 36,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        border: 'none',
-        borderRadius: '50%',
-        // Matches .chat-scroll-bottom-btn dark-glass palette + hover.
-        background: hovered ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.6)',
-        color: hovered ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.8)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-        cursor: 'pointer',
-        WebkitTapHighlightColor: 'transparent',
-        opacity: visible ? 1 : 0,
-        transform: hovered ? 'scale(1.1)' : 'scale(1)',
-        pointerEvents: visible ? 'auto' : 'none',
-        transition: 'all 0.2s ease',
-      }}
+      className={`scroll-to-top-btn${visible ? ' is-visible' : ''}`}
     >
       <svg
         width="18"

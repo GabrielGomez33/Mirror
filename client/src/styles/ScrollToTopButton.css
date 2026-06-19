@@ -1,0 +1,57 @@
+/* ============================================================================
+   ScrollToTopButton — page-level "scroll to top of page" FAB
+   ----------------------------------------------------------------------------
+   The button is portaled to <body> (ScrollToTopButton.tsx) and given a high
+   z-index, so it floats free of every parent div's stacking + containing
+   context. It stacks directly UNDER the chat's scroll-to-bottom button to form
+   one bottom-right control pair (↓ over ↑).
+
+   Positioning lives here (not inline) so the pair stays tunable in one place.
+   env(safe-area-inset-*) keeps it correct on desktop (insets = 0) and mobile
+   (clears the home indicator) without a breakpoint.
+   ============================================================================ */
+.scroll-to-top-btn {
+  position: fixed;
+  right: calc(1rem + env(safe-area-inset-right, 0px));
+
+  /* Lower button of the bottom-right pair, above the chat input. The chat
+     scroll-to-bottom sits ~3.5rem higher (see .chat-scroll-bottom-btn). Tune
+     this one value to slide the whole pair up/down. */
+  bottom: calc(8rem + env(safe-area-inset-bottom, 0px));
+
+  /* High z + portaled to <body> ⇒ never trapped behind, or by, any parent. */
+  z-index: 1000;
+
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  /* Hidden until the page is scrolled; .is-visible reveals it (unchanged). */
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(1);
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.scroll-to-top-btn.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.scroll-to-top-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+  color: rgba(255, 255, 255, 1);
+  transform: scale(1.1);
+}
