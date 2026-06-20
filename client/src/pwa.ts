@@ -198,3 +198,32 @@ export function applyPWAUpdate(registration: ServiceWorkerRegistration): void {
 	}
 	waiting.postMessage({ type: 'SKIP_WAITING' });
 }
+
+// ============================================================================
+// DEV CLEANUP
+// ============================================================================
+// We never register a service worker in development (see main.tsx — initPWA is
+// production-only). But a developer who ran an older build still has a SW
+// installed in their browser, and it keeps controlling the page (serving stale
+// assets, claiming clients) across dev sessions. This proactively unregisters
+// any leftover SW and clears its caches so `npm run dev` is a clean, SW-free
+// environment. Safe to call unconditionally in dev — it no-ops when nothing is
+// registered.
+export async function unregisterServiceWorkersInDev(): Promise<void> {
+	if (!('serviceWorker' in navigator)) return;
+	try {
+		const registrations = await navigator.serviceWorker.getRegistrations();
+		if (registrations.length === 0) return;
+		await Promise.all(registrations.map((r) => r.unregister()));
+		if ('caches' in window) {
+			const keys = await caches.keys();
+			await Promise.all(keys.map((k) => caches.delete(k)));
+		}
+		console.info(
+			'[PWA] dev: removed leftover service worker(s) + caches. ' +
+			'Reload once for a fully SW-free dev session.',
+		);
+	} catch (err) {
+		console.warn('[PWA] dev: service worker cleanup failed', err);
+	}
+}

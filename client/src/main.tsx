@@ -7,7 +7,7 @@ import './styles/chat-glass.css';
 
 import App from './App.tsx'
 import { ThemeProvider, readStoredTheme } from './context/ThemeContext'
-import { initPWA } from './pwa'
+import { initPWA, unregisterServiceWorkersInDev } from './pwa'
 import { installIOSResizeBridge } from './utils/iosResizeBridge'
 
 // Apply the persisted colorway before first paint to avoid a flash of the
@@ -23,5 +23,12 @@ createRoot(document.getElementById('root')!).render(
      </ThemeProvider>,
 )
 
-initPWA()
+// Service worker is PRODUCTION-ONLY. In dev a SW causes a blank-flash + full
+// page reload on first load (clientsClaim) and fights HMR — so we never start
+// it here and instead tear down any SW a previous build left in the browser.
+if (import.meta.env.PROD) {
+  initPWA()
+} else {
+  void unregisterServiceWorkersInDev()
+}
 installIOSResizeBridge()

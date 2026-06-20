@@ -159,7 +159,13 @@ export default defineConfig({
 			},
 
 			devOptions: {
-				enabled: true,
+				// Keep the service worker OFF in `npm run dev`. In dev a SW adds
+				// zero value and actively breaks the workflow: it calls
+				// clientsClaim() and intercepts navigations, which produces a
+				// blank-flash + full reload on first load and fights Vite HMR.
+				// The SW is still generated for production builds (injectManifest
+				// runs on `vite build` regardless of this flag).
+				enabled: false,
 				type: 'module',
 				navigateFallback: '/Mirror/index.html',
 			},
