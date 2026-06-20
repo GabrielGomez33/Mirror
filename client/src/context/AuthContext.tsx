@@ -553,16 +553,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const data = await response.json().catch(() => ({} as any));
 
       if (!response.ok) {
-        // Surface the server's error CODE alongside the human message so
-        // the form can switch on it (EMAIL_EXISTS, WEAK_PASSWORD, etc.).
-        const code = (data as any).code ? ` (${(data as any).code})` : '';
-        // 429 carries retryAfter (seconds). Bubble it into the message so
-        // the UI can show "wait N seconds" without parsing the code.
-        const retryAfter = (data as any).retryAfter;
+        // Propagate the server's STRUCTURED error contract { error, code, field }
+        // as first-class properties on the thrown Error. Previously the code was
+        // only embedded in the message string, which forced the form to
+        // regex-match human-readable copy — fragile, and the reason the inline
+        // "email already registered" / "username taken" hints could silently
+        // fail to render. Callers should switch on err.code / err.field;
+        // err.message stays human-readable for display + logging.
+        const errData = (data ?? {}) as {
+          error?: string; code?: string; field?: string; retryAfter?: number;
+        };
+        const serverError = errData.error || 'Registration failed';
+        const serverCode = typeof errData.code === 'string' ? errData.code : undefined;
+        const serverField = typeof errData.field === 'string' ? errData.field : undefined;
+        // 429 carries retryAfter (seconds) — keep it in the message so a
+        // string-only consumer still sees "wait Ns", and expose it structurally.
+        const retryAfter = errData.retryAfter;
         const suffix = response.status === 429 && retryAfter
           ? ` — wait ${retryAfter}s before retrying`
           : '';
-        throw new Error(((data as any).error || 'Registration failed') + code + suffix);
+        const err = new Error(serverError + suffix) as Error & {
+          code?: string; field?: string; status?: number; retryAfter?: number;
+        };
+        err.code = serverCode;
+        err.field = serverField;
+        err.status = response.status;
+        if (typeof retryAfter === 'number') err.retryAfter = retryAfter;
+        throw err;
       }
 
       // Registration response carries valid tokens AND the full user

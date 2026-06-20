@@ -1,7 +1,7 @@
 // src/components/mirrorgroups/VotingSystem.tsx
 // Real-time voting system for MirrorGroups
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useGroups } from '../../context/GroupContext';
 import type { Vote, VoteType, ProposeVoteRequest } from '../../types/groups';
 
@@ -12,7 +12,7 @@ interface VotingSystemProps {
 }
 
 export default function VotingSystem({ groupId, votes, pastVotes = [] }: VotingSystemProps) {
-  const { proposeVote, castVote, isLoadingVotes } = useGroups();
+  const { proposeVote, castVote, isLoadingVotes, refreshVotes } = useGroups();
   const [showNewVote, setShowNewVote] = useState(false);
   const [selectedVote, setSelectedVote] = useState<Vote | null>(null);
 
@@ -62,6 +62,7 @@ export default function VotingSystem({ groupId, votes, pastVotes = [] }: VotingS
               groupId={groupId}
               onCastVote={castVote}
               onSelect={() => setSelectedVote(vote)}
+              onExpire={() => { void refreshVotes(groupId); }}
             />
           ))}
         </div>
@@ -114,12 +115,29 @@ interface ActiveVoteCardProps {
   groupId: string;
   onCastVote: (groupId: string, voteId: string, request: { response: string }) => Promise<boolean>;
   onSelect: () => void;
+  /** Called once when the countdown reaches zero, to refetch vote data. */
+  onExpire?: () => void;
 }
 
-function ActiveVoteCard({ vote, groupId, onCastVote, onSelect }: ActiveVoteCardProps) {
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [hasVoted, setHasVoted] = useState(false);
-  const [timeLeft, setTimeLeft] = useState<number>(0);
+function ActiveVoteCard({ vote, groupId, onCastVote, onSelect, onExpire }: ActiveVoteCardProps) {
+  // Seed from the server's per-user `userVote` so the "you voted" state survives
+  // refetches, tab switches and remounts (it was previously local-only and reset
+  // every time the card unmounted, letting the options re-appear).
+  const [selectedOption, setSelectedOption] = useState<string | null>(vote.userVote ?? null);
+  const [hasVoted, setHasVoted] = useState<boolean>(!!vote.userVote);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Seed synchronously from expiresAt so the expiry effect below never sees a
+  // spurious 0 on the first render of a still-active vote.
+  const [timeLeft, setTimeLeft] = useState<number>(() =>
+    Math.max(0, Math.floor((new Date(vote.expiresAt).getTime() - Date.now()) / 1000))
+  );
+
+  // Hold the latest onExpire without it being a dependency of the expiry effect
+  // (an inline parent callback changes identity every render).
+  const onExpireRef = useRef(onExpire);
+  onExpireRef.current = onExpire;
+  // Guard so the expiry refresh fires at most once per mounted card.
+  const expiredFiredRef = useRef(false);
 
   // Countdown timer
   useEffect(() => {
@@ -135,14 +153,37 @@ function ActiveVoteCard({ vote, groupId, onCastVote, onSelect }: ActiveVoteCardP
     return () => clearInterval(interval);
   }, [vote.expiresAt]);
 
-  const handleVote = useCallback(async () => {
-    if (!selectedOption || hasVoted) return;
+  // When the countdown hits zero the vote has ended server-side. Refetch once,
+  // after a short grace period for the backend to flip it to "completed", so it
+  // moves Active → History even if the WebSocket vote:completed event never
+  // lands (e.g. socket dropped).
+  useEffect(() => {
+    if (timeLeft > 0 || expiredFiredRef.current) return;
+    expiredFiredRef.current = true;
+    const t = setTimeout(() => onExpireRef.current?.(), 2000);
+    return () => clearTimeout(t);
+  }, [timeLeft]);
 
+  // Reconcile with the server after a refetch: once it reports our response,
+  // lock the card into the voted state. Promote-only — never clear an optimistic
+  // local cast that is still awaiting its refetch.
+  useEffect(() => {
+    if (vote.userVote) {
+      setHasVoted(true);
+      setSelectedOption(vote.userVote);
+    }
+  }, [vote.userVote]);
+
+  const handleVote = useCallback(async () => {
+    if (!selectedOption || hasVoted || isSubmitting) return;
+
+    setIsSubmitting(true);
     const success = await onCastVote(groupId, vote.id, { response: selectedOption });
+    setIsSubmitting(false);
     if (success) {
       setHasVoted(true);
     }
-  }, [selectedOption, hasVoted, onCastVote, groupId, vote.id]);
+  }, [selectedOption, hasVoted, isSubmitting, onCastVote, groupId, vote.id]);
 
   const getVoteTypeIcon = (type: VoteType) => {
     switch (type) {
@@ -234,11 +275,11 @@ function ActiveVoteCard({ vote, groupId, onCastVote, onSelect }: ActiveVoteCardP
         {!hasVoted && (
           <button
             onClick={handleVote}
-            disabled={!selectedOption || timeLeft === 0}
+            disabled={!selectedOption || timeLeft === 0 || isSubmitting}
             className="flex-1 enhanced-action-button py-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="enhanced-glass-text" style={{ color: 'var(--mg-label, #6a1f33)' }}>
-              Submit Vote
+              {isSubmitting ? 'Submitting...' : 'Submit Vote'}
             </span>
           </button>
         )}

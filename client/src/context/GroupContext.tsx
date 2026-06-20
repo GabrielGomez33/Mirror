@@ -271,6 +271,8 @@ interface GroupContextType extends GroupsState {
   fetchInsights: (groupId: string) => Promise<void>;
   fetchActiveVotes: (groupId: string) => Promise<void>;
   fetchVoteHistory: (groupId: string) => Promise<void>;
+  /** Refetch BOTH active votes and history (e.g. after a cast/proposal). */
+  refreshVotes: (groupId: string) => Promise<void>;
 
   // Group actions
   createGroup: (data: CreateGroupFormData) => Promise<string | null>;
@@ -422,6 +424,17 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
       }
     },
     [isAuthenticated]
+  );
+
+  // Refetch active votes AND history together. A cast can complete a vote (final
+  // voter / quorum reached) — which removes it from the active list and moves it
+  // into history — so any vote mutation must refresh both lists, or the
+  // completed vote silently disappears until a WebSocket event happens to land.
+  const refreshVotes = useCallback(
+    async (groupId: string) => {
+      await Promise.all([fetchActiveVotes(groupId), fetchVoteHistory(groupId)]);
+    },
+    [fetchActiveVotes, fetchVoteHistory]
   );
 
   // ==================== GROUP ACTIONS ====================
@@ -610,15 +623,16 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
         if (response.data) {
           dispatch({ type: 'ADD_VOTE', payload: response.data });
         }
-        // Refetch votes to ensure state is accurate
-        await fetchActiveVotes(groupId);
+        // Refetch active + history so the new vote is reflected immediately
+        // (and history stays correct if proposing coincided with a completion).
+        await refreshVotes(groupId);
         return true;
       } catch (error) {
         dispatch({ type: 'SET_ERROR', payload: getGroupsErrorMessage(error) });
         return false;
       }
     },
-    [isAuthenticated, fetchActiveVotes]
+    [isAuthenticated, refreshVotes]
   );
 
   const castVote = useCallback(
@@ -627,15 +641,16 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
 
       try {
         await castVoteApi(groupId, voteId, request);
-        // Refetch votes to reflect updated vote counts
-        await fetchActiveVotes(groupId);
+        // Refetch active + history: a cast can complete the vote, which moves it
+        // into history. Refetching only active votes would drop it from view.
+        await refreshVotes(groupId);
         return true;
       } catch (error) {
         dispatch({ type: 'SET_ERROR', payload: getGroupsErrorMessage(error) });
         return false;
       }
     },
-    [isAuthenticated, fetchActiveVotes]
+    [isAuthenticated, refreshVotes]
   );
 
   // ==================== WEBSOCKET ====================
@@ -795,7 +810,7 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
     );
     cleanupRef.current.push(unsubVoteProposed);
 
-    const unsubVoteCast = onWebSocketEvent('vote:cast', (_data: unknown) => {
+    const unsubVoteCast = onWebSocketEvent('vote:cast', () => {
       console.log('[GroupContext] Vote cast received');
       // Refetch active votes to get updated counts
       if (state.currentGroup?.id) {
@@ -874,6 +889,7 @@ export const GroupProvider: React.FC<GroupProviderProps> = ({ children }) => {
     fetchInsights,
     fetchActiveVotes,
     fetchVoteHistory,
+    refreshVotes,
     createGroup,
     joinGroup,
     leaveGroup,

@@ -503,31 +503,64 @@ const RegistrationStep: React.FC = () => {
       setMessage('Registration successful!');
       setTimeout(() => navigate('/intake/visual'), 3500);
     } catch (err: any) {
-      const raw: string = err?.message || '';
-      let display = raw || 'Registration failed. Please try again.';
+      // The server speaks a structured error contract: { error, code, field }.
+      // Consume it directly — `code` is the stable signal, `field` says which
+      // input to flag, and `error` is the human-readable fallback. We also
+      // tolerate the two legacy shapes (an Error whose only signal is the
+      // message string, or the raw ApiError object under `details`) so the
+      // inline hint renders no matter which layer threw.
+      const code: string = err?.code || err?.details?.code || '';
+      const field: string = err?.field || err?.details?.field || '';
+      const serverMsg: string = err?.error || err?.details?.error || err?.message || '';
+      const haystack = `${code} ${serverMsg}`; // regex fallback only
+
+      let display = serverMsg || 'Registration failed. Please try again.';
       let focusField: 'username' | 'email' | 'password' | null = null;
 
-      if (/email[_ ]?(exists|already)/i.test(raw) || /EMAIL_EXISTS/.test(raw) || /EMAIL_ALREADY/.test(raw)) {
+      const emailExists =
+        code === 'EMAIL_EXISTS' ||
+        /EMAIL_EXISTS|EMAIL_ALREADY/i.test(haystack) ||
+        (field === 'email' && /already|exists|registered/i.test(serverMsg));
+      const usernameTaken =
+        code === 'USERNAME_TAKEN' ||
+        /USERNAME_TAKEN/i.test(haystack) ||
+        (field === 'username' && /taken|already|exists/i.test(serverMsg));
+
+      if (emailExists) {
         display = 'That email is already registered. Try logging in instead.';
         focusField = 'email';
         setValidationErrors((prev) => ({ ...prev, email: 'Email already registered' }));
-      } else if (/USERNAME_TAKEN/.test(raw) || /username.*taken/i.test(raw)) {
+      } else if (usernameTaken) {
         display = 'That username is taken. Please pick another.';
         focusField = 'username';
         setValidationErrors((prev) => ({ ...prev, username: 'Username already taken' }));
-      } else if (/DISPOSABLE_EMAIL/.test(raw) || /disposable/i.test(raw)) {
+      } else if (code === 'DISPOSABLE_EMAIL' || /DISPOSABLE/i.test(haystack)) {
         display = 'Disposable email addresses are not supported. Please use your regular inbox.';
         focusField = 'email';
         setValidationErrors((prev) => ({ ...prev, email: 'Disposable inboxes are not supported' }));
-      } else if (/RATE_LIMIT/.test(raw) || /rate limit/i.test(raw) || /\b429\b/.test(raw)) {
-        display = 'Too many attempts from this network. Please wait a minute and try again.';
-      } else if (/weak[_ ]?password/i.test(raw) || /WEAK_PASSWORD/.test(raw)) {
+      } else if (code === 'INVALID_EMAIL') {
+        display = 'Please enter a valid email address.';
+        focusField = 'email';
+        setValidationErrors((prev) => ({ ...prev, email: 'Please enter a valid email address' }));
+      } else if (code === 'INVALID_USERNAME') {
+        display = `Username must be ${USERNAME_MIN_LENGTH}-${USERNAME_MAX_LENGTH} characters: letters, numbers, underscores.`;
+        focusField = 'username';
+        setValidationErrors((prev) => ({ ...prev, username: 'Letters, numbers, and underscores only' }));
+      } else if (code === 'WEAK_PASSWORD' || /weak[_ ]?password/i.test(haystack)) {
         display = 'Password rejected. Make sure it meets every requirement below.';
         focusField = 'password';
-      } else if (/network|fetch|failed to fetch/i.test(raw)) {
-        display = 'Network problem — check your connection and try again.';
-      } else if (/missing[_ ]?fields/i.test(raw) || /MISSING_FIELDS/.test(raw)) {
+        setValidationErrors((prev) => ({ ...prev, password: 'Does not meet every requirement' }));
+      } else if (err?.status === 429 || code === 'RATE_LIMIT' || /rate limit|RATE_LIMIT|\b429\b/i.test(haystack)) {
+        // The server's message already carries "wait Ns" when it knows the
+        // window; prefer it, else fall back to a generic cooldown notice.
+        display = /wait/i.test(serverMsg)
+          ? serverMsg
+          : 'Too many attempts from this network. Please wait a minute and try again.';
+      } else if (code === 'MISSING_FIELDS' || /MISSING_FIELDS/i.test(haystack)) {
         display = 'Some required fields were missing. Please review the form.';
+        if (field === 'email' || field === 'username' || field === 'password') focusField = field;
+      } else if (/network|fetch|failed to fetch/i.test(serverMsg)) {
+        display = 'Network problem — check your connection and try again.';
       }
 
       setMessage('❌ ' + display);
