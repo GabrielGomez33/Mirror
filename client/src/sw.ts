@@ -22,7 +22,7 @@
 
 /// <reference lib="webworker" />
 
-import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
+import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
 import { registerRoute, setCatchHandler, NavigationRoute } from 'workbox-routing';
 import {
 	CacheFirst,
@@ -34,6 +34,28 @@ import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 import { clientsClaim } from 'workbox-core';
 
 declare const self: ServiceWorkerGlobalScope;
+
+// ============================================================================
+// DEV vs PROD
+// ============================================================================
+// In `npm run dev`, vite-plugin-pwa serves this worker at /Mirror/dev-sw.js
+// (devOptions.enabled) and Vite serves the HTML + ES modules with content-
+// hashed, frequently-changing URLs (e.g. ?v=abc123 on every dep re-optimize).
+//
+// The app-shell model (precache index.html + serve it for every navigation)
+// is correct in PRODUCTION (assets are static and content-hashed at build) but
+// BREAKS in dev: the cached index.html snapshot references module URLs that go
+// stale within seconds, so Vite's client detects the mismatch and forces a
+// full-page reload — the "blank flash + reload on first visit" loop, which also
+// wipes any in-flight UI (e.g. the registration error banner) before it paints.
+//
+// So precache + navigation-fallback are PRODUCTION-ONLY. The worker still runs
+// in dev (push, notification clicks, runtime API caching) — only the app-shell
+// serving, which is meaningless against Vite's dev server, is skipped.
+const IS_DEV_SW =
+	self.location.search.includes('dev-sw') ||
+	self.location.hostname === 'localhost' ||
+	self.location.hostname === '127.0.0.1';
 
 // ============================================================================
 // LIFECYCLE
@@ -61,9 +83,14 @@ self.addEventListener('message', (event) => {
 // ============================================================================
 // `self.__WB_MANIFEST` is replaced at build time by vite-plugin-pwa with
 // the list of precache assets (JS/CSS/HTML/icons per the globPatterns in
-// vite.config.ts injectManifest).
-precacheAndRoute(self.__WB_MANIFEST);
-cleanupOutdatedCaches();
+// vite.config.ts injectManifest). It must appear literally exactly once for
+// the plugin to find its injection point — so we capture it unconditionally,
+// then only actually precache in production (see IS_DEV_SW note above).
+const precacheManifest = self.__WB_MANIFEST;
+if (!IS_DEV_SW) {
+	precacheAndRoute(precacheManifest);
+	cleanupOutdatedCaches();
+}
 
 // ============================================================================
 // SPA NAVIGATION FALLBACK
@@ -73,13 +100,16 @@ cleanupOutdatedCaches();
 // that pulls from the precache.
 //
 // Deny-list: never serve cached HTML for API or WebSocket upgrade paths.
-import { createHandlerBoundToURL } from 'workbox-precaching';
-const navigationHandler = createHandlerBoundToURL('/Mirror/index.html');
-registerRoute(
-	new NavigationRoute(navigationHandler, {
-		denylist: [/^\/mirror\/api\//, /^\/mirror\/groups\/chat/],
-	}),
-);
+// PRODUCTION-ONLY: in dev, navigation requests must fall through to Vite so it
+// can serve fresh HTML + correctly-versioned module URLs (see IS_DEV_SW note).
+if (!IS_DEV_SW) {
+	const navigationHandler = createHandlerBoundToURL('/Mirror/index.html');
+	registerRoute(
+		new NavigationRoute(navigationHandler, {
+			denylist: [/^\/mirror\/api\//, /^\/mirror\/groups\/chat/],
+		}),
+	);
+}
 
 // ============================================================================
 // RUNTIME CACHING
@@ -200,7 +230,10 @@ registerRoute(
 // cache for an asset Workbox wasn't told about), this returns a cached
 // shell for navigations and a generic Response otherwise.
 setCatchHandler(async ({ request }) => {
-	if (request.destination === 'document') {
+	// Offline document fallback is production-only — in dev there's no precache
+	// and we must let navigation failures surface to Vite rather than mask them
+	// with a blank cached shell (see IS_DEV_SW note).
+	if (!IS_DEV_SW && request.destination === 'document') {
 		const cache = await caches.open('workbox-precache-v2-https://www.theundergroundrailroad.world/Mirror/');
 		const fallback = await cache.match('/Mirror/index.html');
 		if (fallback) return fallback;
