@@ -90,6 +90,16 @@ async function requestPersistentStorage(): Promise<void> {
 // (e.g. multiple tabs all triggering skipWaiting); we only reload once.
 let reloadingForUpdate = false;
 
+// Whether the pending controller change is the result of a USER-approved
+// update (UpdateBanner → applyPWAUpdate → SKIP_WAITING). This gate is the fix
+// for a spurious full-page reload: the SW calls clientsClaim() on its very
+// first activation, which also fires `controllerchange` even though no update
+// was requested. Reloading there throws away in-flight page state — e.g. the
+// registration error banner the user just triggered vanishes before it paints
+// (and first-time visitors see a jarring reload flash). We only auto-reload
+// when WE initiated the activation.
+let userInitiatedUpdate = false;
+
 function watchForWaiting(registration: ServiceWorkerRegistration): void {
 	const announceIfWaiting = (sw: ServiceWorker | null) => {
 		if (!sw) return;
@@ -124,6 +134,11 @@ export function initPWA(): void {
 	// When the active SW changes (i.e. the waiting SW activated after we
 	// posted SKIP_WAITING), reload once so the page picks up the new shell.
 	navigator.serviceWorker.addEventListener('controllerchange', () => {
+		// Ignore the controller change caused by the SW's first-install
+		// clientsClaim() (sw.ts) — that is not a user-approved update, and
+		// reloading there destroys in-flight page state. Only reload when the
+		// user clicked "Reload to update" (applyPWAUpdate set the flag).
+		if (!userInitiatedUpdate) return;
 		if (reloadingForUpdate) return;
 		reloadingForUpdate = true;
 		window.location.reload();
@@ -171,6 +186,10 @@ export function initPWA(): void {
 // Tells the waiting SW to skipWaiting; the controllerchange handler above
 // reloads the page automatically once the new SW takes control.
 export function applyPWAUpdate(registration: ServiceWorkerRegistration): void {
+	// Mark this controller change as user-approved so the `controllerchange`
+	// handler knows it's allowed to reload (see initPWA). Without this flag the
+	// handler can't tell a real update apart from the first-install claim.
+	userInitiatedUpdate = true;
 	const waiting = registration.waiting;
 	if (!waiting) {
 		// Edge case: no waiting worker (e.g. user clicked stale banner). Just reload.
