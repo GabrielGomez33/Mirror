@@ -277,9 +277,20 @@ export const ConditionalRender: React.FC<ConditionalRenderProps> = ({ children, 
     isPremiumUser,
     isAdmin,
     isIntakeCompleted,
-    isLoading
+    authChecked
   } = useAuth();
-  if (isLoading) return null;
+  // Gate on the INITIAL auth determination only — NOT on isLoading.
+  //
+  // isLoading also flips true during in-page auth operations: submitting the
+  // registration form calls register(), which dispatches SET_LOADING:true for
+  // the duration of the request. The previous `if (isLoading) return null`
+  // therefore UNMOUNTED the /register (and /login) subtree the instant the user
+  // hit submit, then remounted a fresh copy when the request settled. That blank
+  // flash looked like a page reload AND discarded the error the form's catch had
+  // just set ("email already registered" / "username taken") on the now-unmounted
+  // instance — in both dev and prod. authChecked flips true once after the first
+  // check and stays true, so later operations no longer blank the tree.
+  if (!authChecked) return null;
   const shouldRender =
     (condition === 'authenticated' && isAuthenticated) ||
     (condition === 'unauthenticated' && !isAuthenticated) ||
