@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useGroups } from '../context/GroupContext';
+import { useSubscription } from '../context/SubscriptionContext';
 import { isWebSocketConnected } from '../services/groupsWebSocket';
 import CreateGroupModal from '../components/mirrorgroups/CreateGroupModal';
 import GroupDetailView from '../components/mirrorgroups/GroupDetailView';
@@ -400,6 +401,105 @@ function DirectoryCard({ group, isAlreadyMember, getGroupIcon, onView, onJoin }:
 }
 
 // ============================================================================
+// CREATE GROUP BUTTON (premium-gated)
+// ============================================================================
+// Creating a group is a Premium privilege. For users without the entitlement
+// we render a greyed-out, lock-badged button that routes to the upgrade modal
+// instead of the create flow. The button intentionally stays interactive
+// (it is NOT a disabled <button>) so the tap still drives the conversion path
+// and remains keyboard-focusable for accessibility. The server-side gate on
+// POST /mirror/api/groups/create remains the source of truth — this is UX only.
+
+const LOCK_GLYPH = '\u{1F512}'; // 🔒
+
+interface CreateGroupButtonProps {
+  /** When true, render the greyed/locked treatment (no create access). */
+  locked: boolean;
+  /** Click handler — opens the create modal when unlocked, upgrade modal when locked. */
+  onClick: () => void;
+  /** Visual variant: the header pill or the larger empty-state CTA. */
+  variant: 'header' | 'empty';
+  isMobile?: boolean;
+}
+
+function CreateGroupButton({ locked, onClick, variant, isMobile = false }: CreateGroupButtonProps) {
+  const [hovered, setHovered] = useState(false);
+
+  const label = variant === 'header' ? 'Create Group' : 'Create Your First Group';
+  // Leading glyph: lock when gated, "+" for the header CTA, nothing for empty state.
+  const leadingGlyph = locked ? LOCK_GLYPH : variant === 'header' ? '+' : null;
+
+  const padding =
+    variant === 'header'
+      ? isMobile
+        ? '0.6rem 1rem'
+        : '0.65rem 1.5rem'
+      : '0.5rem 1.25rem';
+  const borderRadius = variant === 'header' ? 12 : 10;
+  const fontWeight = variant === 'header' ? 600 : 500;
+
+  const unlockedStyle: React.CSSProperties = {
+    background: 'linear-gradient(135deg, rgba(236,72,153,0.15), rgba(168,85,247,0.15))',
+    border: '1px solid rgba(236,72,153,0.3)',
+    color: COLORS.label,
+    boxShadow: hovered ? '0 6px 20px rgba(236,72,153,0.18)' : 'none',
+    transform: hovered ? 'translateY(-1px)' : 'none',
+  };
+
+  // Greyed/locked: muted neutral surface so it clearly reads as unavailable,
+  // while the lock icon + tooltip explain why and invite an upgrade.
+  const lockedStyle: React.CSSProperties = {
+    background: 'rgba(140,140,150,0.12)',
+    border: `1px solid rgba(140,140,150,${hovered ? 0.4 : 0.28})`,
+    color: 'rgba(90,60,70,0.55)',
+    boxShadow: 'none',
+    transform: 'none',
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
+      type="button"
+      aria-label={
+        locked
+          ? 'Create group — Premium feature, tap to upgrade'
+          : variant === 'header'
+            ? 'Create group'
+            : 'Create your first group'
+      }
+      aria-disabled={locked || undefined}
+      title={locked ? 'Creating a group is a Premium feature' : undefined}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        padding,
+        borderRadius,
+        fontWeight,
+        fontSize: '0.85rem',
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+        WebkitTapHighlightColor: 'transparent',
+        transition: 'all 0.2s ease',
+        ...(locked ? lockedStyle : unlockedStyle),
+      }}
+    >
+      {leadingGlyph && (
+        <span aria-hidden="true" style={{ fontSize: locked ? '0.9em' : '1em', lineHeight: 1 }}>
+          {leadingGlyph}
+        </span>
+      )}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+// ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
@@ -415,6 +515,15 @@ export default function MirrorGroupsPage() {
     fetchSuggestedGroups,
     joinGroup,
   } = useGroups();
+
+  // Premium gating — creating a group requires the `create_group` entitlement.
+  const { canAccess, lastFetched, openUpgradeModal } = useSubscription();
+  const canCreateGroup = canAccess('create_group');
+  // Only surface the locked treatment once subscription state has actually
+  // resolved (lastFetched set). Before that we stay optimistic so premium
+  // users never see a lock flash on first paint / hard refresh.
+  const subscriptionResolved = lastFetched !== null;
+  const createLocked = subscriptionResolved && !canCreateGroup;
 
   // Poll actual WebSocket readyState directly every 2s for reliable live/offline dot
   const [wsLive, setWsLive] = useState(() => isWebSocketConnected());
@@ -531,6 +640,19 @@ export default function MirrorGroupsPage() {
   };
 
   const handleGroupCreated = (groupId: string) => { setSelectedGroupId(groupId); };
+
+  // Entry point for both "Create Group" CTAs. If we know the user lacks the
+  // premium entitlement, route them to the upgrade modal (conversion path)
+  // rather than opening a create form they cannot submit. While subscription
+  // state is still resolving we stay optimistic and open the create modal —
+  // the server-side gate + paywall interceptor remain the safety net.
+  const handleCreateClick = useCallback(() => {
+    if (subscriptionResolved && !canCreateGroup) {
+      openUpgradeModal('create_group');
+      return;
+    }
+    setShowCreateModal(true);
+  }, [subscriptionResolved, canCreateGroup, openUpgradeModal]);
 
   const getGroupIcon = (type: Group['type']) => {
     const icons: Record<string, string> = {
@@ -700,24 +822,12 @@ export default function MirrorGroupsPage() {
                     </span>
                   </div>
 
-                  <button
-                    onClick={() => setShowCreateModal(true)}
-                    type="button"
-                    style={{
-                      padding: isMobile ? '0.6rem 1rem' : '0.65rem 1.5rem',
-                      borderRadius: 12,
-                      background: 'linear-gradient(135deg, rgba(236,72,153,0.15), rgba(168,85,247,0.15))',
-                      border: '1px solid rgba(236,72,153,0.3)',
-                      color: COLORS.label,
-                      fontWeight: 600,
-                      fontSize: '0.85rem',
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                      WebkitTapHighlightColor: 'transparent',
-                    }}
-                  >
-                    + Create Group
-                  </button>
+                  <CreateGroupButton
+                    variant="header"
+                    locked={createLocked}
+                    isMobile={isMobile}
+                    onClick={handleCreateClick}
+                  />
                 </div>
               </div>
 
@@ -859,22 +969,11 @@ export default function MirrorGroupsPage() {
                         {searchQuery ? 'No groups match your search' : "You haven't joined any groups yet"}
                       </p>
                       <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
-                        <button
-                          onClick={() => setShowCreateModal(true)}
-                          type="button"
-                          style={{
-                            padding: '0.5rem 1.25rem',
-                            borderRadius: 10,
-                            background: 'linear-gradient(135deg, rgba(236,72,153,0.15), rgba(168,85,247,0.15))',
-                            border: '1px solid rgba(236,72,153,0.3)',
-                            color: COLORS.label,
-                            fontWeight: 500,
-                            fontSize: '0.85rem',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Create Your First Group
-                        </button>
+                        <CreateGroupButton
+                          variant="empty"
+                          locked={createLocked}
+                          onClick={handleCreateClick}
+                        />
                         <button
                           onClick={() => setViewMode('directory')}
                           type="button"
