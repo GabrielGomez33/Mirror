@@ -254,6 +254,13 @@ export interface Vote {
   expiresAt: string;
   results?: VoteResult[];
   participationRate?: number;
+  /**
+   * The current user's response on this vote, as returned by mirror-server's
+   * votes GET endpoints (the `userVote` field). Present with the chosen value if
+   * the user has already voted, null/absent otherwise. Drives the persistent
+   * "you voted" state across refetches, tab switches and remounts.
+   */
+  userVote?: string | null;
 }
 
 export interface VoteResponse {

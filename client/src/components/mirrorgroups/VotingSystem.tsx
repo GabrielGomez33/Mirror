@@ -120,8 +120,11 @@ interface ActiveVoteCardProps {
 }
 
 function ActiveVoteCard({ vote, groupId, onCastVote, onSelect, onExpire }: ActiveVoteCardProps) {
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [hasVoted, setHasVoted] = useState(false);
+  // Seed from the server's per-user `userVote` so the "you voted" state survives
+  // refetches, tab switches and remounts (it was previously local-only and reset
+  // every time the card unmounted, letting the options re-appear).
+  const [selectedOption, setSelectedOption] = useState<string | null>(vote.userVote ?? null);
+  const [hasVoted, setHasVoted] = useState<boolean>(!!vote.userVote);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Seed synchronously from expiresAt so the expiry effect below never sees a
   // spurious 0 on the first render of a still-active vote.
@@ -160,6 +163,16 @@ function ActiveVoteCard({ vote, groupId, onCastVote, onSelect, onExpire }: Activ
     const t = setTimeout(() => onExpireRef.current?.(), 2000);
     return () => clearTimeout(t);
   }, [timeLeft]);
+
+  // Reconcile with the server after a refetch: once it reports our response,
+  // lock the card into the voted state. Promote-only — never clear an optimistic
+  // local cast that is still awaiting its refetch.
+  useEffect(() => {
+    if (vote.userVote) {
+      setHasVoted(true);
+      setSelectedOption(vote.userVote);
+    }
+  }, [vote.userVote]);
 
   const handleVote = useCallback(async () => {
     if (!selectedOption || hasVoted || isSubmitting) return;
