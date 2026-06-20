@@ -11,11 +11,15 @@ files** — never patches.
 
 ```
 server-updates/
-├── README.md                ← you are here
-├── mirror-server/           ← changes / audit notes for mirror-server
+├── README.md                       ← you are here
+├── mirror-server/                  ← changes / audit notes for mirror-server
 │   ├── README.md
-│   └── optional-hardening/   ← OPTIONAL, non-breaking improvements only
-└── dina-server/             ← changes / audit notes for dina-server
+│   ├── controllers/
+│   │   └── availabilityController.ts   ← NEW (Goal #2) — drop into controllers/
+│   ├── routes/
+│   │   └── auth.ts                     ← UPDATED (Goal #2) — replaces routes/auth.ts
+│   └── optional-hardening/             ← OPTIONAL, non-breaking improvements only
+└── dina-server/                    ← changes / audit notes for dina-server
     └── README.md
 ```
 
@@ -60,3 +64,33 @@ edge-case test matrix are in [`mirror-server/README.md`](./mirror-server/README.
 and [`dina-server/README.md`](./dina-server/README.md). One **optional**,
 non-breaking config-naming alignment is provided under
 `mirror-server/optional-hardening/`.
+
+---
+
+## Goal #2 — Real-time username availability on registration
+
+**Front-end (shipped in this repo):** the registration form now checks username
+availability live as the user types (debounced + abortable), showing
+"Checking… / ✓ available / ✗ taken" and blocking submit on a confirmed
+collision. New service `client/src/services/usernameAvailability.ts`; wired into
+`client/src/components/intake/RegistrationStep.tsx`. It degrades gracefully — any
+network/rate-limit/undeployed-endpoint outcome is neutral and the authoritative
+submit-time `USERNAME_TAKEN` check remains the backstop.
+
+**Back end (REQUIRED — two complete files):**
+
+| File | Action |
+|------|--------|
+| `mirror-server/controllers/availabilityController.ts` | **NEW** — add to `controllers/` |
+| `mirror-server/routes/auth.ts` | **REPLACE** the existing `routes/auth.ts` |
+
+Adds `POST /mirror/api/auth/check-username` (public, IP-rate-limited 30/min):
+case-insensitive uniqueness with the *same* rules as `createUserInDB()`, a
+reserved-name list, and fail-safe behaviour (never reports a name free if it
+couldn't verify). Username-only by design — email existence is **not** exposed
+here, so this can't become an email-enumeration oracle. **dina-server is not
+involved.** Deployment steps, security rationale, and the edge-case/test matrix
+are in [`mirror-server/README.md`](./mirror-server/README.md).
+
+Both back-end files were typechecked (`tsc --noEmit`) against a fresh clone of
+`mirror-server@master` — 0 errors.

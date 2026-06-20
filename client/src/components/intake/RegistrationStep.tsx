@@ -39,6 +39,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import BasicScene from '../three/BasicScene';
 import { acceptTerms } from '../../services/consentApi';
 import { TERMS_VERSION, TERMS_HREF, MINIMUM_AGE } from '../../config/legal';
+import { checkUsernameAvailability, type UsernameCheckStatus } from '../../services/usernameAvailability';
 
 // ---------------------------------------------------------------------------
 // Constants — kept identical between client and server.
@@ -177,6 +178,61 @@ const RevealCard: React.FC<RevealCardProps> = ({ show, delayIndex = 0, children 
   );
 };
 
+// ---------------------------------------------------------------------------
+// Live username availability indicator.
+//
+// 'idle'     — empty or format-invalid (the format error is shown separately)
+// 'checking' — request in flight (debounced)
+// then one of the server-reported UsernameCheckStatus values.
+// Neutral states ('idle' / 'unknown' / 'invalid') render nothing so we never
+// hard-block on a flaky network — the submit-time server check is the backstop.
+// ---------------------------------------------------------------------------
+type UsernameFieldStatus = 'idle' | 'checking' | UsernameCheckStatus;
+
+const UsernameAvailabilityHint: React.FC<{ status: UsernameFieldStatus }> = ({ status }) => {
+  if (status === 'checking') {
+    return (
+      <p className="text-white/60 text-xs flex items-center justify-center gap-1.5" role="status" aria-live="polite">
+        <span
+          className="inline-block w-3 h-3 rounded-full border-2 border-white/30 border-t-white/70 animate-spin"
+          aria-hidden="true"
+        />
+        <span>Checking availability…</span>
+      </p>
+    );
+  }
+  if (status === 'available') {
+    return (
+      <motion.p
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="text-pink-200 text-xs flex items-center justify-center space-x-1"
+        role="status"
+        aria-live="polite"
+      >
+        <span aria-hidden="true">✓</span>
+        <span>Username is available</span>
+      </motion.p>
+    );
+  }
+  if (status === 'taken' || status === 'reserved') {
+    return (
+      <motion.p
+        initial={{ opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-red-400 text-xs flex items-center justify-center space-x-1"
+        role="alert"
+        aria-live="polite"
+      >
+        <span aria-hidden="true">✗</span>
+        <span>{status === 'reserved' ? 'That username is reserved' : 'That username is taken'}</span>
+      </motion.p>
+    );
+  }
+  // idle / unknown / invalid → stay neutral.
+  return null;
+};
+
 const RegistrationStep: React.FC = () => {
   const navigate = useNavigate();
   const { updateIntake } = useIntake();
@@ -199,6 +255,9 @@ const RegistrationStep: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
   const [breachWarning, setBreachWarning] = useState<string | null>(null);
+  // Live username availability (debounced server check). Public data, so we
+  // surface it as the user types; see the effect + UsernameAvailabilityHint.
+  const [usernameStatus, setUsernameStatus] = useState<UsernameFieldStatus>('idle');
   const [online, setOnline] = useState<boolean>(
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
@@ -324,6 +383,37 @@ const RegistrationStep: React.FC = () => {
     };
   }, [password]);
 
+  // ----- Live username availability (debounced + abortable) --------------
+  // Only checks once the format is valid (format errors are surfaced via
+  // validationErrors). Each keystroke aborts the prior in-flight request and
+  // restarts the 450ms debounce, and the aborted-guard prevents a stale
+  // response from overwriting a newer one. Any ambiguous outcome resolves to a
+  // neutral state inside checkUsernameAvailability() — the authoritative check
+  // is the submit-time USERNAME_TAKEN gate, so a flaky network never blocks.
+  useEffect(() => {
+    const formatValid =
+      username.length >= USERNAME_MIN_LENGTH &&
+      username.length <= USERNAME_MAX_LENGTH &&
+      USERNAME_ALLOWED.test(username);
+
+    if (!formatValid) {
+      setUsernameStatus('idle');
+      return;
+    }
+
+    setUsernameStatus('checking');
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      const status = await checkUsernameAvailability(username, controller.signal);
+      if (!controller.signal.aborted) setUsernameStatus(status);
+    }, 450);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [username]);
+
   // ----- Step progression -------------------------------------------------
   // Drives the visual reveal. The step is a CASCADING gate: each rung
   // requires the previous rung to currently hold, and the step is
@@ -373,6 +463,11 @@ const RegistrationStep: React.FC = () => {
     return (
       username.length >= USERNAME_MIN_LENGTH &&
       !validationErrors.username &&
+      // Block on a CONFIRMED unavailable username only. 'checking' / 'unknown'
+      // stay enabled — the submit-time server check is the backstop, so we
+      // never trap the user behind a slow or undeployed availability endpoint.
+      usernameStatus !== 'taken' &&
+      usernameStatus !== 'reserved' &&
       email.length > 0 &&
       EMAIL_RE.test(email) &&
       !validationErrors.email &&
@@ -388,6 +483,7 @@ const RegistrationStep: React.FC = () => {
     password,
     confirmPassword,
     agreedToTerms,
+    usernameStatus,
     validationErrors.username,
     validationErrors.email,
     validationErrors.password,
@@ -449,6 +545,10 @@ const RegistrationStep: React.FC = () => {
       finalErrors.username = `Username must be ${USERNAME_MIN_LENGTH}-${USERNAME_MAX_LENGTH} characters`;
     } else if (!USERNAME_ALLOWED.test(trimmedUsername)) {
       finalErrors.username = 'Letters, numbers, and underscores only';
+    } else if (usernameStatus === 'taken') {
+      finalErrors.username = 'That username is taken. Please pick another.';
+    } else if (usernameStatus === 'reserved') {
+      finalErrors.username = 'That username is reserved. Please choose another.';
     }
     if (!trimmedEmail) finalErrors.email = 'Email is required';
     else if (!EMAIL_RE.test(trimmedEmail)) finalErrors.email = 'Please enter a valid email address';
@@ -837,14 +937,7 @@ const RegistrationStep: React.FC = () => {
                   </AnimatePresence>
 
                   {username && !validationErrors.username && (
-                    <motion.p
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="text-pink-200 text-xs flex items-center justify-center space-x-1"
-                    >
-                      <span>✓</span>
-                      <span>Looks good!</span>
-                    </motion.p>
+                    <UsernameAvailabilityHint status={usernameStatus} />
                   )}
                 </div>
 

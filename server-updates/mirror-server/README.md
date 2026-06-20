@@ -163,3 +163,96 @@ optional-hardening/paywall/.payenv.example
 `.payenv` on the host. ⚠️ Do **not** copy the example file over your live
 `.payenv` — the example contains placeholder PayPal credentials. The provided
 file is the *template* (`.payenv.example`) only. This change is safe to skip.
+
+---
+
+# mirror-server — Goal #2 ("live username availability")
+
+**Required: two complete files.** Adds a public, rate-limited endpoint that
+powers the registration form's real-time "username available / taken" indicator.
+
+Authored + typechecked against a fresh clone of `mirror-server@master`
+(`tsc --noEmit` → 0 errors in both files) on 2026-06-20.
+
+## 1. Files to deploy
+
+| File in this folder | Destination in mirror-server | Action |
+|---------------------|------------------------------|--------|
+| `controllers/availabilityController.ts` | `controllers/availabilityController.ts` | **NEW** |
+| `routes/auth.ts` | `routes/auth.ts` | **REPLACE** (adds one import, one rate-limiter const, one route — all other routes preserved verbatim) |
+
+No other files change. No DB migration. No dina-server change.
+
+## 2. What it adds
+
+`POST /mirror/api/auth/check-username` — public (registration is pre-auth),
+IP-rate-limited **30/min** via the existing `AuthMiddleware.rateLimit`.
+
+Request body (or query): `{ "username": "<candidate>" }`
+Responses (always JSON, `Cache-Control: no-store`):
+
+| Status | Body | Meaning |
+|--------|------|---------|
+| 200 | `{ "available": true }` | free |
+| 200 | `{ "available": false, "reason": "taken" }` | already registered (case-insensitive) |
+| 200 | `{ "available": false, "reason": "reserved" }` | reserved handle (admin, support, dina, …) |
+| 200 | `{ "available": false, "reason": "invalid" }` | fails format rules |
+| 400 | `{ "available": false, "reason": "invalid" }` | empty/missing |
+| 429 | (limiter) | too many requests from this IP |
+| 503 | `{ "available": null }` | internal error — could not verify |
+
+Uniqueness uses `SELECT id FROM users WHERE LOWER(username) = ? LIMIT 1` — the
+**same case-insensitive rule as `createUserInDB()`**, so the live answer matches
+what registration will actually enforce. No drift.
+
+## 3. Security / design rationale
+
+* **No email enumeration oracle.** Only *usernames* are checked. Usernames are
+  already public in Mirror (search, group rosters, @mentions), so their
+  availability leaks nothing. Email existence deliberately stays a submit-time
+  reveal (Goal: "keep inline reveal + harden").
+* **Rate limited** to protect the DB from as-you-type / scripted volume. The
+  client also debounces (450ms) and aborts superseded requests.
+* **Fail-safe.** On any internal error the endpoint returns `503 available:null`
+  and the client shows a neutral state — it never reports a name as free that it
+  couldn't verify. The authoritative gate remains the `USERNAME_TAKEN` error
+  from `createUserInDB()` at submit time (defense in depth).
+* **Parameterized query** (no SQL injection surface); input length-capped and
+  format-validated before the DB is touched.
+* **`trust proxy`** must be configured (already required for `/register`,
+  `/login`) so the limiter keys on the real client IP, not 127.0.0.1.
+
+## 4. Edge-case / test matrix
+
+`POST /mirror/api/auth/check-username`:
+
+| # | Input | Expected |
+|---|-------|----------|
+| 1 | free name e.g. `"brandnew_handle"` | 200 `{available:true}` |
+| 2 | existing name (any case, e.g. `"Gabriel"` vs stored `"gabriel"`) | 200 `{available:false, reason:"taken"}` |
+| 3 | `"admin"` / `"dina"` / `"support"` | 200 `{available:false, reason:"reserved"}` |
+| 4 | `"ab"` (too short) / `"bad name"` (space) / 21+ chars | 200 `{available:false, reason:"invalid"}` |
+| 5 | `""` or missing body | 400 `{available:false, reason:"invalid"}` |
+| 6 | 31 requests in a minute from one IP | 429 on the 31st |
+| 7 | DB unavailable | 503 `{available:null}` |
+| 8 | leading/trailing spaces `" gabriel "` | trimmed → treated as `"gabriel"` |
+
+### Smoke tests
+```bash
+# free
+curl -sS -X POST https://<host>/mirror/api/auth/check-username \
+  -H 'Content-Type: application/json' -d '{"username":"totally_unique_42"}'
+# taken (use a known existing username)
+curl -sS -X POST https://<host>/mirror/api/auth/check-username \
+  -H 'Content-Type: application/json' -d '{"username":"<existing>"}'
+# reserved
+curl -sS -X POST https://<host>/mirror/api/auth/check-username \
+  -H 'Content-Type: application/json' -d '{"username":"admin"}'
+```
+
+## 5. Rollback
+
+Delete `controllers/availabilityController.ts` and restore the previous
+`routes/auth.ts`. The front end degrades gracefully — with the endpoint gone,
+every check resolves to "unknown" (no indicator) and registration still works
+via the unchanged submit-time uniqueness check. Zero downstream impact.
