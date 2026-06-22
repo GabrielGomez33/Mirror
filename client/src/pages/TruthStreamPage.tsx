@@ -121,18 +121,51 @@ function TruthStreamRouter() {
 export default function TruthStreamPage() {
   const navigate = useNavigate();
   const isMobile = useMediaQuery('(max-width: 640px)');
-  const { isPremium, isTrialing, status, openUpgradeModal } = useSubscription();
+  const { isPremium, isTrialing, status, isLoading, openUpgradeModal, refreshSubscription } = useSubscription();
   const [showGate, setShowGate] = useState(false);
+  // Whether we've completed at least one subscription check while on this page.
+  // We must NOT decide access until the subscription has actually resolved —
+  // SubscriptionContext starts with tier='free' and loads asynchronously, so the
+  // first render is always "not premium" until the fetch lands. Gating on that
+  // initial state is what made the premium wall flicker (block → redirect →
+  // repeat) for users who ARE premium, until the fetch finally returned.
+  const [checked, setChecked] = useState(false);
 
   const hasAccess = isPremium() || isTrialing() || status === 'past_due';
 
+  // Force a fresh subscription read on landing, so a just-granted premium (or a
+  // stale cached 'free') is reflected before we gate.
   useEffect(() => {
+    let alive = true;
+    refreshSubscription().finally(() => { if (alive) setChecked(true); });
+    return () => { alive = false; };
+  }, [refreshSubscription]);
+
+  // Only show the gate once the subscription has RESOLVED and the user genuinely
+  // lacks access. Clear it the moment access is confirmed.
+  useEffect(() => {
+    if (!checked || isLoading) return;
     if (!hasAccess) {
       setShowGate(true);
       const timer = setTimeout(() => navigate(-1), 2500);
       return () => clearTimeout(timer);
     }
-  }, [hasAccess, navigate]);
+    setShowGate(false);
+  }, [checked, isLoading, hasAccess, navigate]);
+
+  // While the subscription is still resolving, show a neutral loader — never the
+  // premium gate — so a premium user is never bounced mid-load.
+  if (!checked || isLoading) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'linear-gradient(135deg, #1a0a10, #2d1220, #1a0a15)',
+        color: 'rgba(255,255,255,0.7)', fontFamily: "'Inter', sans-serif", fontSize: '0.95rem', zIndex: 9999,
+      }}>
+        Loading TruthStream…
+      </div>
+    );
+  }
 
   if (showGate) {
     return (
