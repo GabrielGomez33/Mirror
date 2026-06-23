@@ -395,7 +395,7 @@ function DialogueThread({ reviewId, responseCount }: { reviewId: string; respons
                   <span style={{ fontSize: 11, color: '#fca5a5' }}>{localError}</span>
                 </div>
               )}
-              <div className="flex gap-2">
+              <div className="flex gap-2" style={{color:'rgb(217 214 220)'}}>
                 <textarea
                   value={newMessage}
                   onChange={(e) => { setNewMessage(e.target.value); setLocalError(null); }}
@@ -486,7 +486,7 @@ function GivenReviewCard({ review, index }: { review: any; index: number }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.06 }}
       className="enhanced-glass-card"
-      style={{ borderRadius: 16, overflow: 'hidden' }}
+      style={{ borderRadius: '0.3rem', overflow: 'hidden' }}
     >
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
@@ -719,7 +719,8 @@ function GivenReviewCard({ review, index }: { review: any; index: number }) {
         <button
           onClick={() => setExpanded(!expanded)}
           className="enhanced-glass-subtle"
-          style={{ fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+           style={{ fontSize: 11, color:'rgb(217 214 220)', background: 'none', boxShadow:'1px 1px 1px 1px white', borderRadius:'2rem', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', padding: 0 }}
+          
           aria-expanded={expanded}
         >
           {expanded ? 'Show less' : 'Show full review'}
@@ -765,9 +766,9 @@ export default function GivenReviews() {
             <button
               onClick={() => setView('overview')}
               className="enhanced-action-button"
-              style={{ padding: '6px 12px', borderRadius: 10 }}
+              style={{ padding: '6px 12px', borderRadius: 10, border:'1px solid rgba(255, 255, 255, 0.15)', boxShadow:'1px 1px 1px 1px white' }}
             >
-              <span className="enhanced-glass-subtle" style={{ fontSize: 12 }}>Back</span>
+              <span className="enhanced-glass-subtle" style={{ fontSize:'0.85rem',fontWeight:'500' }}>{'\u2190'} Back to Overview</span>
             </button>
             <h2 className="enhanced-glass-heading" style={{ fontSize: 18, margin: 0 }}>Reviews Given</h2>
           </div>
