@@ -272,7 +272,7 @@ export default function TruthStreamPage() {
             position: 'relative',
             zIndex: 10,
             minHeight: '100vh',
-            padding: isMobile ? '0.75rem' : '1.5rem',
+            padding: isMobile ? '0.75rem' : '1rem',
           }}
         >
           <div style={{ maxWidth: '72rem', margin: '0 auto' }}>

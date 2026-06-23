@@ -376,7 +376,7 @@ function DialogueThread({ reviewId, responseCount }: { reviewId: string; respons
                   <span style={{ fontSize: 11, color: '#fca5a5' }}>{localError}</span>
                 </div>
               )}
-              <div className="flex gap-2">
+              <div className="flex gap-2" style={{color:'rgb(217 214 220)'}}>
                 <textarea
                   value={newMessage}
                   onChange={(e) => { setNewMessage(e.target.value); setLocalError(null); }}
@@ -385,7 +385,7 @@ function DialogueThread({ reviewId, responseCount }: { reviewId: string; respons
                   rows={2}
                   placeholder="Reply anonymously... (min 5 chars)"
                   className="flex-1 rounded-lg p-2.5 text-xs resize-none"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'inherit', outline: 'none', fontSize: 12 }}
+                  style={{ background: 'rgba(255,255,255,0.04)', color:'rgb(217 214 220);', border: '1px solid rgba(255,255,255,0.1)', outline: 'none', fontSize: 12 }}
                   aria-label="Dialogue message"
                 />
                 <button
@@ -402,7 +402,7 @@ function DialogueThread({ reviewId, responseCount }: { reviewId: string; respons
                 <span className="enhanced-glass-subtle" style={{ fontSize: 10, color: charCount >= MESSAGE_MAX_LENGTH * 0.9 ? '#f472b6' : undefined }}>
                   {charCount}/{MESSAGE_MAX_LENGTH}
                 </span>
-                <span className="enhanced-glass-subtle" style={{ fontSize: 10, fontStyle: 'italic', margin: 0 }}>
+                <span className="enhanced-glass-subtle" style={{ color:'rgb(217 214 220)',fontSize: 10, fontStyle: 'italic', margin: 0 }}>
                   Enter to send · Shift+Enter for newline
                 </span>
               </div>
@@ -464,7 +464,7 @@ function ReviewCard({ review, index }: { review: any; index: number }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.06 }}
       className="enhanced-glass-card"
-      style={{ borderRadius: 16, overflow: 'hidden' }}
+      style={{ borderRadius: '0.3rem', overflow: 'hidden' }}
     >
       {/* ── Header: classification + time ──────────────────────────────── */}
       <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
@@ -693,7 +693,7 @@ function ReviewCard({ review, index }: { review: any; index: number }) {
         <button
           onClick={() => setExpanded(!expanded)}
           className="enhanced-glass-subtle"
-          style={{ fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          style={{ fontSize: 11, color:'rgb(217 214 220)', background: 'none', boxShadow:'1px 1px 1px 1px white', borderRadius:'2rem', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', padding: 0 }}
           aria-expanded={expanded}
         >
           {expanded ? 'Show less' : 'Show full review'}
@@ -805,9 +805,9 @@ export default function ReceivedReviews() {
             <button
               onClick={() => setView('overview')}
               className="enhanced-action-button"
-              style={{ padding: '6px 12px', borderRadius: 10 }}
+              style={{ padding: '6px 12px', borderRadius: 10, border:'1px solid rgba(255, 255, 255, 0.15)', boxShadow:'1px 1px 1px 1px  white' }}
             >
-              <span className="enhanced-glass-subtle" style={{ fontSize: 12 }}>Back</span>
+              <span className="enhanced-glass-subtle" style={{ fontSize:'0.85rem',fontWeight:'500' }}>{'\u2190'} Back to Overview</span>
             </button>
             <h2 className="enhanced-glass-heading" style={{ fontSize: 18, margin: 0 }}>Reviews Received</h2>
           </div>

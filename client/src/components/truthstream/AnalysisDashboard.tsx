@@ -558,9 +558,10 @@ export default function AnalysisDashboard() {
             <button
               onClick={() => setView('overview')}
               className="enhanced-action-button text-xs px-3 py-1"
-              style={{ padding: '6px 12px', borderRadius: 10 }}
+              style={{ padding: '6px 12px', borderRadius: 10, border:'1px solid rgba(255, 255, 255, 0.15)', boxShadow:'1px 1px 1px 1px white' }}
+            
             >
-              <span className="enhanced-glass-subtle" style={{ fontSize: 12 }}>Back</span>
+              <span className="enhanced-glass-subtle" style={{ fontSize:'0.85rem',fontWeight:'500' }}>{'\u2190'} Back to Overview</span>
             </button>
             <h2 className="enhanced-glass-heading" style={{ fontSize: 18 }}>Truth Mirror Report</h2>
           </div>
