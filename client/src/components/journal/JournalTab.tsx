@@ -235,10 +235,19 @@ function JournalTabInner() {
     };
   }, [selectedDate]);
 
-  // Fetch entries for selected date
+  // Fetch entries for the selected date.
+  // Debounced so that rapid Prev/Next navigation coalesces into a single fetch for
+  // the date the user settles on (instead of one request per intermediate day,
+  // which drained the client's 20/min limiter). Cached dates are served for free
+  // by journalApi, so paging back over previously-viewed days costs nothing.
   useEffect(() => {
-    fetchEntriesForDate(selectedDate);
+    const t = setTimeout(() => { fetchEntriesForDate(selectedDate); }, 250);
+    return () => clearTimeout(t);
   }, [selectedDate]);
+
+  // Monotonic guard so an out-of-order (slower, older) response can never clobber
+  // the entries for the date the user is currently viewing.
+  const fetchSeqRef = useRef(0);
 
   const fetchEntriesForDate = async (date: Date) => {
     if (!isOnline) {
@@ -246,17 +255,20 @@ function JournalTabInner() {
       return;
     }
 
+    const seq = ++fetchSeqRef.current;
     try {
       setLoading(true);
       setError(null);
       const dateStr = formatDateForAPI(date);
       const fetchedEntries = await getEntriesByDate(dateStr);
+      if (seq !== fetchSeqRef.current) return; // a newer fetch superseded this one
       setEntries(fetchedEntries);
     } catch (err: any) {
+      if (seq !== fetchSeqRef.current) return;
       console.error('Error fetching entries:', err);
       setError(err.message || 'Failed to load entries');
     } finally {
-      setLoading(false);
+      if (seq === fetchSeqRef.current) setLoading(false);
     }
   };
 
