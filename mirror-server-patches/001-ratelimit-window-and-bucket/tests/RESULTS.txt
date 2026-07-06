@@ -1,0 +1,26 @@
+BUG ①  window duration
+  ✅ OLD blocks mid-window (expected)
+  ✅ OLD STILL blocked just after 1x window (demonstrates 2x bug)
+  ✅ OLD only resets after ~2x window
+  ✅ NEW blocks mid-window
+  ✅ NEW still blocked at 59.999s
+  ✅ NEW resets exactly at windowMs (60.000s)
+BUG ①  retryAfter accuracy
+  ✅ NEW retryAfter reflects true remaining wait (50s)
+  ✅ NEW retryAfter never rounds to 0 (>=1s)
+BUG ②  per-route isolation (same user, two routes)
+  ✅ NEW route A blocks at its own limit
+  ✅ NEW route B unaffected by route A usage
+  ✅ OLD low-limit route WRONGLY blocked by unrelated high-limit route (shared-bucket bug)
+  ✅ NEW low-limit route unaffected by unrelated high-limit route
+per-user isolation & boundary counts
+  ✅ NEW allows exactly maxRequests
+  ✅ NEW blocks the (max+1)th
+  ✅ NEW different user is independent
+  ✅ NEW same user allowed again after window
+unauthenticated (IP-keyed) requests are namespaced
+  ✅ NEW IP-keyed route A first request ok
+  ✅ NEW IP-keyed route A second blocked
+  ✅ NEW same IP on route B still ok (namespaced)
+
+✅ ALL PASSED — 19 passed, 0 failed
