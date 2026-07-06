@@ -31,7 +31,7 @@ behavior looked random.
 | 2 | `mirror-server` `routes/personalAnalysis.ts:65` `checkAnalysisRateLimit` | in-memory fixed window | 500 / 10 min | ✅ correct |
 | 3 | `mirror-server` `routes/groups.ts:2459` `rateLimitedJoin` | in-memory sliding window | 10 joins / 60 s | ✅ correct |
 | 4 | `mirror-server` `utils/journalSecurityHelpers.ts:250` `checkEntryRateLimit` | DB daily count | 20 entries / day | ✅ correct (business rule) |
-| 5 | `Mirror` `services/journalApi.ts:64` client `RateLimiter` | in-memory, shared across all journal calls | 20 req / 60 s | ⚠️ amplified (roadmap J) |
+| 5 | `Mirror` `services/journalApi.ts:64` client `RateLimiter` | in-memory, shared across all journal calls | 20 req / 60 s | ✅ **FIXED (Goal 4)** — cache-first + debounced date-nav |
 | 6 | `Mirror` `services/groupsApi.ts:46` client `RateLimiter` | in-memory, shared across all group calls | 30 req / 60 s | ✅ **FIXED (Goal 3)** — cache-first + 30s poll |
 | 7 | `Mirror` `services/truthStreamApi.ts:37` client `RateLimiter` | in-memory, shared across all truthstream calls | 25 req / 60 s | ⚠️ amplified (roadmap T) |
 |   | `dina-server` `src/api/middleware/security.ts` + `config/database/db.ts:736` | per-identity/min | 15–20/min (100 trusted) | ✅ correct; aggregate-load risk (roadmap D) |
@@ -65,19 +65,18 @@ All three client `RateLimiter`s throw the literal
 much of what users see is the client throttling itself once amplifiers push it
 past the (small, shared) budget.
 
-### Roadmap J — Journal (`journalApi.ts` 20/min shared)
-- Rapid date navigation (`JournalTab.tsx` `useEffect([selectedDate])`) fires an
-  uncached GET per Prev/Next with **no AbortController / in-flight guard**.
-- **Create → forced full refetch** = 2 requests per save; `createEntry` invalidates
-  the date cache so the refetch always hits the network.
-- `fetchWithRetry` fans each call up to 4× on 5xx/network errors, all against the
-  same 20/min bucket.
-- Reconnect (`online` event) refetches; effect re-subscribes per date.
-- Search refetches 100 uncached entries per settled keystroke burst.
-- **Fix direction:** add an AbortController + in-flight guard to
-  `fetchEntriesForDate`; update local state from `createEntry`'s returned entry
-  instead of refetching; reconsider the 20/min shared cap (it is stricter than any
-  backend journal limit — journal reads are unlimited server-side).
+### Roadmap J — Journal (`journalApi.ts` 20/min shared) ✅ DONE (Goal 4)
+- Rapid date navigation fired an uncached GET per Prev/Next with no coalescing, and
+  `getEntriesByDate` checked the limiter **before** the cache, so even revisiting a
+  cached date consumed a slot.
+- **Fixed:** cache lookup now runs before the limiter (revisits are free); the
+  date-change fetch is debounced 250 ms (rapid Prev/Next → one fetch) with a
+  monotonic sequence guard against stale overwrites. See
+  `frontend-fixes/goal-J-journal-datenav-and-cache-limiter/` (7/7 tests pass).
+- **Deferred (documented, now cheaper):** replace the post-create full refetch with
+  a local-state append from `createEntry`'s returned entry; stop the online/offline
+  effect re-subscribing per date. `fetchWithRetry` retries do **not** consume extra
+  limiter slots (single check per call), so no change needed there.
 
 ### Roadmap G — Groups (`groupsApi.ts` 30/min shared) ✅ DONE (Goal 3)
 - **3-second `getMyGroups` poll** burned ~20 of 30 slots/min for the entire time
@@ -154,7 +153,8 @@ noted for a later goal):
   tested** — `client/` edits + `frontend-fixes/goal-P-.../`.
 - ✅ **Goal 3 (Roadmap G — groups poll + cache/limiter order) implemented and
   tested** — `client/` edits + `frontend-fixes/goal-G-.../`.
-- ⏭️ Remaining goals, one at a time, each hardened + verified before the next:
-  **J** (journal: abort + in-flight guard, drop create→refetch), **T** (truthstream:
-  stop cache-wipe poll, WS-driven completion). Each lands as a frontend edit under
-  `client/` (and any backend/dina change under the sibling `*-patches/` folders).
+- ✅ **Goal 4 (Roadmap J — journal cache/limiter order + debounced date-nav)
+  implemented and tested** — `client/` edits + `frontend-fixes/goal-J-.../`.
+- ⏭️ Remaining: **T** (truthstream: stop the 8 s poll wiping its own cache each
+  tick; drive completion from the existing `ts:analysis_complete` WS event; coalesce
+  mount fetches). Lands as a frontend edit under `client/`.

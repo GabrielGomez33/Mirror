@@ -1,0 +1,12 @@
+cache-before-limiter: paging back over viewed dates is free
+  ✅ OLD throws when revisiting a cached date past the budget
+  ✅ NEW never throws revisiting a cached date
+  ✅ NEW made exactly 1 network call for the revisited date
+debounce: rapid Prev/Next coalesces to one fetch
+  ✅ 10 rapid navigations → exactly 1 fetch
+  ✅ the single fetch is for the final date
+sequence guard: stale response cannot clobber current date
+  ✅ newer fetch applied
+  ✅ stale (older) fetch ignored by guard
+
+✅ ALL PASSED — 7 passed, 0 failed
