@@ -529,6 +529,13 @@ export function MyMirrorPanel() {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [pollElapsed, setPollElapsed] = useState(0);
   const [pollTimedOut, setPollTimedOut] = useState(false);
+  // Synchronous double-submit guard for POST /generate. State drives the disabled
+  // UI; the ref blocks a second call fired before React re-renders (the real gap,
+  // since the primary button was neither disabled nor guarded during the in-flight
+  // POST — a few impatient clicks exhausted the 5/hour backend limit).
+  const requestInFlightRef = useRef(false);
+  const [isRequesting, setIsRequesting] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollStartRef = useRef<number>(0);
   const analysisIdBeforeRegen = useRef<string | null>(null);
@@ -635,14 +642,35 @@ export function MyMirrorPanel() {
   }, [loadAnalysis, analysis]);
 
   const handleRequestAnalysis = useCallback(async () => {
+    // Guard synchronously — before any await — so a burst of clicks in the same
+    // tick (before isRequesting/isPolling re-render) cannot fire multiple POSTs.
+    if (requestInFlightRef.current || isPolling) return;
+    requestInFlightRef.current = true;
+    setIsRequesting(true);
+    setAnalysisError(null);
     setPollTimedOut(false);
     try {
       await requestPersonalAnalysisApi('comprehensive');
       startPolling();
     } catch (e) {
+      const err = e as { code?: string; status?: number; retryAfter?: number; message?: string };
+      if (err?.code === 'RATE_LIMIT_EXCEEDED' || err?.status === 429) {
+        const secs = Number(err?.retryAfter) || 0;
+        const mins = Math.ceil(secs / 60);
+        setAnalysisError(
+          secs > 0
+            ? `You've reached the report-generation limit. Please try again in ${mins} minute${mins === 1 ? '' : 's'}.`
+            : "You've reached the report-generation limit. Please try again later."
+        );
+      } else {
+        setAnalysisError(err?.message || 'Analysis request failed. Please try again.');
+      }
       console.error('Analysis request failed:', e);
+    } finally {
+      requestInFlightRef.current = false;
+      setIsRequesting(false);
     }
-  }, [startPolling]);
+  }, [startPolling, isPolling]);
 
   const micro = useMemo(() => (data ? buildMicroNarratives(data) : []), [data]);
 
@@ -1149,9 +1177,14 @@ export function MyMirrorPanel() {
                     Generate your comprehensive personal analysis. Dina will synthesize your intake assessment, journal entries,
                     and temporal patterns into an actionable growth report.
                   </p>
-                  <button onClick={handleRequestAnalysis} className="enhanced-action-button px-8 py-3" style={{ opacity: isPolling ? 0.6 : 1 }}>
-                    <span className="font-medium" style={{ color: THEME.textPrimary, textShadow: '0 1px 3px rgba(126,65,81,0.3)' }}>Generate Report</span>
+                  <button onClick={handleRequestAnalysis} disabled={isRequesting || isPolling} className="enhanced-action-button px-8 py-3" style={{ opacity: (isRequesting || isPolling) ? 0.6 : 1, cursor: (isRequesting || isPolling) ? 'not-allowed' : 'pointer' }}>
+                    <span className="font-medium" style={{ color: THEME.textPrimary, textShadow: '0 1px 3px rgba(126,65,81,0.3)' }}>{isRequesting ? 'Generating…' : 'Generate Report'}</span>
                   </button>
+                  {analysisError && (
+                    <p className="text-sm mt-3" role="alert" style={{ color: 'var(--mirror-amber, #b45309)', textShadow: '0 1px 3px rgba(0,0,0,0.15)' }}>
+                      {analysisError}
+                    </p>
+                  )}
                 </motion.div>
               )}
 
@@ -1224,10 +1257,13 @@ export function MyMirrorPanel() {
                         <span className="enhanced-glass-subtle">Confidence: {confidencePct}%</span>
                         <span className="enhanced-glass-subtle">{analysis.intakeSectionsAvailable} intake sections</span>
                       </div>
-                      <div className="mt-3 flex gap-2">
-                        <button onClick={handleRequestAnalysis} disabled={isPolling} className="enhanced-action-button text-xs px-3 py-1" style={{ padding: '6px 12px', borderRadius: 10 }}>
-                          <span className="enhanced-glass-subtle" style={{ fontSize: 11 }}>Regenerate</span>
+                      <div className="mt-3 flex items-center gap-3 flex-wrap">
+                        <button onClick={handleRequestAnalysis} disabled={isRequesting || isPolling} className="enhanced-action-button text-xs px-3 py-1" style={{ padding: '6px 12px', borderRadius: 10, opacity: (isRequesting || isPolling) ? 0.6 : 1, cursor: (isRequesting || isPolling) ? 'not-allowed' : 'pointer' }}>
+                          <span className="enhanced-glass-subtle" style={{ fontSize: 11 }}>{isRequesting ? 'Regenerating…' : 'Regenerate'}</span>
                         </button>
+                        {analysisError && (
+                          <span role="alert" style={{ fontSize: 11, color: 'var(--mirror-amber, #b45309)' }}>{analysisError}</span>
+                        )}
                       </div>
                     </motion.div>
 

@@ -180,15 +180,20 @@ class TruthStreamApiClient {
     const token = getToken();
     if (!token) throw new Error('No authentication token');
 
-    if (!rateLimiter.canMakeRequest()) {
-      const waitTime = rateLimiter.getWaitTime();
-      throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds.`);
-    }
-
+    // Serve GET cache hits BEFORE consuming rate-limit budget. A cached read makes
+    // no network request and must not count against the shared 25/min client
+    // limiter — previously the limiter was checked first, so mount-time fan-out and
+    // WebSocket-driven refetches drained the budget even when served from cache.
     const cacheKey = `truthstream:${endpoint}`;
     if (useCache && (!options.method || options.method === 'GET')) {
       const cached = cache.get<T>(cacheKey);
       if (cached) return cached;
+    }
+
+    // Only genuine network requests count against the client rate limiter.
+    if (!rateLimiter.canMakeRequest()) {
+      const waitTime = rateLimiter.getWaitTime();
+      throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds.`);
     }
 
     const url = `${this.baseUrl}${endpoint}`;

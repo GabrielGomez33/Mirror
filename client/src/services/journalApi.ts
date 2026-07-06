@@ -262,13 +262,10 @@ export async function getEntriesByDate(
     const token = getToken();
     if (!token) throw new Error('No authentication token');
     
-    // Check rate limit
-    if (!rateLimiter.canMakeRequest()) {
-      const waitTime = rateLimiter.getWaitTime();
-      throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds.`);
-    }
-    
-    // Check cache
+    // Serve from cache BEFORE consuming rate-limit budget. A cached read makes no
+    // network call and must not count against the client limiter — previously the
+    // limiter was checked first, so re-viewing a date (e.g. paging back and forth)
+    // drained the 20/min budget on pure cache hits and threw "Rate limit exceeded".
     const cacheKey = `entries-${date}-${timeOfDay || 'all'}`;
     if (useCache) {
       const cached = cache.get<JournalEntry[]>(cacheKey);
@@ -277,7 +274,13 @@ export async function getEntriesByDate(
         return cached;
       }
     }
-    
+
+    // Only genuine network requests count against the client rate limiter.
+    if (!rateLimiter.canMakeRequest()) {
+      const waitTime = rateLimiter.getWaitTime();
+      throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds.`);
+    }
+
     const url = timeOfDay
       ? `${API_BASE}/journal/entry/date/${date}?timeOfDay=${timeOfDay}`
       : `${API_BASE}/journal/entry/date/${date}`;

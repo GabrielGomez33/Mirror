@@ -219,12 +219,10 @@ class GroupsApiClient {
       throw new Error('No authentication token');
     }
 
-    if (!rateLimiter.canMakeRequest()) {
-      const waitTime = rateLimiter.getWaitTime();
-      throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds.`);
-    }
-
-    // Check cache for GET requests
+    // Serve GET cache hits BEFORE consuming rate-limit budget. A cached read makes
+    // no network request, so it must not count against the client limiter.
+    // Previously the limiter was checked first, so the background poll drained the
+    // 30/min budget on cache hits and surfaced a spurious "Rate limit exceeded".
     const cacheKey = `groups:${endpoint}`;
     if (useCache && options.method === 'GET') {
       const cached = cache.get<T>(cacheKey);
@@ -232,6 +230,12 @@ class GroupsApiClient {
         console.log(`[GroupsAPI] Cache hit: ${endpoint}`);
         return cached;
       }
+    }
+
+    // Only real network requests count against the client rate limiter.
+    if (!rateLimiter.canMakeRequest()) {
+      const waitTime = rateLimiter.getWaitTime();
+      throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds.`);
     }
 
     const url = `${this.baseUrl}${endpoint}`;
