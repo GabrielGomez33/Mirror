@@ -33,7 +33,7 @@ behavior looked random.
 | 4 | `mirror-server` `utils/journalSecurityHelpers.ts:250` `checkEntryRateLimit` | DB daily count | 20 entries / day | ✅ correct (business rule) |
 | 5 | `Mirror` `services/journalApi.ts:64` client `RateLimiter` | in-memory, shared across all journal calls | 20 req / 60 s | ✅ **FIXED (Goal 4)** — cache-first + debounced date-nav |
 | 6 | `Mirror` `services/groupsApi.ts:46` client `RateLimiter` | in-memory, shared across all group calls | 30 req / 60 s | ✅ **FIXED (Goal 3)** — cache-first + 30s poll |
-| 7 | `Mirror` `services/truthStreamApi.ts:37` client `RateLimiter` | in-memory, shared across all truthstream calls | 25 req / 60 s | ⚠️ amplified (roadmap T) |
+| 7 | `Mirror` `services/truthStreamApi.ts:37` client `RateLimiter` | in-memory, shared across all truthstream calls | 25 req / 60 s | ✅ **FIXED (Goal 5)** — cache-first + 15s fallback poll |
 |   | `dina-server` `src/api/middleware/security.ts` + `config/database/db.ts:736` | per-identity/min | 15–20/min (100 trusted) | ✅ correct; aggregate-load risk (roadmap D) |
 |   | `dina-server` `src/api/routes/index.ts:749` synthesis limiter | in-memory | 1 synthesis / 30 s / user+group | ✅ correct, routes through mirror module |
 
@@ -91,17 +91,17 @@ past the (small, shared) budget.
 - **Deferred (now cheap, documented):** duplicate mount fetch, double-registered WS
   handlers (`member:joined`/`member_joined`), focus-refetch of uncached invitations.
 
-### Roadmap T — TruthStream (`truthStreamApi.ts` 25/min shared)
-- Generate → **poll `GET /analysis` every 8 s for up to 200 s**, and each tick
-  `clearTruthStreamCache('analysis')` **defeats its own 2-min cache**
-  (`AnalysisDashboard.tsx`).
-- WebSocket events (`ts:review_classified`, `ts:dialogue_message`,
-  `ts:analysis_complete`) each trigger list/analysis refetches that overlap the
-  poll and share the 25/min bucket.
-- Mount fires 4+ parallel loads (`refreshAll`) + per-component list fetches.
-- **Fix direction:** stop wiping the cache each poll tick; drive completion from
-  the existing `ts:analysis_complete` WS event instead of polling (or back off the
-  poll); coalesce mount fetches.
+### Roadmap T — TruthStream (`truthStreamApi.ts` 25/min shared) ✅ DONE (Goal 5)
+- `makeRequest` checked the limiter **before** the cache, so the mount fan-out
+  (`profile`+`queue`+`stats`+`milestones`+reviews) and WS-driven refetches drained
+  budget even when cache-served.
+- Generate → poll `GET /analysis` every 8 s wiping its own cache each tick (~7 real
+  calls/min), overlapping the fan-out.
+- **Fixed:** cache lookup now runs before the limiter (cache-served reads are free);
+  the poll is treated as a fallback to the `ts:analysis_complete` WS event and its
+  interval went 8 s → 15 s (~4 real calls/min). See
+  `frontend-fixes/goal-T-truthstream-poll-and-cache-limiter/` (9/9 tests pass).
+- **Deferred (now cheap):** coalescing `refreshAll` + per-component mount loads.
 
 ### Roadmap P — Personal-analysis Generate button ✅ DONE (Goal 2)
 - `handleRequestAnalysis` set `isPolling` **after** the awaited POST and the
@@ -155,6 +155,17 @@ noted for a later goal):
   tested** — `client/` edits + `frontend-fixes/goal-G-.../`.
 - ✅ **Goal 4 (Roadmap J — journal cache/limiter order + debounced date-nav)
   implemented and tested** — `client/` edits + `frontend-fixes/goal-J-.../`.
-- ⏭️ Remaining: **T** (truthstream: stop the 8 s poll wiping its own cache each
-  tick; drive completion from the existing `ts:analysis_complete` WS event; coalesce
-  mount fetches). Lands as a frontend edit under `client/`.
+- ✅ **Goal 5 (Roadmap T — truthstream cache/limiter order + fallback poll)
+  implemented and tested** — `client/` edits + `frontend-fixes/goal-T-.../`.
+
+**All five reported flows are now addressed.** The one common frontend anti-pattern
+(client `RateLimiter` checked *before* the cache, so cache hits burned budget) has
+been corrected in all three services (journal, groups, truthstream), each paired
+with the flow-specific amplifier fix (poll cadence / debounce / in-flight guard).
+The backend limiter's two bugs are fixed in `mirror-server-patches/001`.
+
+Optional future polish (documented per goal, all now cheap because cache hits are
+free): dedupe mount fan-out and WS handlers (G, T), local-state append after journal
+create (J), and — separately from rate limiting — route DinaChat non-streaming
+through dina's mirror module to restore the single entry point (see the
+architecture audit above).

@@ -1,0 +1,14 @@
+cache-before-limiter: mount/WS fan-out of cached GETs is free
+  ✅ OLD self-throttles when re-reading cached endpoints (mount+WS refetch)
+  ✅ NEW never throws re-reading cached endpoints
+  ✅ NEW made exactly 6 network calls (one per endpoint, then all cached)
+poll spend during a 200s generation (cache wiped each tick = real call)
+  ✅ 8s poll ~24 real calls over 200s
+  ✅ 15s poll ~13 real calls over 200s (roughly half)
+  ✅ 8s poll = 7/min (tight against 25 once WS+mount add on)
+  ✅ 15s poll = 4/min (comfortable headroom under 25)
+WS completion short-circuits the poll
+  ✅ poll stopped exactly at WS completion (20s)
+  ✅ only 1 real poll fetch (t=15s) before WS short-circuit
+
+✅ ALL PASSED — 9 passed, 0 failed

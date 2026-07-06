@@ -66,8 +66,14 @@ function priorityColor(priority: string) {
   }
 }
 
-// How often to poll for analysis completion (ms)
-const POLL_INTERVAL = 8000;
+// How often to poll for analysis completion (ms).
+// This poll is only a FALLBACK: completion normally arrives via the
+// `ts:analysis_complete` WebSocket event (TruthStreamContext → loadAnalysis), which
+// stops the poll as soon as the new analysis lands. Each tick wipes the analysis
+// cache and makes a real network GET, so it spends the shared 25/min client budget;
+// 15s (vs the old 8s) roughly halves that spend while the WS path keeps completion
+// detection near-instant in the common case.
+const POLL_INTERVAL = 15000;
 // Max time to poll before giving up (ms)
 const MAX_POLL_DURATION = 200000;
 
