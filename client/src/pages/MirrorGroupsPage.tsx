@@ -585,7 +585,17 @@ export default function MirrorGroupsPage() {
   useEffect(() => {
     fetchMyGroupsRef.current();
     fetchSuggestedGroupsRef.current();
-    const pollInterval = setInterval(() => { fetchMyGroupsRef.current(); }, 3000);
+    // Background refresh backstop. getMyGroups is cache-backed (60s TTL) and, after
+    // create/join/leave and WebSocket member events, the list is refetched
+    // immediately — so this poll only needs to catch out-of-band changes. A 3s
+    // interval hammered the client rate limiter (~20 of 30 slots/min); 30s while the
+    // tab is visible keeps the list fresh without draining the budget.
+    const POLL_MS = 30000;
+    const pollInterval = setInterval(() => {
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        fetchMyGroupsRef.current();
+      }
+    }, POLL_MS);
     return () => clearInterval(pollInterval);
   }, []);
 

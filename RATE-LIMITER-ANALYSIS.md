@@ -32,7 +32,7 @@ behavior looked random.
 | 3 | `mirror-server` `routes/groups.ts:2459` `rateLimitedJoin` | in-memory sliding window | 10 joins / 60 s | ✅ correct |
 | 4 | `mirror-server` `utils/journalSecurityHelpers.ts:250` `checkEntryRateLimit` | DB daily count | 20 entries / day | ✅ correct (business rule) |
 | 5 | `Mirror` `services/journalApi.ts:64` client `RateLimiter` | in-memory, shared across all journal calls | 20 req / 60 s | ⚠️ amplified (roadmap J) |
-| 6 | `Mirror` `services/groupsApi.ts:46` client `RateLimiter` | in-memory, shared across all group calls | 30 req / 60 s | ⚠️ amplified + counts cache hits (roadmap G) |
+| 6 | `Mirror` `services/groupsApi.ts:46` client `RateLimiter` | in-memory, shared across all group calls | 30 req / 60 s | ✅ **FIXED (Goal 3)** — cache-first + 30s poll |
 | 7 | `Mirror` `services/truthStreamApi.ts:37` client `RateLimiter` | in-memory, shared across all truthstream calls | 25 req / 60 s | ⚠️ amplified (roadmap T) |
 |   | `dina-server` `src/api/middleware/security.ts` + `config/database/db.ts:736` | per-identity/min | 15–20/min (100 trusted) | ✅ correct; aggregate-load risk (roadmap D) |
 |   | `dina-server` `src/api/routes/index.ts:749` synthesis limiter | in-memory | 1 synthesis / 30 s / user+group | ✅ correct, routes through mirror module |
@@ -79,18 +79,18 @@ past the (small, shared) budget.
   instead of refetching; reconsider the 20/min shared cap (it is stricter than any
   backend journal limit — journal reads are unlimited server-side).
 
-### Roadmap G — Groups (`groupsApi.ts` 30/min shared)
-- **3-second `getMyGroups` poll** (`MirrorGroupsPage.tsx:585`) burns ~20 of 30
-  slots/min for the entire time the page is open.
-- The client limiter is checked **before** the cache lookup (`groupsApi.ts:222`
-  before `:229`), so **cache hits still consume budget** — the poll drains the
-  bucket even though almost every tick is served from cache.
-- Create/join → `fetchMyGroups()` refetch cascade; double mount fetch (context +
-  page); double-registered WS handlers (`member:joined` and `member_joined`);
-  focus/visibility refetch of uncached invitations.
-- **Fix direction:** remove or greatly lengthen the poll (prefer WS-driven
-  updates); move the limiter check **after** the cache lookup so cache hits are
-  free; dedupe mount fetches and WS handler names.
+### Roadmap G — Groups (`groupsApi.ts` 30/min shared) ✅ DONE (Goal 3)
+- **3-second `getMyGroups` poll** burned ~20 of 30 slots/min for the entire time
+  the page was open.
+- The client limiter was checked **before** the cache lookup, so **cache hits
+  consumed budget** — the poll drained the bucket even though almost every tick was
+  served from cache.
+- **Fixed:** cache lookup now runs **before** the limiter (cache hits are free);
+  poll lengthened 3 s → 30 s and paused while the tab is hidden. Real network calls
+  drop to ≤ 1/min. See `frontend-fixes/goal-G-groups-poll-and-cache-limiter/`
+  (7/7 tests pass).
+- **Deferred (now cheap, documented):** duplicate mount fetch, double-registered WS
+  handlers (`member:joined`/`member_joined`), focus-refetch of uncached invitations.
 
 ### Roadmap T — TruthStream (`truthStreamApi.ts` 25/min shared)
 - Generate → **poll `GET /analysis` every 8 s for up to 200 s**, and each tick
@@ -152,8 +152,9 @@ noted for a later goal):
   highest-leverage fix and directly relieves the report-generation 429s.
 - ✅ **Goal 2 (Roadmap P — personal-analysis Generate guard) implemented and
   tested** — `client/` edits + `frontend-fixes/goal-P-.../`.
+- ✅ **Goal 3 (Roadmap G — groups poll + cache/limiter order) implemented and
+  tested** — `client/` edits + `frontend-fixes/goal-G-.../`.
 - ⏭️ Remaining goals, one at a time, each hardened + verified before the next:
-  **G** (groups: kill 3 s poll, move limiter after cache), **J** (journal: abort +
-  in-flight guard, drop create→refetch), **T** (truthstream: stop cache-wipe poll,
-  WS-driven completion). Each lands as a frontend edit under `client/` (and any
-  backend/dina change under the sibling `*-patches/` folders).
+  **J** (journal: abort + in-flight guard, drop create→refetch), **T** (truthstream:
+  stop cache-wipe poll, WS-driven completion). Each lands as a frontend edit under
+  `client/` (and any backend/dina change under the sibling `*-patches/` folders).

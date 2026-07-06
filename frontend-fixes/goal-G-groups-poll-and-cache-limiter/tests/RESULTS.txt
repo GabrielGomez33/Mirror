@@ -1,0 +1,13 @@
+OLD order: cache hits wrongly consume budget → poll self-throttles
+  ✅ OLD throws "Rate limit exceeded" on cache-served polls
+NEW order: cache hits are free → poll never self-throttles
+  ✅ NEW never throws on cache-served reads
+  ✅ NEW made exactly 1 network call within the 60s cache window
+NEW: real (uncached) network calls are still limited to 30/min
+  ✅ NEW still enforces the limit on genuine network bursts
+A1 poll-rate math (30s + visibility gate vs 3s)
+  ✅ 3s poll = 20 ticks/min
+  ✅ 30s poll = 2 ticks/min
+  ✅ 30s poll → exactly 1 real network in the first 60s under 60s cache
+
+✅ ALL PASSED — 7 passed, 0 failed
