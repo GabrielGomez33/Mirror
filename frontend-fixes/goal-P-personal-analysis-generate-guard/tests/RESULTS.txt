@@ -1,0 +1,14 @@
+burst of synchronous clicks → exactly one POST
+  ✅ only 1 POST fired for 10 rapid clicks
+  ✅ isPolling engaged after success
+  ✅ no POST while polling
+sequential requests allowed once prior settles (not polling)
+  ✅ first attempt posted once
+  ✅ not polling after a failed request
+  ✅ retry after settle posts again
+retryAfter → user message formatting
+  ✅ 120s → "2 minutes"
+  ✅ 60s → "1 minute" (singular)
+  ✅ 0s → generic later message
+
+✅ ALL PASSED — 9 passed, 0 failed

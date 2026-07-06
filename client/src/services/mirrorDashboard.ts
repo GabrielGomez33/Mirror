@@ -83,7 +83,17 @@ class MirrorDashboardService {
       if (response.status === 403 && (errorData.code === 'USAGE_LIMIT' || errorData.code === 'UPGRADE_REQUIRED')) {
         dispatchPaywallEvent({ code: errorData.code, feature: errorData.feature, error: errorData.error, used: errorData.used, limit: errorData.limit });
       }
-      throw new Error(errorData.error || `Request failed: ${response.statusText}`);
+      // Preserve the HTTP status and structured fields on the thrown error so callers
+      // can react to rate limits (429 / RATE_LIMIT_EXCEEDED) with an accurate,
+      // user-facing retry message instead of a generic failure. Message is unchanged
+      // for backward compatibility with existing `error.message` consumers.
+      const err = new Error(errorData.error || `Request failed: ${response.statusText}`) as Error & {
+        status?: number; code?: string; retryAfter?: number;
+      };
+      err.status = response.status;
+      if (errorData.code) err.code = errorData.code;
+      if (typeof errorData.retryAfter === 'number') err.retryAfter = errorData.retryAfter;
+      throw err;
     }
 
     return response.json();

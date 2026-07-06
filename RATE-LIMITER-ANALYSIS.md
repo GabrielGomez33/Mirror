@@ -104,15 +104,17 @@ past the (small, shared) budget.
   the existing `ts:analysis_complete` WS event instead of polling (or back off the
   poll); coalesce mount fetches.
 
-### Roadmap P — Personal-analysis Generate button
-- `handleRequestAnalysis` sets `isPolling` **after** the awaited POST and the
-  primary "Generate Report" button has **no `disabled` guard**
-  (`MyMirrorPanel.tsx:1152`), so impatient clicks fire multiple `POST /generate`
+### Roadmap P — Personal-analysis Generate button ✅ DONE (Goal 2)
+- `handleRequestAnalysis` set `isPolling` **after** the awaited POST and the
+  primary "Generate Report" button had **no `disabled` guard**
+  (`MyMirrorPanel.tsx:1152`), so impatient clicks fired multiple `POST /generate`
   against the unforgiving **5/hour** backend limit.
 - The `/latest` poll itself is bounded and safe (8 s, 200 s cap, cleared on
   unmount/success).
-- **Fix direction:** synchronous in-flight ref set at the top of
-  `handleRequestAnalysis`; drive both buttons' `disabled` off it (not `isPolling`).
+- **Fixed:** synchronous in-flight ref guard at the top of `handleRequestAnalysis`
+  + `isRequesting` state driving `disabled` on both buttons + accurate 429 retry
+  message (via `mirrorDashboard.makeRequest` now preserving status/code/retryAfter).
+  See `frontend-fixes/goal-P-personal-analysis-generate-guard/` (9/9 tests pass).
 
 ### Roadmap D — dina-server aggregate load (architecture)
 - A single report = **one** dina LLM call, so dina's own 15–20/min per-identity
@@ -148,7 +150,10 @@ noted for a later goal):
 
 - ✅ **Goal 1 (backend limiter) implemented and tested** — patch 001. This is the
   highest-leverage fix and directly relieves the report-generation 429s.
-- ⏭️ Recommended next goals, one at a time, each hardened + verified before the
-  next: **P** (tiny, high-value), then **G**, **J**, **T**. Each will land as a
-  frontend edit under `client/` (and any backend/dina change under the sibling
-  `*-patches/` folders).
+- ✅ **Goal 2 (Roadmap P — personal-analysis Generate guard) implemented and
+  tested** — `client/` edits + `frontend-fixes/goal-P-.../`.
+- ⏭️ Remaining goals, one at a time, each hardened + verified before the next:
+  **G** (groups: kill 3 s poll, move limiter after cache), **J** (journal: abort +
+  in-flight guard, drop create→refetch), **T** (truthstream: stop cache-wipe poll,
+  WS-driven completion). Each lands as a frontend edit under `client/` (and any
+  backend/dina change under the sibling `*-patches/` folders).
