@@ -1020,7 +1020,7 @@
         }).then(function (r) {
           if (r.ok) {
             msg.className = 'waitlist-msg success';
-            msg.textContent = "You're on the list. Thank you.";
+            msg.textContent = "You're on the list — check your email to confirm your spot.";
             form.reset();
           } else if (r.status === 404) {
             msg.className = 'waitlist-msg success';
