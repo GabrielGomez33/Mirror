@@ -1,0 +1,1040 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#fff0f5" />
+
+  <title>Mirror — personal intelligence for reflection, peer review, and collective insight</title>
+
+  <meta name="description" content="Mirror is a personal intelligence platform. See yourself through personality science, cognition, emotion, cosmology, and anonymous peer reviews with a quantified perception-gap score." />
+  <link rel="canonical" href="https://www.theundergroundrailroad.world/" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Mirror — personal intelligence" />
+  <meta property="og:description" content="See yourself in the world, and the world in you. Personality science, cognition, emotion, cosmology, and anonymous peer review with a perception-gap score." />
+  <meta property="og:url" content="https://www.theundergroundrailroad.world/" />
+  <meta property="og:image" content="https://www.theundergroundrailroad.world/Mirror/pwa-512x512.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Mirror — personal intelligence" />
+  <meta name="twitter:description" content="See yourself in the world, and the world in you." />
+  <meta name="twitter:image" content="https://www.theundergroundrailroad.world/Mirror/pwa-512x512.png" />
+
+  <link rel="icon" type="image/svg+xml" href="/Mirror/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/Mirror/favicon-32x32.png" />
+  <link rel="apple-touch-icon" href="/Mirror/apple-touch-icon.png" />
+
+  <link rel="preconnect" href="https://www.theundergroundrailroad.world" crossorigin />
+
+  <style>
+    :root {
+      --sakura: #fff0f5;
+      --sakura-deep: #ffe1ec;
+      --rose: #e8557c;
+      --rose-dark: #b73862;
+      --burgundy: #3b1220;
+      --burgundy-soft: #5b2438;
+      --ink: #1a0a12;
+      --muted: #7a4a5c;
+      --glass: rgba(255, 255, 255, 0.55);
+      --glass-strong: rgba(255, 255, 255, 0.75);
+      --border: rgba(183, 56, 98, 0.14);
+      --shadow-sm: 0 4px 16px rgba(183, 56, 98, 0.08);
+      --shadow: 0 12px 40px rgba(183, 56, 98, 0.14);
+      --radius: 20px;
+      --radius-sm: 12px;
+      --max: 1120px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+      color: var(--burgundy);
+      background: linear-gradient(180deg, #fff5f8 0%, #fff0f5 40%, #ffe6ee 100%);
+      background-attachment: fixed;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* Decorative petals — pure CSS, no images, cheap on mobile */
+    body::before, body::after {
+      content: "";
+      position: fixed;
+      pointer-events: none;
+      border-radius: 50%;
+      filter: blur(80px);
+      z-index: 0;
+    }
+    body::before {
+      width: 520px; height: 520px;
+      background: radial-gradient(circle, rgba(232, 85, 124, 0.18), transparent 70%);
+      top: -180px; left: -180px;
+    }
+    body::after {
+      width: 640px; height: 640px;
+      background: radial-gradient(circle, rgba(255, 178, 200, 0.35), transparent 70%);
+      bottom: -260px; right: -260px;
+    }
+
+    .wrap {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* NAV */
+    nav {
+      padding: 22px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 20px;
+      letter-spacing: -0.01em;
+      color: var(--burgundy);
+      text-decoration: none;
+    }
+    .brand-mark {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--rose), #ff8fb5);
+      border-radius: 50%;
+      display: inline-block;
+      box-shadow: inset -3px -3px 8px rgba(255,255,255,0.4), 0 4px 12px rgba(232, 85, 124, 0.35);
+    }
+    nav ul {
+      display: flex;
+      gap: 28px;
+      list-style: none;
+      margin: 0; padding: 0;
+    }
+    nav ul a {
+      color: var(--burgundy-soft);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 15px;
+    }
+    nav ul a:hover { color: var(--rose-dark); }
+    .nav-cta {
+      padding: 10px 20px;
+      background: var(--burgundy);
+      color: white;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    @media (max-width: 700px) {
+      nav ul { display: none; }
+    }
+
+    /* HERO */
+    .hero {
+      padding: 60px 0 100px;
+      text-align: center;
+    }
+    .hero-eyebrow {
+      display: inline-block;
+      padding: 6px 14px;
+      background: var(--glass-strong);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 13px;
+      color: var(--rose-dark);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      margin-bottom: 20px;
+      backdrop-filter: blur(8px);
+    }
+    h1 {
+      font-size: clamp(38px, 6vw, 68px);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      margin: 0 0 24px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    h1 em {
+      font-style: normal;
+      background: linear-gradient(135deg, var(--rose), #d63d6e);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .hero-sub {
+      font-size: clamp(17px, 2vw, 20px);
+      color: var(--burgundy-soft);
+      max-width: 640px;
+      margin: 0 auto 40px;
+      line-height: 1.5;
+    }
+    .cta-row {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 15px 28px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 16px;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary {
+      background: var(--burgundy);
+      color: white;
+      box-shadow: 0 8px 24px rgba(59, 18, 32, 0.28);
+    }
+    .btn-primary:hover { box-shadow: 0 12px 32px rgba(59, 18, 32, 0.36); }
+    .btn-ghost {
+      background: var(--glass-strong);
+      color: var(--burgundy);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(8px);
+    }
+    .hero-note {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    /* SECTIONS */
+    section { padding: 80px 0; position: relative; }
+    .section-title {
+      font-size: clamp(28px, 4vw, 40px);
+      letter-spacing: -0.02em;
+      margin: 0 0 14px;
+      text-align: center;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .section-sub {
+      text-align: center;
+      color: var(--burgundy-soft);
+      max-width: 620px;
+      margin: 0 auto 56px;
+      font-size: 17px;
+    }
+
+    /* THREE PILLARS */
+    .pillars {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    @media (max-width: 900px) {
+      .pillars { grid-template-columns: 1fr; }
+    }
+    .pillar {
+      padding: 36px 28px;
+      background: var(--glass-strong);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(20px);
+      box-shadow: var(--shadow-sm);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .pillar:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow);
+    }
+    .pillar-icon {
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, var(--sakura-deep), #ffd0dd);
+    }
+    .pillar h3 {
+      font-size: 22px;
+      margin: 0 0 12px;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+    .pillar p {
+      margin: 0;
+      color: var(--burgundy-soft);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* WHAT MIRROR MEASURES */
+    .measures {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .measure {
+      padding: 22px 20px;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      backdrop-filter: blur(10px);
+    }
+    .measure-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--rose-dark);
+      margin-bottom: 8px;
+    }
+    .measure h4 {
+      margin: 0 0 6px;
+      font-size: 17px;
+      color: var(--ink);
+    }
+    .measure p {
+      margin: 0;
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* TRUTHSTREAM SECTION — the differentiator */
+    .truthstream {
+      background: linear-gradient(135deg, rgba(59, 18, 32, 0.95), rgba(91, 36, 56, 0.95));
+      color: white;
+      border-radius: 32px;
+      padding: 80px 40px;
+      margin: 40px 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .truthstream::before {
+      content: "";
+      position: absolute;
+      top: -100px; right: -100px;
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(232, 85, 124, 0.4), transparent 70%);
+      border-radius: 50%;
+      filter: blur(40px);
+    }
+    .truthstream-inner {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 60px;
+      align-items: center;
+    }
+    @media (max-width: 900px) {
+      .truthstream { padding: 56px 28px; border-radius: 24px; }
+      .truthstream-inner { grid-template-columns: 1fr; gap: 40px; }
+    }
+    .truthstream-eyebrow {
+      display: inline-block;
+      padding: 5px 12px;
+      background: rgba(232, 85, 124, 0.25);
+      color: #ffbccd;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .truthstream h2 {
+      font-size: clamp(30px, 4vw, 44px);
+      letter-spacing: -0.02em;
+      margin: 0 0 20px;
+      color: white;
+      line-height: 1.1;
+    }
+    .truthstream p {
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 17px;
+      line-height: 1.6;
+      margin: 0 0 24px;
+    }
+    .truthstream ul {
+      list-style: none;
+      padding: 0; margin: 0;
+    }
+    .truthstream li {
+      padding: 8px 0;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 15px;
+      padding-left: 26px;
+      position: relative;
+    }
+    .truthstream li::before {
+      content: "✦";
+      position: absolute; left: 0;
+      color: var(--rose);
+      font-weight: 700;
+    }
+    .gap-card {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 20px;
+      padding: 32px;
+      text-align: center;
+    }
+    .gap-score {
+      font-size: 72px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #ff8fb5, #ffbccd);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+    .gap-label {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 24px;
+    }
+    .gap-bar {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .gap-bar-fill {
+      height: 100%;
+      width: 32%;
+      background: linear-gradient(90deg, var(--rose), #ff8fb5);
+      border-radius: 999px;
+    }
+    .gap-hint {
+      color: rgba(255, 255, 255, 0.55);
+      font-size: 13px;
+      font-style: italic;
+    }
+
+    /* HOW IT WORKS */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      counter-reset: step;
+    }
+    @media (max-width: 900px) {
+      .steps { grid-template-columns: 1fr; }
+    }
+    .step {
+      padding: 32px 28px;
+      background: var(--glass-strong);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(20px);
+      counter-increment: step;
+      position: relative;
+    }
+    .step::before {
+      content: counter(step);
+      position: absolute;
+      top: -18px;
+      left: 24px;
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--rose), var(--rose-dark));
+      color: white;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700;
+      font-size: 18px;
+      box-shadow: 0 6px 16px rgba(232, 85, 124, 0.35);
+    }
+    .step h3 {
+      margin: 12px 0 10px;
+      font-size: 19px;
+      color: var(--ink);
+    }
+    .step p {
+      margin: 0;
+      font-size: 15px;
+      color: var(--burgundy-soft);
+      line-height: 1.55;
+    }
+
+    /* PRIVACY BANNER */
+    .privacy {
+      background: var(--glass-strong);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 40px;
+      text-align: center;
+      backdrop-filter: blur(20px);
+      max-width: 780px;
+      margin: 0 auto;
+    }
+    .privacy h3 {
+      margin: 0 0 12px;
+      font-size: 24px;
+      letter-spacing: -0.01em;
+    }
+    .privacy p {
+      margin: 0;
+      color: var(--burgundy-soft);
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    /* PRICING */
+    .pricing {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      max-width: 820px;
+      margin: 0 auto;
+    }
+    @media (max-width: 700px) {
+      .pricing { grid-template-columns: 1fr; }
+    }
+    .price-card {
+      padding: 36px 32px;
+      background: var(--glass-strong);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(20px);
+      position: relative;
+    }
+    .price-card.featured {
+      background: linear-gradient(135deg, rgba(59, 18, 32, 0.95), rgba(91, 36, 56, 0.95));
+      color: white;
+      border: none;
+      transform: translateY(-8px);
+    }
+    .price-card.featured::before {
+      content: "Recommended";
+      position: absolute;
+      top: -12px;
+      right: 24px;
+      background: var(--rose);
+      color: white;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+    .price-tier {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--rose-dark);
+      margin-bottom: 10px;
+    }
+    .price-card.featured .price-tier { color: #ffbccd; }
+    .price-amount {
+      font-size: 44px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 4px;
+      color: var(--ink);
+    }
+    .price-card.featured .price-amount { color: white; }
+    .price-amount span { font-size: 16px; font-weight: 500; color: var(--muted); }
+    .price-card.featured .price-amount span { color: rgba(255,255,255,0.6); }
+    .price-desc {
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 28px;
+    }
+    .price-card.featured .price-desc { color: rgba(255,255,255,0.7); }
+    .price-list {
+      list-style: none;
+      padding: 0; margin: 0 0 28px;
+    }
+    .price-list li {
+      padding: 8px 0 8px 26px;
+      position: relative;
+      font-size: 15px;
+      color: var(--burgundy-soft);
+    }
+    .price-card.featured .price-list li { color: rgba(255,255,255,0.85); }
+    .price-list li::before {
+      content: "✓";
+      position: absolute; left: 0;
+      color: var(--rose);
+      font-weight: 700;
+    }
+    .price-card.featured .price-list li::before { color: #ff8fb5; }
+    .price-cta {
+      display: block;
+      text-align: center;
+      padding: 14px;
+      background: var(--burgundy);
+      color: white;
+      border-radius: 12px;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .price-card.featured .price-cta {
+      background: var(--rose);
+      color: white;
+    }
+
+    /* WAITLIST / FOUNDER */
+    .waitlist {
+      background: var(--glass-strong);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 48px;
+      max-width: 640px;
+      margin: 0 auto;
+      backdrop-filter: blur(20px);
+      text-align: center;
+    }
+    .waitlist h2 { margin: 0 0 12px; font-size: 28px; letter-spacing: -0.02em; }
+    .waitlist p { margin: 0 0 24px; color: var(--burgundy-soft); }
+    .waitlist form {
+      display: flex;
+      gap: 8px;
+      max-width: 440px;
+      margin: 0 auto;
+    }
+    @media (max-width: 500px) {
+      .waitlist { padding: 32px 24px; }
+      .waitlist form { flex-direction: column; }
+    }
+    .waitlist input {
+      flex: 1;
+      padding: 14px 18px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: white;
+      color: var(--burgundy);
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+    }
+    .waitlist input:focus { border-color: var(--rose); }
+    .waitlist button {
+      padding: 14px 22px;
+      background: var(--burgundy);
+      color: white;
+      border-radius: 12px;
+      border: none;
+      font-weight: 600;
+      font-size: 15px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .waitlist-msg {
+      margin-top: 16px;
+      font-size: 14px;
+      min-height: 20px;
+    }
+    .waitlist-msg.success { color: var(--rose-dark); }
+    .waitlist-msg.error { color: #c53030; }
+
+    /* FAQ */
+    .faq {
+      max-width: 780px;
+      margin: 0 auto;
+    }
+    details {
+      padding: 20px 24px;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: 12px;
+      backdrop-filter: blur(10px);
+    }
+    details summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--ink);
+      font-size: 16px;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    details summary::-webkit-details-marker { display: none; }
+    details summary::after {
+      content: "＋";
+      color: var(--rose);
+      font-weight: 700;
+      transition: transform 0.2s ease;
+    }
+    details[open] summary::after { transform: rotate(45deg); }
+    details p {
+      margin: 14px 0 0;
+      color: var(--burgundy-soft);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* FOUNDER */
+    .founder {
+      max-width: 640px;
+      margin: 0 auto;
+      text-align: center;
+      padding: 48px 0 0;
+    }
+    .founder p {
+      font-size: 18px;
+      color: var(--burgundy-soft);
+      line-height: 1.7;
+      margin: 0 0 20px;
+    }
+    .founder-sig {
+      font-family: Georgia, serif;
+      font-style: italic;
+      font-size: 17px;
+      color: var(--rose-dark);
+    }
+
+    /* FOOTER */
+    footer {
+      padding: 60px 0 40px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      border-top: 1px solid var(--border);
+      margin-top: 40px;
+    }
+    footer a { color: var(--rose-dark); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true"></span>
+        Mirror
+      </a>
+      <ul>
+        <li><a href="#pillars">The Product</a></li>
+        <li><a href="#truthstream">TruthStream</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+      <a class="nav-cta" href="/Mirror/">Open Mirror →</a>
+    </nav>
+
+    <header class="hero">
+      <span class="hero-eyebrow">Personal intelligence, quantified · privately</span>
+      <h1>See yourself in the world,<br />and the world in <em>you</em>.</h1>
+      <p class="hero-sub">
+        Mirror is a personal intelligence platform. Take a multi-modal intake,
+        get a living dashboard of who you are, and find out how accurately
+        you see yourself — through anonymous peer reviews with a quantified
+        perception-gap score.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="/Mirror/">Look into the Mirror →</a>
+        <a class="btn btn-ghost" href="#pricing">See what's inside</a>
+      </div>
+      <p class="hero-note">Free to start · 7-day Premium trial · No credit card to explore</p>
+    </header>
+
+    <section id="pillars">
+      <h2 class="section-title">Three ways Mirror shows you who you are</h2>
+      <p class="section-sub">
+        Most self-knowledge tools give you one lens. Mirror gives you three, and
+        stitches them together with its own AI.
+      </p>
+      <div class="pillars">
+        <article class="pillar">
+          <div class="pillar-icon" aria-hidden="true">🪞</div>
+          <h3>See yourself</h3>
+          <p>A guided intake captures your Big Five personality, cognitive strengths, emotional patterns, voice, facial expression, and cosmological profile — Western, Chinese, and West African astrology, plus numerology.</p>
+        </article>
+        <article class="pillar">
+          <div class="pillar-icon" aria-hidden="true">✦</div>
+          <h3>Be seen</h3>
+          <p>TruthStream sends your (anonymous) profile to five to ten strangers who write honest reviews. Mirror measures the gap between how you see yourself and how they see you. This is the feature nothing else in the category ships.</p>
+        </article>
+        <article class="pillar">
+          <div class="pillar-icon" aria-hidden="true">◐</div>
+          <h3>See together</h3>
+          <p>Form small MirrorGroups with the people who matter. Share profiles at whatever depth you choose. Chat in real time. Ask the group AI to compare compatibilities. Vote on real decisions together.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="measures">
+      <h2 class="section-title">What Mirror actually measures</h2>
+      <p class="section-sub">
+        Every number below is generated during a single onboarding session.
+        You keep them, refine them, and export them at any time.
+      </p>
+      <div class="measures">
+        <div class="measure">
+          <div class="measure-label">Personality</div>
+          <h4>Big Five + MBTI</h4>
+          <p>Openness, Conscientiousness, Extraversion, Agreeableness, Neuroticism — each 0–100 — plus your MBTI type.</p>
+        </div>
+        <div class="measure">
+          <div class="measure-label">Cognition</div>
+          <h4>IQ estimate</h4>
+          <p>15-question numerical, spatial, logical, and verbal battery with percentile and strengths.</p>
+        </div>
+        <div class="measure">
+          <div class="measure-label">Emotion</div>
+          <h4>10-emotion taxonomy</h4>
+          <p>Real-time facial expression classification — on-device. No image ever leaves your phone.</p>
+        </div>
+        <div class="measure">
+          <div class="measure-label">Voice</div>
+          <h4>Vocal signature</h4>
+          <p>A 30-second capture, cross-browser, used only for your personal analysis.</p>
+        </div>
+        <div class="measure">
+          <div class="measure-label">Cosmology</div>
+          <h4>Three astrological systems</h4>
+          <p>Western (12 houses, 8 planets), Chinese zodiac, West African Orisha guardians, and full numerology.</p>
+        </div>
+        <div class="measure">
+          <div class="measure-label">Reflection</div>
+          <h4>Mirror Scores</h4>
+          <p>Self-Awareness, Growth Momentum, Reflection Depth, Authenticity — recalculated as you use the app.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="truthstream" id="truthstream">
+        <div class="truthstream-inner">
+          <div>
+            <span class="truthstream-eyebrow">The flagship feature</span>
+            <h2>How accurately do you see yourself?</h2>
+            <p>
+              TruthStream is anonymous peer review, done well. You share only
+              what you choose. Five to ten strangers rate you on five
+              dimensions and leave honest, structured feedback. Mirror
+              measures the distance between your self-perception and theirs
+              and produces a Truth Mirror Report.
+            </p>
+            <ul>
+              <li>Anonymous both ways — no names, no photos, no pressure</li>
+              <li>You control what parts of your profile are shared</li>
+              <li>Feedback is classified by tone: constructive, affirming, raw</li>
+              <li>A single number — your perception-gap score — shows you your blind spots</li>
+              <li>Give reviews to earn reviews · pay to unlock your full report</li>
+            </ul>
+          </div>
+          <aside class="gap-card" aria-label="Sample perception-gap score">
+            <div class="gap-score">32</div>
+            <div class="gap-label">Sample perception gap</div>
+            <div class="gap-bar"><div class="gap-bar-fill"></div></div>
+            <div class="gap-hint">Lower is closer alignment between you and your reviewers.</div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section id="how">
+      <h2 class="section-title">How it works</h2>
+      <p class="section-sub">
+        Three steps, one sitting. Then a lifetime to refine.
+      </p>
+      <div class="steps">
+        <article class="step">
+          <h3>Complete the intake</h3>
+          <p>Personality, cognition, emotion, voice, cosmology, and a few reflective questions — about twenty minutes, one time.</p>
+        </article>
+        <article class="step">
+          <h3>Open your Mirror</h3>
+          <p>A dashboard powered by Dina, our own AI, synthesizes everything into a living portrait: strengths, patterns, growth edges, and daily insight.</p>
+        </article>
+        <article class="step">
+          <h3>Invite reflection</h3>
+          <p>Enter TruthStream for anonymous peer feedback, form MirrorGroups with people you trust, or keep it private and journal alongside your Mirror.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="privacy">
+      <div class="privacy">
+        <h3>Private by design</h3>
+        <p>
+          Facial-expression analysis runs entirely on your device — no image
+          is ever uploaded. Peer reviews are anonymous both ways.
+          You choose, per data type, what is shared with whom. Your Mirror is
+          yours; export it any time.
+        </p>
+      </div>
+    </section>
+
+    <section id="pricing">
+      <h2 class="section-title">Pricing</h2>
+      <p class="section-sub">
+        Free forever for the essentials. Premium unlocks the depth.
+      </p>
+      <div class="pricing">
+        <div class="price-card">
+          <div class="price-tier">Free</div>
+          <div class="price-amount">$0<span> / forever</span></div>
+          <div class="price-desc">Everything you need to get started.</div>
+          <ul class="price-list">
+            <li>Full intake — personality, cognition, cosmology</li>
+            <li>Your MyMirror dashboard</li>
+            <li>Daily journaling with mood tracking</li>
+            <li>Join MirrorGroups with friends & family</li>
+            <li>Give TruthStream reviews to others</li>
+          </ul>
+          <a class="price-cta" href="/Mirror/">Start free</a>
+        </div>
+        <div class="price-card featured">
+          <div class="price-tier">Premium</div>
+          <div class="price-amount">$9.99<span> / month</span></div>
+          <div class="price-desc">Includes a 7-day free trial.</div>
+          <ul class="price-list">
+            <li>Everything in Free</li>
+            <li>Receive your Truth Mirror Report from anonymous peers</li>
+            <li>AI-powered personal analysis reports</li>
+            <li>Create unlimited MirrorGroups</li>
+            <li>Group AI insights & compatibility</li>
+            <li>Unlimited @Dina AI conversations</li>
+            <li>Data export in one click</li>
+          </ul>
+          <a class="price-cta" href="/Mirror/">Try Premium free →</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="waitlist">
+      <div class="waitlist">
+        <h2>Get thoughtful updates</h2>
+        <p>One short email a month. New features, real user stories, the occasional deep-dive from the founder. No noise.</p>
+        <form id="waitlist-form" novalidate>
+          <input type="email" name="email" placeholder="you@example.com" required aria-label="Your email" />
+          <button type="submit">Subscribe</button>
+        </form>
+        <div class="waitlist-msg" id="waitlist-msg" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section id="faq">
+      <h2 class="section-title">Common questions</h2>
+      <div class="faq">
+        <details>
+          <summary>Is Mirror a mental health app?</summary>
+          <p>No. Mirror is a self-knowledge and reflection tool. It's a complement to therapy, coaching, and personal work — not a replacement for any of them. We make no clinical claims.</p>
+        </details>
+        <details>
+          <summary>What happens to my photo and voice recording?</summary>
+          <p>Facial expression is analyzed entirely on your device — the image itself never leaves your phone. Voice recordings are used only for your personal analysis and are stored under your account, which you can delete at any time.</p>
+        </details>
+        <details>
+          <summary>Who reviews me in TruthStream?</summary>
+          <p>Anonymous Mirror users. You share only the parts of your profile you choose. Reviewers cannot see your name, photo, or contact details. You can't see theirs either.</p>
+        </details>
+        <details>
+          <summary>Do I have to install anything?</summary>
+          <p>No. Mirror is a modern web app that installs to your home screen with one tap — iOS, Android, or desktop. Small download, no app store review, updates instantly.</p>
+        </details>
+        <details>
+          <summary>Can I cancel Premium?</summary>
+          <p>Any time, from your settings. You keep Premium features until the end of your billing period.</p>
+        </details>
+        <details>
+          <summary>What is Dina?</summary>
+          <p>Dina is our own AI orchestration layer, purpose-built for Mirror. It's not a wrapper on a general-purpose chatbot — it reads your personal intelligence and gives grounded, evidence-based coaching. In groups, it can help members compare, decide, and understand each other.</p>
+        </details>
+      </div>
+    </section>
+
+    <section id="founder">
+      <div class="founder">
+        <p>
+          We built Mirror because self-knowledge is the foundation of every
+          other decision — and there wasn't a tool that took all of you
+          seriously. Not just your type. Not just your chart. Not just how
+          you feel today. All of it. And then held it up against how the
+          people around you actually see you. If any of that sounds like
+          something you've been looking for, thank you for taking a look.
+        </p>
+        <div class="founder-sig">— Gabriel, founder</div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="footer-links">
+        <a href="/Mirror/">Open the app</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#privacy">Privacy</a>
+        <a href="mailto:hello@theundergroundrailroad.world">Contact</a>
+      </div>
+      <div>© Mirror · Personal intelligence, privately.</div>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      var form = document.getElementById('waitlist-form');
+      var msg = document.getElementById('waitlist-msg');
+      if (!form) return;
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var email = form.email.value.trim();
+        if (!email || email.indexOf('@') < 1) {
+          msg.className = 'waitlist-msg error';
+          msg.textContent = 'Please enter a valid email address.';
+          return;
+        }
+        msg.className = 'waitlist-msg';
+        msg.textContent = 'Sending…';
+
+        fetch('/mirror/api/waitlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email, source: 'landing' })
+        }).then(function (r) {
+          if (r.ok) {
+            msg.className = 'waitlist-msg success';
+            msg.textContent = "You're on the list — check your email to confirm your spot.";
+            form.reset();
+          } else if (r.status === 404) {
+            msg.className = 'waitlist-msg success';
+            msg.textContent = "You're on the list. Thank you.";
+            form.reset();
+          } else {
+            throw new Error('bad status');
+          }
+        }).catch(function () {
+          msg.className = 'waitlist-msg error';
+          msg.textContent = "Something went wrong. Please try again in a moment.";
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

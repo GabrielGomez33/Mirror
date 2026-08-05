@@ -1,0 +1,6 @@
+name_or_org,type,channel,contact,personalization_hook,status,touch1_date,touch2_date,touch3_date,free_access_sent,next_action,next_date,notes
+Example: The Astrology Podcast,podcast,email,host@example.com,"Ep. on Saturn returns — the bit about timing",to-send,,,,,Draft personalized note,,High-fit audience
+Example: Jane Rivera LPC,therapist,email,jane@example.com,"Attachment work with couples",to-send,,,,,Find contact email,,Psychology Today listing
+Example: Men's Circle Denver,facilitator,email,lead@example.com,"Monthly circle, 12 members",to-send,,,,,Confirm facilitator name,,Meetup group
+Example: @typology.daily,creator,IG DM,@typology.daily,"MBTI cognitive-function series",to-send,,,,,Write short DM,,45k followers
+Example: Acme Co People Team,corporate,LinkedIn,hr@acme.example,"~40 employees, no wellness perk",to-send,,,,,Find HR contact,,Local company

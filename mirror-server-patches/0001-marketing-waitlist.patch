@@ -1,0 +1,341 @@
+From 7caf735f3c7d5057904759bfe2e39ef1c709b5bb Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 4 Aug 2026 13:38:48 +0000
+Subject: [PATCH] Add public marketing waitlist endpoint
+
+Adds POST /mirror/api/waitlist for the landing-page email signup form at
+theundergroundrailroad.world/.
+
+- migrations/018_marketing_waitlist.sql: marketing_waitlist table with
+  UNIQUE email, source tag, truncated ip, bounded UA, status ENUM,
+  timestamps, JSON metadata. utf8mb4, idempotent.
+- controllers/waitlistController.ts: strict email validation,
+  normalisation, per-IP sliding-window rate limit (20/hour default,
+  WAITLIST_RATE_LIMIT env override), IP truncated to /24 (v4) / /48
+  (v6), bounded string lengths, DB-level dedup via
+  INSERT ... ON DUPLICATE KEY UPDATE. Returns identical response for
+  new vs duplicate to avoid membership leaks.
+- routes/waitlist.ts: thin router, no auth/subscription gate.
+- index.ts: import + mount alongside emailPublicRoutes.
+
+Typecheck clean (tsc --noEmit).
+
+https://claude.ai/code/session_01YDgEkiimNwkGRLN1Cfgia6
+---
+ controllers/waitlistController.ts     | 181 ++++++++++++++++++++++++++
+ index.ts                              |   8 ++
+ migrations/018_marketing_waitlist.sql |  61 +++++++++
+ routes/waitlist.ts                    |  19 +++
+ 4 files changed, 269 insertions(+)
+ create mode 100644 controllers/waitlistController.ts
+ create mode 100644 migrations/018_marketing_waitlist.sql
+ create mode 100644 routes/waitlist.ts
+
+diff --git a/controllers/waitlistController.ts b/controllers/waitlistController.ts
+new file mode 100644
+index 0000000..15d4f7f
+--- /dev/null
++++ b/controllers/waitlistController.ts
+@@ -0,0 +1,181 @@
++// ============================================================================
++// MARKETING WAITLIST CONTROLLER
++// ============================================================================
++// File: controllers/waitlistController.ts
++// ----------------------------------------------------------------------------
++// Public POST /mirror/api/waitlist endpoint used by the marketing landing at
++// theundergroundrailroad.world/. UNAUTHENTICATED by design (recipients have
++// no session yet), so the protections live in this file:
++//   * strict email validation + normalisation (lower + trim, RFC 3696 bounded
++//     length)
++//   * IP-truncated sliding-window rate limit (in-memory, process-local — same
++//     pattern as FeedbackController)
++//   * body-size cap already enforced globally by express.json({limit:'100kb'})
++//   * bounded string lengths on every persisted field
++//   * dedup enforced at the DB layer via UNIQUE index (ON DUPLICATE KEY UPDATE)
++//   * IP truncated to /24 (v4) / /48 (v6) before storage
++// ============================================================================
++
++import { Request, Response } from 'express';
++import { DB } from '../db';
++import { Logger } from '../utils/logger';
++
++const logger = new Logger('WaitlistController');
++
++// ============================================================================
++// CONFIG
++// ============================================================================
++
++const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;                                    // 1 hour
++const RATE_LIMIT_MAX       = Math.max(1, parseInt(process.env.WAITLIST_RATE_LIMIT || '20', 10));
++
++const MAX_EMAIL_LEN  = 254;
++const MAX_SOURCE_LEN = 64;
++const MAX_UA_LEN     = 500;
++const MAX_META_BYTES = 2048;
++
++const ALLOWED_SOURCES = new Set([
++  'landing', 'app-footer', 'app-onboarding', 'post-purchase',
++  'referral', 'social', 'webinar', 'unknown',
++]);
++
++// ============================================================================
++// HELPERS
++// ============================================================================
++
++const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
++
++function normalizeEmail(raw: unknown): string | null {
++  if (typeof raw !== 'string') return null;
++  const lower = raw.trim().toLowerCase();
++  if (!lower || lower.length > MAX_EMAIL_LEN) return null;
++  return EMAIL_RX.test(lower) ? lower : null;
++}
++
++function truncateIp(rawIp: string | undefined): string | null {
++  if (!rawIp) return null;
++  let ip = rawIp.trim();
++  const v4mapped = ip.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i);
++  if (v4mapped) ip = v4mapped[1];
++
++  if (ip.includes('.')) {
++    const parts = ip.split('.');
++    if (parts.length === 4) return `${parts[0]}.${parts[1]}.${parts[2]}.0`;
++  } else if (ip.includes(':')) {
++    const parts = ip.split(':');
++    return `${parts.slice(0, 3).join(':')}::`;
++  }
++  return null;
++}
++
++function safeSource(raw: unknown): string {
++  if (typeof raw !== 'string') return 'unknown';
++  const clean = raw.trim().toLowerCase().slice(0, MAX_SOURCE_LEN);
++  return ALLOWED_SOURCES.has(clean) ? clean : 'unknown';
++}
++
++function safeUserAgent(raw: string | undefined): string | null {
++  if (!raw) return null;
++  return raw.slice(0, MAX_UA_LEN);
++}
++
++function safeMetadata(raw: unknown): string | null {
++  if (raw == null || typeof raw !== 'object') return null;
++  try {
++    const s = JSON.stringify(raw);
++    if (Buffer.byteLength(s, 'utf8') > MAX_META_BYTES) return null;
++    return s;
++  } catch {
++    return null;
++  }
++}
++
++// ============================================================================
++// RATE LIMIT — sliding window, keyed by truncated IP
++// ============================================================================
++
++interface RateWindow { count: number; windowStart: number }
++const rateLimitWindows = new Map<string, RateWindow>();
++
++setInterval(() => {
++  const cutoff = Date.now() - RATE_LIMIT_WINDOW_MS;
++  for (const [key, w] of rateLimitWindows) {
++    if (w.windowStart < cutoff) rateLimitWindows.delete(key);
++  }
++}, RATE_LIMIT_WINDOW_MS).unref?.();
++
++function consumeRateBudget(key: string): { allowed: boolean; retryAfterSec: number } {
++  const now = Date.now();
++  const w = rateLimitWindows.get(key);
++
++  if (!w || now - w.windowStart > RATE_LIMIT_WINDOW_MS) {
++    rateLimitWindows.set(key, { count: 1, windowStart: now });
++    return { allowed: true, retryAfterSec: 0 };
++  }
++  if (w.count >= RATE_LIMIT_MAX) {
++    const retry = Math.max(1, Math.ceil((RATE_LIMIT_WINDOW_MS - (now - w.windowStart)) / 1000));
++    return { allowed: false, retryAfterSec: retry };
++  }
++  w.count += 1;
++  return { allowed: true, retryAfterSec: 0 };
++}
++
++// ============================================================================
++// POST /mirror/api/waitlist
++// ============================================================================
++
++export async function subscribeHandler(req: Request, res: Response): Promise<void> {
++  const email  = normalizeEmail(req.body?.email);
++  const source = safeSource(req.body?.source);
++  const meta   = safeMetadata(req.body?.metadata);
++
++  if (!email) {
++    // Deliberately vague — no signal about *why* the email was rejected.
++    res.status(400).json({ success: false, error: 'Please provide a valid email address.' });
++    return;
++  }
++
++  const rawIp =
++    (req.headers['x-forwarded-for']?.toString().split(',')[0] || '').trim() ||
++    req.ip ||
++    req.socket?.remoteAddress ||
++    '';
++  const ipTrunc = truncateIp(rawIp);
++  const ua      = safeUserAgent(req.headers['user-agent']);
++
++  const rateKey = `wl:${ipTrunc || 'unknown'}`;
++  const rate    = consumeRateBudget(rateKey);
++  if (!rate.allowed) {
++    res.setHeader('Retry-After', String(rate.retryAfterSec));
++    res.status(429).json({ success: false, error: 'Too many signups from your network. Please try again later.' });
++    return;
++  }
++
++  try {
++    // ON DUPLICATE KEY UPDATE keeps this endpoint idempotent — re-submitting
++    // the same email refreshes source/metadata but does NOT reset status
++    // (a confirmed subscriber stays confirmed; an unsubscribed one is not
++    // silently re-enrolled).
++    await DB.execute(
++      `INSERT INTO marketing_waitlist
++         (email, source, ip_truncated, user_agent, metadata)
++       VALUES (?, ?, ?, ?, ?)
++       ON DUPLICATE KEY UPDATE
++         source       = VALUES(source),
++         ip_truncated = VALUES(ip_truncated),
++         user_agent   = VALUES(user_agent),
++         metadata     = COALESCE(VALUES(metadata), metadata)`,
++      [email, source, ipTrunc, ua, meta]
++    );
++
++    logger.info('Waitlist signup', { source, ipTrunc });
++
++    // Return the same shape regardless of new-vs-duplicate — the client
++    // does not need to distinguish, and telling them "you were already
++    // subscribed" leaks membership.
++    res.status(200).json({ success: true });
++  } catch (err) {
++    logger.error('Waitlist insert failed', err as Error, { source, ipTrunc });
++    res.status(500).json({ success: false, error: 'Something went wrong. Please try again in a moment.' });
++  }
++}
+diff --git a/index.ts b/index.ts
+index fbf0b96..401aede 100755
+--- a/index.ts
++++ b/index.ts
+@@ -113,6 +113,7 @@ import { emailService } from './services/emailService';
+ import adminEmailRoutes from './routes/adminEmail';
+ import adminSimulationRoutes from './routes/adminSimulation';
+ import emailPublicRoutes from './routes/emailPublic';
++import waitlistRoutes from './routes/waitlist';
+ 
+ // ============================================================================
+ // ERROR HANDLING UTILITIES
+@@ -361,6 +362,13 @@ APP.use('/mirror/api/user/notification-preferences', notificationPreferencesRout
+ APP.use('/mirror/api/email', emailPublicRoutes);
+ console.log('[ROUTES] Public email routes mounted at /mirror/api/email (unsubscribe + webhooks)');
+ 
++// Public marketing waitlist — NO auth/subscription gate (landing-page visitors
++// are anonymous). Protected in the controller by strict email validation,
++// per-IP sliding-window rate limit, bounded lengths, and DB-level UNIQUE on
++// email. See routes/waitlist.ts + controllers/waitlistController.ts.
++APP.use('/mirror/api/waitlist', waitlistRoutes);
++console.log('[ROUTES] Public waitlist route mounted at /mirror/api/waitlist');
++
+ // Admin email broadcasts — reached only by the admin-server over localhost,
+ // gated by the internal shared secret inside the router (requireInternalSecret).
+ APP.use('/mirror/api/admin/email', adminEmailRoutes);
+diff --git a/migrations/018_marketing_waitlist.sql b/migrations/018_marketing_waitlist.sql
+new file mode 100644
+index 0000000..944d16a
+--- /dev/null
++++ b/migrations/018_marketing_waitlist.sql
+@@ -0,0 +1,61 @@
++-- ============================================================================
++-- 018_marketing_waitlist.sql
++-- ----------------------------------------------------------------------------
++-- Persistence for the public marketing waitlist / newsletter signup surfaced
++-- on the landing page (POST /mirror/api/waitlist).
++--
++-- This is an UNAUTHENTICATED endpoint so the guardrails live in code + schema:
++--   * `email` is the natural key — UNIQUE, so a repeat signup from the same
++--     address is a no-op at the DB layer (INSERT ... ON DUPLICATE KEY UPDATE).
++--   * `source` tags where the signup came from ("landing", "app", "footer",
++--     etc.) so we can measure which surface converts.
++--   * `ip_truncated` is /24 for IPv4 or /48 for IPv6 (see truncateIp() in
++--     controllers/waitlistController.ts) — enough for abuse triage, not
++--     enough to be a precise locator.
++--   * `user_agent` is truncated to 500 chars so a pathological UA can't
++--     bloat the row.
++--   * `status` is an ENUM so the operator dashboard can filter on it.
++--   * `confirmed_at` and `unsubscribed_at` are timestamps rather than
++--     booleans so we retain WHEN, not just IF.
++--   * `metadata` is JSON for forward-compat (referrer, campaign, utm_*).
++--   * All CREATE statements are idempotent (IF NOT EXISTS) and safe to
++--     replay.
++--
++-- MySQL 8.0+. Charset utf8mb4 to match every other table in this schema.
++-- ============================================================================
++
++CREATE TABLE IF NOT EXISTS marketing_waitlist (
++  id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
++
++  -- Normalised, lower-cased, trimmed email. UNIQUE — one row per address.
++  email            VARCHAR(254)    NOT NULL,
++
++  -- Where the signup came from. Free-form but bounded; suggested values:
++  -- "landing", "app-footer", "post-purchase", "webinar".
++  source           VARCHAR(64)     NOT NULL DEFAULT 'landing',
++
++  -- Coarse IP for abuse triage. Never store the precise IP.
++  ip_truncated     VARCHAR(64)     NULL DEFAULT NULL,
++
++  -- Truncated user-agent (bounded so a hostile UA cannot bloat the row).
++  user_agent       VARCHAR(500)    NULL DEFAULT NULL,
++
++  -- Lifecycle state. `pending` is the default; `confirmed` after a
++  -- double-opt-in confirmation click; `unsubscribed` after opt-out.
++  status           ENUM('pending','confirmed','unsubscribed','bounced')
++                                   NOT NULL DEFAULT 'pending',
++
++  -- Timestamps — WHEN, not just IF.
++  created_at       DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
++  confirmed_at     DATETIME(3)     NULL     DEFAULT NULL,
++  unsubscribed_at  DATETIME(3)     NULL     DEFAULT NULL,
++
++  -- Forward-compat freeform (utm_source, utm_campaign, referrer, etc.).
++  metadata         JSON            NULL     DEFAULT NULL,
++
++  PRIMARY KEY (id),
++  UNIQUE KEY uq_marketing_waitlist_email (email),
++  KEY idx_marketing_waitlist_created_at (created_at),
++  KEY idx_marketing_waitlist_status (status),
++  KEY idx_marketing_waitlist_ip_created (ip_truncated, created_at)
++) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+diff --git a/routes/waitlist.ts b/routes/waitlist.ts
+new file mode 100644
+index 0000000..02daacc
+--- /dev/null
++++ b/routes/waitlist.ts
+@@ -0,0 +1,19 @@
++// ============================================================================
++// MARKETING WAITLIST ROUTES
++// ============================================================================
++// File: routes/waitlist.ts
++// ----------------------------------------------------------------------------
++// Mounted at /mirror/api/waitlist WITHOUT any auth/subscription gate —
++// callers are anonymous marketing-landing visitors. All protections live in
++// the controller (email validation, per-IP sliding-window rate limit,
++// bounded string lengths, DB-level dedup via UNIQUE index).
++// ============================================================================
++
++import express from 'express';
++import { subscribeHandler } from '../controllers/waitlistController';
++
++const router = express.Router();
++
++router.post('/', subscribeHandler);
++
++export default router;
+-- 
+2.43.0
+

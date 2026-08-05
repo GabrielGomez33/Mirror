@@ -347,6 +347,48 @@ jobs:
           fi
           ROLLBACK
 
+      # Landing page deploys AFTER the app is deployed, smoke-tested, and
+      # rolled back if needed — so the app's integrity never depends on the
+      # landing step. A landing failure blocks the release tag (correctly) but
+      # never the verified app deploy.
+      - name: Deploy landing page
+        run: |
+          # The marketing landing page (served at the bare domain root) lives in
+          # landing/index.html and deploys to its own directory, independent of
+          # the app's dist. Defaults to the known path; override with the
+          # SERVER_MARKETING_PATH secret if it ever moves.
+          MKT_PATH="${{ secrets.SERVER_MARKETING_PATH || '/var/www/marketing/mirror' }}"
+
+          if [ ! -f "landing/index.html" ]; then
+            echo "::notice::No landing/index.html in this checkout — skipping landing deploy."
+            exit 0
+          fi
+
+          echo "Deploying landing page to ${MKT_PATH} ..."
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p '$MKT_PATH'"
+
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            landing/index.html \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:"$MKT_PATH/index.html"
+
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+            "if [ -f '$MKT_PATH/index.html' ]; then echo 'Landing deployed:'; ls -la '$MKT_PATH/index.html'; else echo '::error::Landing deploy failed'; exit 1; fi"
+
+      - name: Landing smoke test
+        run: |
+          # The bare domain root serves the landing page (DocumentRoot ->
+          # the marketing dir). Verify it returns 200 (non-blocking warning).
+          echo "Checking landing page at https://localhost/ ..."
+          CODE=$(ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+            "curl -sk -o /dev/null -w '%{http_code}' https://localhost/" 2>/dev/null || echo "000")
+          echo "Landing page response: HTTP $CODE"
+          if [ "$CODE" != "200" ]; then
+            echo "::warning::Landing page did not return 200 (got $CODE) — check the Apache DocumentRoot / vhost."
+          fi
+
       - name: Tag release
         if: success()
         # Reuses the version computed in the quality job so the tag matches
