@@ -905,6 +905,16 @@ const LogUserIn: React.FC = () => {
                   Sign up here
                 </button>
               </p>
+              <p className="text-white/50 text-xs mt-2">
+                🎓 Student?{' '}
+                <button
+                  type="button"
+                  onClick={() => { try { localStorage.setItem('student_intent', '1'); } catch { /* ignore */ } navigate('/register'); }}
+                  className="link-mono"
+                >
+                  Get Premium free
+                </button>
+              </p>
             </motion.div>
           </GlassCard>
         </motion.div>

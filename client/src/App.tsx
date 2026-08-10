@@ -38,6 +38,8 @@ import RegistrationStep from './components/intake/RegistrationStep';
 import Landing from './pages/Landing';
 import TestPage from './pages/TestPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
+import StudentsPage from './pages/StudentsPage';
+import StudentVerifyPage from './components/paywall/StudentVerifyPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import VerifyEmailBanner from './components/auth/VerifyEmailBanner';
@@ -244,6 +246,9 @@ const App: React.FC = () => {
             <Route path="/test" element={<TestPage />} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
 
+            {/* Student campus-email confirmation (public — emailed token is the credential) */}
+            <Route path="/students/verify" element={<StudentVerifyPage />} />
+
             {/* Forgotten-password flow (public — token is the credential) */}
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -286,6 +291,21 @@ const App: React.FC = () => {
                   redirectTo="/login"
                 >
                   <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Students — claim/reverify free Premium (auth required; the claim
+                turns a free user into premium, so it must NOT be premium-gated) */}
+            <Route
+              path="/students"
+              element={
+                <ProtectedRoute
+                  accessLevel={AccessLevel.AUTHENTICATED}
+                  securityLevel={SecurityLevel.BASIC}
+                  redirectTo="/login"
+                >
+                  <StudentsPage />
                 </ProtectedRoute>
               }
             />

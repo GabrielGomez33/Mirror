@@ -37,6 +37,15 @@ export default function Home() {
               LOOK into The Mirror
             </GlassButton>
           </div>
+
+          {/* Students: free Premium. Carry intent through signup. */}
+          <button
+            type="button"
+            onClick={() => { try { localStorage.setItem('student_intent', '1'); } catch { /* ignore */ } navigate('/intake/register'); }}
+            className="text-white/80 hover:text-white text-sm underline underline-offset-4"
+          >
+            🎓 Student? Get Premium free →
+          </button>
         </div>
       </div>
     </div>
