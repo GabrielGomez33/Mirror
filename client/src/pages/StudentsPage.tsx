@@ -7,7 +7,7 @@
 // StudentAccessCard, which handles all state (form / sent / already-active).
 // ============================================================================
 
-import React from 'react';
+
 import { useNavigate } from 'react-router-dom';
 import StudentAccessCard from '../components/paywall/StudentAccessCard';
 
