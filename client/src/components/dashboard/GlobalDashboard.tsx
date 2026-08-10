@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getUserInfo, clearToken } from '../../utils/token';
 import { isWebSocketConnected } from '../../services/groupsWebSocket';
 import SubscriptionManager from '../paywall/SubscriptionManager';
+import StudentAccessCard from '../paywall/StudentAccessCard';
 import ThemeToggle from '../ui/ThemeToggle';
 import { useSubscription } from '../../context/SubscriptionContext';
 import { getPersonalIntelligenceApi } from '../../services/mirrorDashboard';
@@ -1624,6 +1625,12 @@ export default function GlobalDashboard() {
                 <Section title="Subscription" icon="✦" onToggle={(isOpen) => { if (isOpen) refreshSubscription(); }}>
                   <SubscriptionManager />
                 </Section>
+
+                {/* Student access — self-hides when already premium / not applicable,
+                    so no empty block renders for paying or already-verified users. */}
+                <div style={{ display: 'flex', justifyContent: 'center', margin: '4px 0' }}>
+                  <StudentAccessCard />
+                </div>
 
                 {/* Account Settings — sign-out + destructive actions */}
                 <Section title="Account Settings" icon="⚙️">

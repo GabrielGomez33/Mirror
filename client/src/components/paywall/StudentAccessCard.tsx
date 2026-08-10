@@ -85,6 +85,11 @@ export default function StudentAccessCard() {
   const [email, setEmail] = useState('');
   const [attest18, setAttest18] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set by the Home/Login "Student? Get Premium free" CTAs so we can greet
+  // intent-driven arrivals. Cleared once they successfully request/verify.
+  const [cameForStudent] = useState<boolean>(() => {
+    try { return localStorage.getItem('student_intent') === '1'; } catch { return false; }
+  });
 
   useEffect(() => {
     let alive = true;
@@ -112,6 +117,7 @@ export default function StudentAccessCard() {
     setPhase('submitting');
     try {
       await requestStudentVerification(email.trim(), attest18);
+      try { localStorage.removeItem('student_intent'); } catch { /* ignore */ }
       setPhase('sent');
     } catch (err) {
       setError(friendlyError(err as ApiError));
@@ -152,7 +158,9 @@ export default function StudentAccessCard() {
     <div style={wrap}>
       <h3 style={{ color: '#fff', margin: '0 0 6px' }}>Students get Premium, free 🎓</h3>
       <p style={{ color: '#aaa', fontSize: 14, margin: '0 0 16px', lineHeight: 1.5 }}>
-        Confirm your school email to unlock everything, on us — for as long as you're enrolled.
+        {cameForStudent
+          ? "You're one step away — confirm your school email to unlock everything, on us, for as long as you're enrolled."
+          : "Confirm your school email to unlock everything, on us — for as long as you're enrolled."}
       </p>
       <form onSubmit={submit}>
         <label htmlFor="campusEmail" style={{ display: 'block', fontSize: 13, color: '#bbb', marginBottom: 6 }}>
