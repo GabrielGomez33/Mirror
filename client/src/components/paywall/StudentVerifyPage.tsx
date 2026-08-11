@@ -13,6 +13,7 @@
 // ============================================================================
 
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { verifyStudentToken, type ApiError } from '../../services/studentAccessApi';
 
 type State =
@@ -51,6 +52,7 @@ function friendly(err: ApiError): string {
 
 export default function StudentVerifyPage() {
   const [state, setState] = useState<State>({ kind: 'verifying' });
+  const navigate = useNavigate();
   // Guard against double-invoke (React 18/19 StrictMode mounts effects twice).
   const started = useRef(false);
 
@@ -89,16 +91,20 @@ export default function StudentVerifyPage() {
               Free through {new Date(state.accessUntil).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}.
             </p>
           )}
-          <a href="/dashboard" style={{ display: 'inline-block', marginTop: 16, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', textDecoration: 'none', padding: '12px 24px', borderRadius: 8, fontWeight: 600 }}>
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard')}
+            style={{ display: 'inline-block', marginTop: 16, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', border: 'none', cursor: 'pointer', textDecoration: 'none', padding: '12px 24px', borderRadius: 8, fontWeight: 600 }}
+          >
             Open Mirror
-          </a>
+          </button>
         </>
       )}
       {state.kind === 'error' && (
         <>
           <h2 style={{ color: '#fff', margin: '0 0 8px' }}>Couldn't confirm</h2>
           <p style={{ color: '#fca5a5', lineHeight: 1.6 }}>{state.message}</p>
-          <a href="/dashboard" style={{ color: '#a5b4fc' }}>Back to Mirror</a>
+          <button type="button" onClick={() => navigate('/dashboard')} style={{ background: 'none', border: 'none', color: '#a5b4fc', cursor: 'pointer', fontSize: 14 }}>Back to Mirror</button>
         </>
       )}
     </div>
