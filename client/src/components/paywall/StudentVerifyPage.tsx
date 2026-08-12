@@ -53,8 +53,19 @@ function friendly(err: ApiError): string {
 export default function StudentVerifyPage() {
   const [state, setState] = useState<State>({ kind: 'verifying' });
   const navigate = useNavigate();
+  // Auto-close countdown for the success screen (email links usually open the
+  // browser, not the installed PWA — so we thank + close rather than redirect).
+  const [secondsLeft, setSecondsLeft] = useState(10);
+  const [showCloseHint, setShowCloseHint] = useState(false);
   // Guard against double-invoke (React 18/19 StrictMode mounts effects twice).
   const started = useRef(false);
+
+  function tryClose() {
+    // window.close() is a no-op for tabs the user opened themselves (e.g. from
+    // an email), so we can't rely on it. Attempt it, then reveal a manual hint.
+    try { window.close(); } catch { /* ignore */ }
+    setShowCloseHint(true);
+  }
 
   useEffect(() => {
     if (started.current) return;
@@ -77,6 +88,14 @@ export default function StudentVerifyPage() {
       .catch((err) => setState({ kind: 'error', message: friendly(err as ApiError) }));
   }, []);
 
+  // Tick down the auto-close timer once verification succeeds.
+  useEffect(() => {
+    if (state.kind !== 'success') return;
+    if (secondsLeft <= 0) { tryClose(); return; }
+    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [state.kind, secondsLeft]);
+
   return (
     <div style={wrap}>
       <h1 style={{ color: '#fff', fontSize: 24, margin: '0 0 16px' }}>Mirror</h1>
@@ -84,20 +103,35 @@ export default function StudentVerifyPage() {
       {state.kind === 'success' && (
         <>
           <div style={{ fontSize: 40, marginBottom: 8 }}>🎓</div>
-          <h2 style={{ color: '#fff', margin: '0 0 8px' }}>You're in</h2>
+          <h2 style={{ color: '#fff', margin: '0 0 8px' }}>Thank you — you're all set</h2>
           <p style={{ color: '#ccc', lineHeight: 1.6 }}>{state.message}</p>
           {state.accessUntil && (
             <p style={{ color: '#888', fontSize: 13 }}>
-              Free through {new Date(state.accessUntil).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}.
+              Your Premium is free through {new Date(state.accessUntil).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}. We'll remind you to re-verify before then.
             </p>
           )}
-          <button
-            type="button"
-            onClick={() => navigate('/dashboard')}
-            style={{ display: 'inline-block', marginTop: 16, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', border: 'none', cursor: 'pointer', textDecoration: 'none', padding: '12px 24px', borderRadius: 8, fontWeight: 600 }}
-          >
-            Open Mirror
-          </button>
+          <p style={{ color: '#bbb', fontSize: 14, lineHeight: 1.6, marginTop: 12 }}>
+            You can head back to the Mirror app now — your Premium features are already unlocked. It's safe to close this tab.
+          </p>
+          <p style={{ color: '#666', fontSize: 13, marginTop: 16 }} aria-live="polite">
+            {showCloseHint ? 'You can safely close this tab.' : `This tab will close automatically in ${secondsLeft}s…`}
+          </p>
+          <div style={{ marginTop: 12, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={tryClose}
+              style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', border: 'none', cursor: 'pointer', padding: '10px 20px', borderRadius: 8, fontWeight: 600 }}
+            >
+              Close tab
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/dashboard')}
+              style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', color: '#a5b4fc', cursor: 'pointer', padding: '10px 20px', borderRadius: 8 }}
+            >
+              Open in browser
+            </button>
+          </div>
         </>
       )}
       {state.kind === 'error' && (
