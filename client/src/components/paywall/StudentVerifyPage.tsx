@@ -116,20 +116,13 @@ export default function StudentVerifyPage() {
           <p style={{ color: '#666', fontSize: 13, marginTop: 16 }} aria-live="polite">
             {showCloseHint ? 'You can safely close this tab.' : `This tab will close automatically in ${secondsLeft}s…`}
           </p>
-          <div style={{ marginTop: 12, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div style={{ marginTop: 12 }}>
             <button
               type="button"
               onClick={tryClose}
-              style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', border: 'none', cursor: 'pointer', padding: '10px 20px', borderRadius: 8, fontWeight: 600 }}
+              style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', border: 'none', cursor: 'pointer', padding: '10px 24px', borderRadius: 8, fontWeight: 600 }}
             >
               Close tab
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/dashboard')}
-              style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', color: '#a5b4fc', cursor: 'pointer', padding: '10px 20px', borderRadius: 8 }}
-            >
-              Continue to Mirror
             </button>
           </div>
         </>
