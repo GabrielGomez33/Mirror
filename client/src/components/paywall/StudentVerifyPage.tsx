@@ -129,7 +129,7 @@ export default function StudentVerifyPage() {
               onClick={() => navigate('/dashboard')}
               style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', color: '#a5b4fc', cursor: 'pointer', padding: '10px 20px', borderRadius: 8 }}
             >
-              Open in browser
+              Continue to Mirror
             </button>
           </div>
         </>
