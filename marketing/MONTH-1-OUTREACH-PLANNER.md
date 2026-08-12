@@ -1,245 +1,225 @@
-# Mirror — Month 1 Outreach Planner
+# Mirror — Month 1 Outreach Planner (Executable)
 
-A complete, day-by-day plan for one person doing outreach + content. It tells you
-**who to contact, where to find them, how many to do each day, which script to
-use, what to post, and how to track it.**
+A follow-it-exactly plan. It names **who to contact each day**, with their real
+public phone/email, which script to use, what to post, and how to track it.
 
-> Honest note on contacts: I will not invent phone numbers or emails — fake
-> leads waste your time and burn your name. Instead, Section 2 gives you the real
-> **directories where these people publish their own public business contact
-> info**, plus named anchor organizations. You pull the exact number/email from
-> the listing (they're there to be contacted) and drop it into the tracker. This
-> is faster and safer than any list I could fabricate, and it scales to hundreds.
+**How the contacts were gathered (read once):** every number/email below was
+pulled from the organization's official/public pages via web research, and each
+is verifiable at the source URL in `lead-list.csv`. The network blocked direct
+page fetches, so a few came from search-result snippets of those official pages
+— so **glance at the org's contact page before you dial/send** (takes 5 seconds),
+and note the handful marked *(verify)*. Nothing here is invented. Individual
+therapists/coaches live behind directory profiles, so for daily *volume* you
+also harvest those from Psychology Today / Noomii (noted in the schedule) — but
+the **77 named orgs, schools, centers, practices, podcasts, and creators below
+come with real, dialable contacts.**
 
-Pairs with: `PARTNER-OUTREACH-KIT.md` (the call/DM scripts), `PROSPECT-LIST.md`
-(more directories + named podcasts/creators), `partner-outreach-tracker.csv`
-(the tracker), `CONTENT-PLAYBOOK.md` + `VIDEO-STORYBOARDS.md` (what to post).
+**Work each weekday:** the day's named leads (Section 3) → fill the rest of your
+quota from the directories → post 2× → 10-min reply sweep. Track every touch in
+`lead-list.csv`.
 
 ---
 
-## 1. Who you're reaching, and the one-line reason they care
+## 1. Daily numbers
 
-| Audience | Why Mirror matters to them | Primary script |
+| Activity | Baseline/day | Stretch/day |
 |---|---|---|
-| **Therapists / counselors** | A structured self-reflection tool for clients *between* sessions (never a replacement for care) | Therapist/coach |
-| **Life & self-help coaches** | A deeper client intake + a shared language for growth; a tool they can recommend | Therapist/coach |
-| **Coaching schools / academies** | One partner = hundreds of student-coaches who could use it | Facilitator (adapt) |
-| **School & university counselors** | A low-liability self-awareness resource for students | Corporate/HR (adapt) |
-| **Gurus / wellness & spiritual teachers, yoga/meditation studios** | A pre/post-retreat self-knowledge tool; groups feature fits circles | Facilitator/retreat |
-| **Self-development creators (IG/TikTok)** | Content their audience loves + a collab/affiliate angle | Creator (DM) |
-| **Podcast hosts** | A fresh guest topic: the "perception gap" + on-device privacy | Podcast |
+| Cold calls (dials) | 8 | 15 |
+| Personalized emails (1:1 from your inbox) | 10 | 20 |
+| Social DMs (IG+FB+TikTok) | 10 | 20 |
+| Follow-ups | 5 | 10 |
+| Posts (cross-posted to IG+FB+TikTok) | **2** | 2 |
+
+Legal/deliverability guardrails: contacts are **public business** lines (B2B).
+Send emails **1:1 from your own inbox**, personalized — never the bulk campaign
+system (that's only for opted-in users/waitlist). Every email: real signature +
+easy opt-out.
 
 ---
 
-## 2. Where to find them (the sourcing playbook — real directories)
+## 2. The master lead list (77 named leads — full contacts in `lead-list.csv`)
 
-Work one row at a time. Open the directory, filter by your target city/niche,
-and copy each prospect's **name, public phone, public email/contact link,** and a
-one-line **personalization hook** into `partner-outreach-tracker.csv`.
-
-### Therapists / counselors
-- **Psychology Today — Find a Therapist:** `psychologytoday.com/us/therapists` (filter by city + specialty; each profile has phone + email/contact)
-- **TherapyDen:** `therapyden.com`
-- **GoodTherapy:** `goodtherapy.org`
-- **Zencare:** `zencare.co`
-
-### Life & self-help coaches
-- **Noomii — largest coach directory:** `noomii.com` (profiles include contact + pricing)
-- **ICF Credentialed Coach Finder:** `coachingfederation.org/find-a-coach`
-- **Life Coach Hub:** `lifecoachhub.com`
-- **Life Coach Magazine directory:** `lifecoachmagazine.com/life-coach-directory`
-- **Thumbtack (local coaches):** `thumbtack.com`
-
-### Coaching schools / academies (high-leverage — each has many coaches)
-- **Co-Active Training Institute (CTI):** `coactive.com` — 65,000+ coaches trained
-- **iPEC:** `ipeccoaching.com`
-- **Robbins-Madanes Training:** `robbinsmadanes.com`
-- Pitch: an alumni/student perk or a "tool for your trainees" partnership → reach the org, not one coach.
-
-### Schools & university counselors
-- **ASCA (American School Counselor Association):** `schoolcounselor.org` · main line **(703) 683-2722** · **asca@schoolcounselor.org** — and their **State & Territory Associations** page links every state body (your fastest route to local counselors)
-- **University counseling / wellness centers:** search "`<university> counseling center`" or "`<university> student wellness`" — each publishes a department phone + email
-- Local **school district** sites list counselor contacts per school
-
-### Gurus / wellness / spiritual teachers, yoga & meditation studios
-- **Body Mind Spirit Directory:** `bodymindspiritdirectory.org`
-- **YogChakra Wellness Directory:** `yogchakra.com/wellness-directory`
-- **yoga.nears.me:** `nears.me/yoga-wellness-directory` — 17,000+ studios
-- **Heart of Yoga / Yin Yoga teacher directories** (teacher listings with contact)
-- Local: search "`<city> meditation center`," "`<city> yoga studio`," "`<city> men's circle`," "`<city> women's retreat`"
-
-### Self-development creators (for DMs — no email needed)
-- Search hashtags on IG/TikTok: **#selfawareness #personalgrowth #shadowwork #mbti #humandesign #healingtok #innerwork**
-- Named large accounts to study/pursue (from research): **The Wizard Liz**, plus mid-tier creators in MBTI/astrology/therapy-adjacent niches (10k–200k followers convert best — big enough to matter, small enough to reply). See `PROSPECT-LIST.md` for named podcasts/creators.
-
-### Podcast hosts
-- See `PROSPECT-LIST.md` for a named, pitch-ready list (astrology, Enneagram, relationships, self-dev).
-
----
-
-## 3. Your daily numbers
-
-Two tiers — hit **Baseline** every weekday; push to **Stretch** on good days.
-Consistency beats intensity: a steady daily pace compounds; bursts don't.
-
-| Activity | Baseline / day | Stretch / day |
-|---|---|---|
-| **Cold calls** (dials) | 8 | 15 |
-| **Personalized emails** (1:1, from your own inbox) | 10 | 20 |
-| **Social DMs** (IG + FB + TikTok combined) | 10 | 20 |
-| **Follow-ups** (from earlier in the week) | 5 | 10 |
-| **Posts** (each cross-posted to IG + FB + TikTok) | **2** | 2 |
-
-**Weekly baseline:** ~40 dials · ~50 emails · ~50 DMs · **14 posts.**
-**Monthly baseline:** ~160 calls · ~200 emails · ~200 DMs · ~60 posts.
-
-Rules that keep you legal + welcome:
-- Calls/emails go to **public business contacts** (practices, studios, schools) —
-  B2B, not consumers.
-- Send emails **1:1 from your own inbox**, personalized — never a bulk blast
-  (that protects your inbox reputation; the campaign system is only for
-  opted-in users/waitlist).
-- Every email has a real signature + an easy way to say "no thanks."
-
----
-
-## 4. Which script, which day (weekly rotation)
-
-Batch by audience so you stay in one headspace. Scripts are in
-`PARTNER-OUTREACH-KIT.md`.
-
-| Day | Focus | Source (Section 2) | Script |
+### Coaching schools & bodies (each = hundreds of coaches → highest leverage)
+| Org | Phone | Email | Hook |
 |---|---|---|---|
-| **Mon** | Therapists / counselors | Psychology Today, TherapyDen | Therapist/coach |
-| **Tue** | Coaches + one coaching school | Noomii, ICF + CTI/iPEC | Therapist/coach + Facilitator |
-| **Wed** | Creators + one podcast pitch | IG/TikTok hashtags + PROSPECT-LIST | Creator (DM) + Podcast |
-| **Thu** | Schools/counselors + wellness/yoga | ASCA/state + yoga directories | Corporate (adapt) + Facilitator |
-| **Fri** | **Follow-ups** (everyone from Mon–Thu) + retreats | tracker + BookRetreats/Retreat Guru | Break-up close + Facilitator |
+| Co-Active (CTI) | (415) 451-6000 | marketing@coactive.com | Tool for CPCC trainees & alumni |
+| iPEC | 866-722-6224 | admissions@ipeccoaching.com | Platform for Energy Leadership coaches |
+| ICF | 888-423-3131 | icfheadquarters@coachingfederation.org | Reach 50k+ member coaches |
+| The Life Coach School | 800-356-1240 | theteam@thelifecoachschool.com | Coach community + podcast audience |
+| Robbins-Madanes | 855-850-7111 | support@robbinsmadanes.com | Strategic Intervention grads |
+| IIN | 877-730-5444 | admissions@integrativenutrition.com | 100k+ health-coach alumni |
+| Erickson Coaching Int'l | 604-879-5600 | (web form) | Solution-Focused graduates |
+| Coach U | 1-800-482-6224 | clientsuccess@coachu.com | Oldest coach-training alumni base |
+| Health Coach Institute | 888-822-1284 | support@healthcoachinstitute.com | Health/life-coach graduates |
+| Jay Shetty Cert School | — | support@jayshettycoaching.com | Fast-growing coach cohort |
 
-The **Fri follow-up** block matters most — most replies come on touch 2 or 3.
+### Therapy group practices & bodies (recommend Mirror between sessions)
+| Org | Phone | Email | Hook |
+|---|---|---|---|
+| Two Chairs | (415) 202-5159 | support@twochairs.com | Fits measurement-based care |
+| Octave | (415) 360-3833 | support@findoctave.com | Extend care plans at home |
+| Thriveworks | 833-530-2577 | (web form) | 340+ locations |
+| LifeStance Health | 1-800-383-8282 | wecare@lifestance.com | Thousands of clinicians |
+| Grow Therapy | (646) 687-9932 | support@growtherapy.com | Already partners on tools |
+| Alma | — | (support center) | Thousands of independent therapists |
+| Headway | (833) 910-3781 | support@get-headway.com | Large insurance-based network |
+| SonderMind | 844-843-7279 | support@sondermind.com | Outcomes-focused network |
+| Mindpath Health | 1-855-501-1004 | (web form) | Large multi-state group |
+| The Family Institute (NU) | (847) 733-4300 | (web form) | Evidence-minded academic center |
+| Talkiatry | 833-351-8255 | hello@talkiatry.com | National psychiatry group |
+| Ellie Mental Health | 1-888-693-5543 | (web form) | Franchise of local clinics |
+| Rula (formerly Path) | (800) 985-3059 | support@rula.com | High-growth in-network |
+| ACA (assoc) | 800-347-6647 | memberservices@counseling.org | ~50k counselors |
+| APA (assoc) | (800) 374-2721 | (web form) | Largest US psychology body |
+| AAMFT (assoc) | 703-838-9808 | central@aamft.org | Couples/family therapists |
+
+### School counselor associations + university counseling centers
+| Org | Phone | Email | |
+|---|---|---|---|
+| CA Assoc of School Counselors | (909) 815-5222 | customerservice@schoolcounselor-ca.org | state |
+| Texas SCA | 512-472-3403 | info@txca.org | state |
+| New York State SCA | (937) 969-7722 | info@nyssca.org | state |
+| Florida SCA | (904) 586-1757 | fsca@fla-schoolcounselor.org | state |
+| Ohio SCA | (614) 401-4642 | osca@ohioschoolcounselor.org | state |
+| Pennsylvania SCA | 412-612-3801 | epeiffer@paschoolcounselor.org | state |
+| Illinois SCA | — | executivedirector@ilschoolcounselor.org | state |
+| Georgia SCA | (770) 971-6002 | info@gaschoolcounselor.org | state |
+| UCLA CAPS | 310-825-0768 | info@caps.ucla.edu | university |
+| Ohio State CCS | 614-292-5766 | (web form) | university |
+| UT Austin CMHC | 512-471-3515 | (web form) | university |
+| U Michigan CAPS | 734-764-8312 | CAPS-UofM@umich.edu | university |
+| Arizona State | (480) 965-6146 | (web form) | university |
+| U Florida CWC | 352-392-1575 | (web form) | university |
+| Penn State CAPS | 814-863-0395 | (web form) | university |
+| NYU Counseling & Wellness | (212) 998-4780 | wellness.exchange@nyu.edu | university |
+
+### Wellness / retreat / meditation centers (pre/post-retreat + circles)
+| Org | Phone | Email |
+|---|---|---|
+| Kripalu | 413-448-3500 | registration@kripalu.org |
+| Omega Institute | 877-944-2002 | registration@eomega.org |
+| Esalen | 831-667-3000 | info@esalen.org |
+| Spirit Rock | (415) 488-0164 | srmc@spiritrock.org |
+| 1440 Multiversity | 888-727-1440 | info@1440.org |
+| Drala Mountain | 970-881-2184 | frontdesk@dralamountain.org |
+| Insight Meditation Society | 978-355-4378 | rc@dharma.org |
+| CorePower Yoga (HQ) | (866) 441-9642 | yogaondemand@corepoweryoga.com |
+| Modo Yoga | — | info@modoyoga.com |
+| Art of Living Retreat Center | 800-392-6870 | info@aolrc.org |
+| Miraval Arizona | 520-825-4000 | (web form) |
+| Canyon Ranch | 520-749-9000 | reservations@canyonranch.com |
+
+### Podcasts (guest pitches) & Creators (DMs)
+**Podcasts:** The Astrology Podcast (theastrologypodcast@gmail.com) · Ghost of a
+Podcast (ghostofapodcast@gmail.com) · Typology (wendy@ianmorgancron.com) · The
+Life Coach School (theteam@thelifecoachschool.com) · The One You Feed
+(guest@oneyoufeed.net) · Therapy for Black Girls (memo.fm form) · On Purpose
+*(verify)* · The Enneagram Journey (site form) · Reimagining Love (site form) ·
+We Can Do Hard Things (voicemail) · Optimal Living Daily (form — easiest first yes).
+
+**Creators (DM on IG/TikTok):** @enneagramandcoffee · @sarajanecase · @ninetypesco
+· @enneagramenthusiast · @the.holistic.psychologist · @nedratawwab ·
+@jillian.turecki · @thesecurerelationship · @sanctuarywrld · @moonomens ·
+@chaninicholas · @ifrankjames.
 
 ---
 
-## 5. The outreach email (generic — copy, then personalize the first two lines)
+## 3. The 4-week schedule (do exactly this)
 
-> Use this as your base for therapists/coaches/wellness pros. Keep the **first
-> two lines specific to them** (their work, their focus) or it goes in the bin.
-> Under ~130 words. Send from your real inbox.
+Each day: **call + email the named leads**, then **harvest directory volume** to
+finish your quota, then **2 posts** + reply sweep. Scripts in
+`PARTNER-OUTREACH-KIT.md`; email + call opener in Section 4.
 
+### WEEK 1 — Foundation
+- **Mon — Therapy:** Two Chairs · Octave · LifeStance · Headway (call each + email). Then harvest 5 local therapists from Psychology Today and email them. *Post: perception-gap video / evening quote card.*
+- **Tue — Coaching:** CTI · iPEC · ICF (call + partnerships email). Harvest 5 coaches from Noomii/ICF finder. *Post: 3am-overthinker video / poll.*
+- **Wed — Podcasts + Creators:** Email-pitch The Astrology Podcast · Ghost of a Podcast · Typology. DM @enneagramandcoffee · @ninetypesco · @enneagramenthusiast. *Post: "uncharted" anthem / carousel of the 5 layers.*
+- **Thu — Schools + Wellness:** CASC · TSCA · NYSSCA · FSCA (call + email) + Kripalu · Omega · Esalen. *Post: mirror-talks-back / founder note.*
+- **Fri — Follow-ups:** 2nd touch everyone from Mon–Thu with no reply. Overflow: email The One You Feed + Life Coach School podcast. *Post: blind-spot video / text testimonial.*
+
+### WEEK 2 — Volume
+- **Mon — Therapy:** Thriveworks · Grow Therapy · SonderMind · Talkiatry. + 5 more therapists (next city/pages).
+- **Tue — Coaching:** The Life Coach School · Robbins-Madanes · IIN. + 5 coaches.
+- **Wed — Podcasts + Creators:** Email The One You Feed · Therapy for Black Girls · Life Coach School. DM @the.holistic.psychologist · @nedratawwab · @jillian.turecki.
+- **Thu — Schools + Wellness:** OSCA · PSCA · ISCA · GSCA + Spirit Rock · 1440 · Drala Mountain.
+- **Fri — Follow-ups** on Week-1 + Week-2 no-replies (this is where replies come).
+- *Posts: reuse Week-1's best performers + 3 new videos.*
+
+### WEEK 3 — Optimize
+- **Mon — Therapy:** Alma · Rula · Mindpath · Ellie Mental Health. + 5 therapists.
+- **Tue — Coaching:** Erickson · Coach U · Health Coach Institute. + 5 coaches.
+- **Wed — Podcasts + Creators:** Email The Enneagram Journey · On Purpose · We Can Do Hard Things. DM @thesecurerelationship · @sanctuarywrld · @chaninicholas.
+- **Thu — Schools + Wellness:** UCLA · Ohio State · UT Austin · U Michigan (university centers) + Insight Meditation Society · Art of Living · Canyon Ranch.
+- **Fri — Follow-ups + warm asks:** anyone who replied positively → "is there one person you'd point me to?"
+- *Posts: triple down on whichever pillar earned the most saves/shares.*
+
+### WEEK 4 — Convert
+- **Mon — Bodies:** The Family Institute · ACA · APA · AAMFT (email partnerships/awareness). + 5 therapists.
+- **Tue — Coaching:** Jay Shetty Cert School + **follow up every coaching school** from Weeks 1–3; ask interested ones for an intro.
+- **Wed — Podcasts + Creators:** Email Reimagining Love · Optimal Living Daily. DM @moonomens · @ifrankjames · @sarajanecase.
+- **Thu — Schools + Wellness:** ASU · U Florida · Penn State · NYU + CorePower · Modo · Miraval.
+- **Fri — Close:** book 15-min calls with everyone interested; send free access; ask your first happy contact for a quote/referral. Plan Month 2 from the tracker.
+
+**End-of-month targets:** ~160 calls · ~200 emails · ~200 DMs · ~60 posts →
+20–40 replies → 5–10 real conversations → **1–3 committed multipliers**.
+
+---
+
+## 4. What to say
+
+### The email (personalize the first two lines, <130 words, from your inbox)
 **Subject:** A quiet tool for the people you work with
-
----
 
 Hi {first name},
 
-I came across your work in {their focus — e.g. "helping couples rebuild trust" /
-"guiding people through career transitions"}, and it's the reason I'm writing.
+I came across your work in {their focus — e.g. "measurement-based therapy" /
+"training new coaches" / "guiding retreat guests"}, and it's the reason I'm
+writing.
 
-I'm the founder of **Mirror** — a personal-reflection tool that helps someone
-see themselves clearly: their personality and patterns, how they think and feel,
-and even how others actually perceive them. Some practitioners are pointing
-clients to it for structure *between* sessions. It's a mirror, never a
-replacement for the work you do.
+I'm the founder of **Mirror** — a personal-reflection tool that helps someone see
+themselves clearly: their personality and patterns, how they think and feel, and
+even how others actually perceive them. Practitioners are pointing people to it
+for structure *between* sessions. It's a mirror, never a replacement for the work
+you do.
 
-I'm not selling anything today — I'd genuinely value your eye on it. Could I set
-you up with free access to try? If it's useful to the people you serve,
-wonderful. If not, your honest read would help me more than you know.
-
-Either way, thank you for the work you put into the world.
+I'm not selling anything today — I'd value your eye on it. Could I set you up with
+free access to try? If it helps the people you serve, wonderful; if not, your
+honest read would help me more than you know.
 
 Warmly,
-{Your name} · Founder, Mirror
-trymirror.world
+{Your name} · Founder, Mirror · trymirror.world
+
+### The 20-second cold-call opener
+> "Hi, this is {name} — I'll be quick. I'm the founder of a self-reflection app
+> called Mirror, and I work with {therapists / coaches / counselors} who want
+> something structured for people *between* sessions. I'm not selling anything —
+> I'd just love to give your team free access to look at. Who's the best person
+> to send that to?"
+
+Then: get a name + email → send the email same day → log it.
 
 ---
 
-*(Variants: for **schools/counselors**, swap line 2 to "a low-pressure
-self-awareness resource for students"; for **retreat/circle leaders**, "a
-pre- and post-retreat reflection tool for your groups.")*
+## 5. Posting plan (2×/day, all to IG + FB + TikTok)
+
+- **AM (~9–10am):** a short video from `VIDEO-STORYBOARDS.md` (or a bold
+  text-over-background hook). Reach play.
+- **PM (~6–8pm):** lighter — quote card, poll/question, carousel, or founder
+  note. Engagement play.
+- After each post: 10 min replying to comments/DMs. Rotate pillars: Recognition ·
+  Perception-gap · Five layers · Growth · Cosmos-meets-science.
 
 ---
 
-## 6. The 4-week calendar
+## 6. Track + review
 
-Each weekday = **1 outreach block (~45 min)** + **content (2 posts)** + a
-**10-min reply/engage sweep**. Weekends: light — 30-min reply sweep + prep
-next week's posts (or rest).
+Work `lead-list.csv` (status: `to-do → called → emailed → replied → call-booked →
+won/no`). **Every Friday (15 min):** count the week vs. baseline; note which
+audience replied most (give it more time); which post got the most saves/shares
+(make more); schedule next week's follow-ups; book any interested lead into a
+call. Chase **replies, booked calls, and multipliers** — not raw dials or views.
 
-### Week 1 — Foundation (learn the motion)
-| Day | Outreach (Baseline) | Posts (AM / PM) |
-|---|---|---|
-| Mon | 8 therapist calls + 10 emails | Perception-gap video / a "recognition" quote |
-| Tue | 8 coach calls + 10 emails; email 1 coaching school | 3am-overthinker video / a poll ("what's your blind spot?") |
-| Wed | 15 creator DMs + 1 podcast pitch | "Uncharted" anthem video / a carousel: the 5 layers |
-| Thu | 8 school/wellness calls + 10 emails | Mirror-talks-back video / behind-the-scenes (founder note) |
-| Fri | Follow up everyone from Mon–Thu + 5 retreat emails | Blind-spot video / a testimonial-style text post |
-
-### Week 2 — Volume (same rhythm, wider net)
-Repeat the Week-1 day themes. Sources: move to the **next city** or the next
-pages of each directory. Add a **second coaching school** (Tue) and a **second
-podcast pitch** (Wed). Start reusing your best Week-1 posts that performed.
-
-### Week 3 — Optimize (double down on what replies)
-Check the tracker: which audience replied most? Give that day an extra block.
-Whichever **post pillar** got the most saves/shares, make three more like it.
-Begin **warm intro asks** — anyone who replied positively, ask "is there one
-person you'd point me to?"
-
-### Week 4 — Convert + compound
-Focus follow-ups on **booked calls** (aim 3–5 discovery calls this week). Send
-free access to everyone who showed interest. Ask your first happy practitioner
-for a quote/referral. Plan Month 2 from the data.
-
-**Milestones by end of Month 1 (baseline):**
-- ~160 calls · ~200 emails · ~200 DMs · ~60 posts
-- 20–40 replies · 5–10 real conversations · **1–3 committed multipliers**
-  (a therapist recommending you, a creator collab, a school pilot, a podcast
-  booking). One committed multiplier can outperform a month of ads.
-
----
-
-## 7. Posting plan — 2×/day, cross-posted to IG + FB + TikTok
-
-Post the **same clip/graphic to all three platforms**, with a native caption
-each (see the caption packs in `VIDEO-STORYBOARDS.md`). Two slots a day:
-
-- **AM (~9–10am) — the "recognition/curiosity" slot:** a short video from the
-  storyboards, or a bold text-over-aesthetic-background hook. This is your reach
-  play.
-- **PM (~6–8pm) — the "connection" slot:** lighter — a quote card, a poll/question
-  ("what's your blind spot?"), a carousel, a founder note, or a repost of an
-  early comment. This is your engagement + comments play.
-
-Rhythm: **video ~5×/week** (batch them per `VIDEO-STORYBOARDS.md`), **simpler
-graphics/text the other slots.** After every post, spend 10 minutes replying to
-comments + DMs — early engagement is what the algorithm (and your leads) watch.
-
-Content pillars to rotate (from `CONTENT-PLAYBOOK.md`): Recognition ·
-Perception-gap · The five layers · Growth · Cosmos-meets-science.
-
----
-
-## 8. Tracker + weekly review
-
-**Tracker:** `partner-outreach-tracker.csv` — one row per prospect: name, type,
-channel, contact, personalization hook, status (`to-send → sent → replied →
-call-booked → won/no`), touch dates, free-access sent, next action, notes.
-
-**Every Friday (15 min):**
-1. Count the week: calls / emails / DMs / posts vs. baseline.
-2. Which **audience** replied most? → give it more time next week.
-3. Which **post** got the most saves/shares? → make more like it.
-4. Who needs a **follow-up** next week? → schedule it now.
-5. Book any interested prospect into a 15-min call.
-
-**Numbers that matter:** replies, booked calls, and committed multipliers >
-raw dials. Saves/shares/comments and waitlist signups > raw views. You're not
-chasing volume for its own sake — you're looking for the handful of people who
-say yes and bring others.
-
----
-
-### The one-sentence version
-**Every weekday: 8 calls, 10 emails, 10 DMs, 2 posts, and a reply sweep — batched
-by audience, tracked in the sheet, followed up on Fridays.** Do that for a month
-and you'll have your first multipliers.
+### One-line version
+**Mon therapy · Tue coaching · Wed podcasts+creators · Thu schools+wellness · Fri
+follow-ups — named leads first, directory volume to fill, 2 posts daily, close on
+Fridays.**
