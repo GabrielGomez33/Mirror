@@ -81,7 +81,7 @@ Solo-Founder Playbook). One thoughtful message beats fifty automated ones.
 **Follow-up (if no reply, +5 days):**
 > Hi {First name} — floating this back up in case it slipped by. Happy to just
 > send you a free login so you can poke around, no strings. Loved {other
-> specific thing}. — {Your name}
+> specific thing}. — Gabriel Gomez
 
 ---
 
@@ -183,7 +183,7 @@ what a partnership looks like — affiliate %, a sponsored post, or a giveaway).
 |---|---|---|
 | 1 | Day 0 | The template above |
 | 2 | Day +5 | Short bump — re-offer the *free access*, add one new specific detail |
-| 3 | Day +12 | "Break-up" — "I'll stop here; if it's ever useful, the door's open: {link}" (this one gets surprisingly high reply rates) |
+| 3 | Day +12 | "Break-up" — "I'll stop here; if it's ever useful, the door's open: trymirror.world" (this one gets surprisingly high reply rates) |
 
 Three touches, then stop. Never more. Log every touch in the tracker.
 

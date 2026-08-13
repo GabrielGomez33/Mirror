@@ -299,7 +299,7 @@ Gabriel Gomez · Founder, Mirror · trymirror.world
 and I won't write again.")*
 
 ### B. The 20-second cold-call opener
-> "Hi, this is {name} — I'll be quick. I'm the founder of a self-reflection app
+> "Hi, this is Gabriel — I'll be quick. I'm the founder of a self-reflection app
 > called Mirror, and I work with {therapists / coaches / counselors} who want
 > something structured for the people they serve *between* sessions. I'm not
 > selling anything — I'd just love to give your team free access to look at.
