@@ -35,7 +35,7 @@ Solo-Founder Playbook). One thoughtful message beats fifty automated ones.
    "please promote my product."
 4. **Short.** 90–130 words. If they have to scroll, you lost.
 5. **From your real identity.** Your name, founder, real signature, link to
-   `theundergroundrailroad.world`. No-reply addresses and mail-merge artifacts
+   `trymirror.world`. No-reply addresses and mail-merge artifacts
    kill trust.
 6. **Give before you ask.** Offer them free Premium/TruthStream access to try —
    value first.
@@ -76,7 +76,7 @@ Solo-Founder Playbook). One thoughtful message beats fifty automated ones.
 >
 > Either way, thanks for the work you put out.
 >
-> — {Your name}, founder · theundergroundrailroad.world
+> — Gabriel Gomez, founder · Mirror · trymirror.world
 
 **Follow-up (if no reply, +5 days):**
 > Hi {First name} — floating this back up in case it slipped by. Happy to just
@@ -106,7 +106,7 @@ Solo-Founder Playbook). One thoughtful message beats fifty automated ones.
 > Could I give you free Premium access to evaluate it? If it's useful to your
 > clients, wonderful; if not, your honest feedback would genuinely help me.
 >
-> — {Your name}, founder · theundergroundrailroad.world
+> — Gabriel Gomez, founder · Mirror · trymirror.world
 
 **Note:** never imply clinical/diagnostic claims. Position as *reflection &
 structure*, not treatment.
@@ -133,7 +133,7 @@ structure*, not treatment.
 > Could I set you and a few members up with free access before your next
 > {session/retreat}? I'd love to see if it adds to what you already do.
 >
-> — {Your name}, founder · theundergroundrailroad.world
+> — Gabriel Gomez, founder · Mirror · trymirror.world
 
 ---
 
@@ -173,7 +173,7 @@ what a partnership looks like — affiliate %, a sponsored post, or a giveaway).
 >
 > Would a 15-minute look be worth it? I can set up a free pilot for a small team.
 >
-> — {Your name}, founder · theundergroundrailroad.world
+> — Gabriel Gomez, founder · Mirror · trymirror.world
 
 ---
 

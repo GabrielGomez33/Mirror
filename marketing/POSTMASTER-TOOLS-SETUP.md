@@ -5,8 +5,12 @@ spam rate, domain/IP reputation, authentication pass rates, and delivery errors.
 Now that SPF/DKIM/DMARC pass and you're starting real sends, this is your
 early-warning system. ~10 min to set up; data appears within ~48 hours.
 
-Monitor the domain you actually **send from**: `theundergroundrailroad.world`
-(email stays there — the new marketing domain doesn't send mail).
+Monitor **both** sending domains now that each sends real mail:
+- `theundergroundrailroad.world` — app/transactional + the bulk campaign engine.
+- `trymirror.world` — your 1:1 outreach mailbox (`gabrielgomez@trymirror.world`,
+  Zoho Mail). Add this one too; see `ZOHO-MAIL-SETUP.md`.
+
+Repeat the steps below once per domain (add each separately in Postmaster Tools).
 
 ---
 

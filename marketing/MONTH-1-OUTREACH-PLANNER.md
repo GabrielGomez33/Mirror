@@ -293,7 +293,7 @@ free access to try? If it helps the people you serve, wonderful; if not, your
 honest read would help me more than you know.
 
 Warmly,
-{Your name} · Founder, Mirror · trymirror.world
+Gabriel Gomez · Founder, Mirror · trymirror.world
 
 *(Add a real signature and, at the bottom, a one-line opt-out: "Reply 'no thanks'
 and I won't write again.")*
