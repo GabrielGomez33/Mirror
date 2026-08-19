@@ -1,0 +1,237 @@
+<meta charset="utf-8">
+<title>Mirror Conversion Teardown</title>
+<style>
+  @page { size: Letter; margin: 0.7in 0.8in 0.85in 0.8in; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: Georgia,"Times New Roman",serif; color:#1c1a24; font-size:10.5pt; line-height:1.5; margin:0; }
+  h1,h2,h3,h4,.kicker,th,.tag,.pill,.num,.legend,.hint-title { font-family:"Helvetica Neue",Arial,sans-serif; }
+
+  .cover { height:9.1in; display:flex; flex-direction:column; justify-content:center; page-break-after:always; }
+  .cover .mark { letter-spacing:.35em; font-size:11pt; color:#6b5bd2; text-transform:uppercase; font-family:"Helvetica Neue",Arial,sans-serif;}
+  .cover h1 { font-size:34pt; margin:14px 0 4px; letter-spacing:-.5px; line-height:1.05;}
+  .cover .sub { font-style:italic; color:#55506a; font-size:13pt; }
+  .cover .rule { width:60px; height:3px; background:#d64550; margin:20px 0; border-radius:2px;}
+  .cover .meta { margin-top:38px; font-family:"Helvetica Neue",Arial,sans-serif; font-size:9.5pt; color:#6f6a82;}
+  .cover .verdict { margin-top:26px; background:#fdf1f1; border:1px solid #f0c9cc; border-left:4px solid #d64550; border-radius:8px; padding:14px 16px; font-size:11pt; color:#3a3550;}
+  .cover .verdict b{color:#c0303c;}
+
+  h2.section { page-break-before:always; font-size:19pt; margin:2px 0 3px; padding-bottom:7px; border-bottom:3px solid #6b5bd2; color:#2c2740; letter-spacing:-.2px;}
+  h2.section.first { page-break-before:avoid; }
+  .kicker { text-transform:uppercase; letter-spacing:.18em; font-size:8.5pt; font-weight:700; color:#6b5bd2;}
+  h3 { font-size:12.5pt; margin:18px 0 4px; color:#2c2740; page-break-after:avoid;}
+  h4 { font-size:10.5pt; margin:12px 0 2px; color:#3a3550; page-break-after:avoid;}
+  p{margin:6px 0;} .lead{color:#44405a;margin:8px 0 14px;}
+  code{font-family:"SF Mono",Menlo,Consolas,monospace; font-size:8.6pt; background:#f0eef8; padding:1px 4px; border-radius:3px; color:#4b3fa8;}
+  b,strong{color:#161320;}
+
+  table{border-collapse:collapse; width:100%; margin:10px 0 14px; font-size:9pt; page-break-inside:avoid;}
+  th,td{border:1px solid #e2deee; padding:6px 8px; text-align:left; vertical-align:top;}
+  th{background:#f2f0f9; font-size:8.3pt; text-transform:uppercase; letter-spacing:.04em; color:#3a3550;}
+  td .v{font-weight:700;}
+
+  .fatal{color:#c0303c; font-weight:700;} .leak{color:#c9861a; font-weight:700;} .ok{color:#1f7a5a; font-weight:700;}
+  .row-fatal td{background:#fdf4f4;}
+
+  .callout{border-radius:8px; padding:11px 14px; margin:12px 0; font-family:"Helvetica Neue",Arial,sans-serif; font-size:9.2pt; page-break-inside:avoid;}
+  .callout.red{background:#fdf1f1; border:1px solid #f0c9cc; border-left:4px solid #d64550;}
+  .callout.amber{background:#fdf8ee; border:1px solid #f0e0bf; border-left:4px solid #d9a520;}
+  .callout.blue{background:#f2f6fe; border:1px solid #cfe0f7; border-left:4px solid #2b5fbf;}
+  .callout.green{background:#f1faf5; border:1px solid #c6ecd6; border-left:4px solid #1f7a5a;}
+  .callout .hint-title{font-weight:800; font-size:8.3pt; text-transform:uppercase; letter-spacing:.1em; margin-bottom:4px;}
+  .red .hint-title{color:#c0303c;} .amber .hint-title{color:#b5851a;} .blue .hint-title{color:#2b5fbf;} .green .hint-title{color:#1a6b4d;}
+
+  /* metric tiles */
+  .tiles{display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 4px;}
+  .tile{flex:1 1 22%; min-width:110px; border:1px solid #e2deee; border-radius:8px; padding:8px 10px; background:#faf9fd;}
+  .tile .num{font-family:"Helvetica Neue",Arial,sans-serif; font-size:16pt; font-weight:800; color:#2c2740; line-height:1;}
+  .tile .lbl{font-family:"Helvetica Neue",Arial,sans-serif; font-size:7.6pt; text-transform:uppercase; letter-spacing:.05em; color:#7a7590; margin-top:3px;}
+  .tile.bad .num{color:#c0303c;} .tile.good .num{color:#1f7a5a;}
+
+  /* funnel bars */
+  .funnel{margin:10px 0 6px;}
+  .fb{display:flex; align-items:center; margin:3px 0; font-family:"Helvetica Neue",Arial,sans-serif; font-size:9pt;}
+  .fb .bar{height:20px; border-radius:3px; background:linear-gradient(90deg,#6b5bd2,#9a8ae8); margin-right:8px;}
+  .fb .cap{color:#44405a;} .fb .cap b{color:#161320;}
+  .fb.zero .bar{background:#d64550;}
+
+  ul{margin:5px 0 8px; padding-left:18px;} li{margin:3px 0;}
+  ol.fixes{padding-left:0; list-style:none; counter-reset:fx;}
+  ol.fixes li{counter-increment:fx; position:relative; padding:8px 10px 8px 40px; border:1px solid #e6e2f0; border-radius:8px; margin:7px 0; page-break-inside:avoid; font-size:9.6pt;}
+  ol.fixes li:before{content:counter(fx); position:absolute; left:9px; top:8px; width:22px; height:22px; border-radius:50%; background:#6b5bd2; color:#fff; font-family:"Helvetica Neue",Arial,sans-serif; font-weight:800; font-size:10pt; text-align:center; line-height:22px;}
+  ol.fixes.p0 li:before{background:#c0303c;} ol.fixes.p1 li:before{background:#d9a520;} ol.fixes.p2 li:before{background:#2b5fbf;}
+  .eff{float:right; font-family:"Helvetica Neue",Arial,sans-serif; font-size:7.8pt; color:#7a7590; font-weight:600;}
+  .src{color:#8a8698; font-size:8.4pt; font-family:"Helvetica Neue",Arial,sans-serif;}
+  .foot{margin-top:22px; padding-top:8px; border-top:1px solid #e5e2f0; font-family:"Helvetica Neue",Arial,sans-serif; font-size:8pt; color:#9a95a8;}
+</style>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="mark">Mirror · Growth Diagnostic</div>
+  <div class="rule"></div>
+  <h1>Conversion Teardown</h1>
+  <div class="sub">Why 211 paid visitors produced zero activated users — and the fixes, ranked.</div>
+  <div class="verdict">
+    <b>Bottom line:</b> The marketing is working — traffic is cheap and flowing. The <b>funnel is broken in four independent places</b>, each fatal on its own. No amount of ad spend converts through a locked door. <b>Pause paid acquisition until P0 is fixed.</b>
+  </div>
+  <div class="meta">
+    Prepared for Gabriel Gomez · Founder, Mirror · trymirror.world<br>
+    Evidence-based on the live <code>Mirror</code> + <code>mirror-server</code> codebases and production data · August 2026
+  </div>
+</div>
+
+<!-- EXEC SUMMARY -->
+<h2 class="section first">Executive summary</h2>
+<div class="kicker">The one-paragraph version</div>
+<p class="lead">A recent Instagram video ad reached 2,237 people and drove 230 link clicks at <b>$0.11 per website visit</b> — a healthy top of funnel. Yet those ~211 visits produced <b>zero activated users</b>. The production database confirms it: every genuine human signup sits at <code>email_verified = 0</code> and <code>intake_completed = 0</code>. The only accounts that ever complete onboarding are internal <code>__sim_</code> simulations, which bypass the entire user interface. The problem is not acquisition — it is a post-click funnel with multiple hard stops.</p>
+
+<div class="tiles">
+  <div class="tile"><div class="num">$0.11</div><div class="lbl">Cost / website visit</div></div>
+  <div class="tile"><div class="num">211</div><div class="lbl">Website visits</div></div>
+  <div class="tile bad"><div class="num">~0</div><div class="lbl">Real signups</div></div>
+  <div class="tile bad"><div class="num">0%</div><div class="lbl">Completed onboarding</div></div>
+</div>
+
+<div class="callout red">
+  <div class="hint-title">Four fatal walls, any one of which alone kills conversion</div>
+  <ul>
+    <li><b>No Meta Pixel</b> → Instagram optimized for cheap clicks, never signups.</li>
+    <li><b>The app's front door is a <i>login</i> screen</b>, not a signup — strangers have no account to enter.</li>
+    <li><b>Verification emails silently never send</b> — while the app tells the user one was sent.</li>
+    <li><b>Onboarding is a 25–40 minute, ~105-input gauntlet</b> with unskippable face + microphone walls and no payoff until the very end.</li>
+  </ul>
+</div>
+
+<!-- THE FUNNEL -->
+<h2 class="section">The funnel of death</h2>
+<div class="kicker">Where all 211 visitors were lost</div>
+
+<div class="funnel">
+  <div class="fb"><div class="bar" style="width:78%"></div><div class="cap">Reach <b>2,237</b></div></div>
+  <div class="fb"><div class="bar" style="width:34%"></div><div class="cap">3-second plays <b>970</b> · 43% of reach</div></div>
+  <div class="fb"><div class="bar" style="width:8%"></div><div class="cap">Link clicks <b>230</b> · healthy CTR</div></div>
+  <div class="fb"><div class="bar" style="width:7.3%"></div><div class="cap">Website visits <b>211</b> · 92% of clicks landed</div></div>
+  <div class="fb zero"><div class="bar" style="width:1.2%"></div><div class="cap"><b>Real signups ~1</b> · completed onboarding <b>0</b></div></div>
+</div>
+<p class="src">Engagement signals were near-zero for the reach: 8 likes, 1 save, 0 follows — curiosity clicks, not intent. That is the expected shape when the platform is optimizing for clicks (no conversion signal — see Wall 0).</p>
+
+<table>
+  <tr><th>#</th><th>Stage</th><th>What actually happens (from the code)</th><th>Verdict</th></tr>
+  <tr class="row-fatal"><td>0</td><td><b>The ad</b></td><td>No Meta Pixel or analytics exist anywhere in the landing page or app. With no conversion event to optimize toward, Instagram optimized for the cheapest <i>clicks</i> — producing high-volume, low-intent curiosity traffic by construction.</td><td class="fatal">Built to fail</td></tr>
+  <tr><td>1</td><td>Landing</td><td>Long, text-dense marketing page; every CTA ("Look into the Mirror", "Start free") points at the app root, not a signup.</td><td class="leak">Leak</td></tr>
+  <tr class="row-fatal"><td>2</td><td><b>App front door</b></td><td>Root checks for a saved token, finds none, and routes the stranger to <code>/login</code> — a "Welcome Back / Sign In" screen for an account they don't have. Signup is only a small footer link.</td><td class="fatal">Fatal</td></tr>
+  <tr><td>3</td><td>First paint</td><td>The login screen ships TensorFlow + face-api + three.js in the main bundle (no code-splitting) and runs a live WebGL animation — a multi-megabyte download on mobile data just to reach the login form.</td><td class="leak">Bounce</td></tr>
+  <tr><td>4</td><td>Signup form</td><td>Five gated fields: strict 5-rule password, live username availability, breach (HIBP) check — heavy for a $0.11 curiosity click.</td><td class="leak">Leak</td></tr>
+  <tr class="row-fatal"><td>5</td><td><b>Verify email</b></td><td>The verification email is silently never sent (provider unconfigured and/or sender-domain mismatch), while registration <b>hardcodes "email sent: true"</b> and tells the user one went out. <code>email_verified</code> stays 0 forever.</td><td class="fatal">Fatal</td></tr>
+  <tr class="row-fatal"><td>6</td><td><b>Intake</b></td><td>Immediate "upload your face" wall with <b>no skip</b>, then a microphone-recording wall with <b>no skip</b>, then ~105 questions (IQ + astrology + 75-question personality). <b>25–40 minutes, zero payoff until the final screen.</b></td><td class="fatal">Fatal</td></tr>
+  <tr class="row-fatal"><td>7</td><td><b>Fragility</b></td><td>Photo and voice are held only in browser memory and wiped on any refresh or app-switch — so a mobile user interrupted mid-intake loses everything and is bounced back to re-capture.</td><td class="fatal">Fatal</td></tr>
+</table>
+
+<div class="callout blue">
+  <div class="hint-title">What the data proves</div>
+  Filtering out internal test rows, keyboard-mash junk, and <code>__sim_</code> accounts, the production users table holds ~3 plausibly-real outside users ever — <b>none</b> with <code>intake_completed = 1</code>. Every <code>intake_completed = 1</code> is a simulation or internal test account. Recent ad-era signups sit at <code>email_verified = 0</code>. Real-user activation is literally 0%.
+</div>
+
+<!-- EVIDENCE 1: ACQUISITION -->
+<h2 class="section">Evidence · Acquisition &amp; entry</h2>
+<div class="kicker">Walls 0–4 · click → login → signup</div>
+
+<h3>Wall 0 — No conversion tracking</h3>
+<p>No Google Analytics, no Meta/Facebook Pixel, no Plausible/PostHog/Mixpanel — verified across <code>landing/index.html</code>, <code>client/index.html</code>, and all of <code>client/src</code>. Consequences: (1) Instagram had no signup event to optimize toward, so it bought clicks; (2) you cannot see <i>where</i> the 211 drop off. You are flying blind and buying the wrong thing.</p>
+
+<h3>Wall 2 — The front door is a login screen</h3>
+<p>The app root is gated by <code>IntakeGate</code>. With no stored token it runs <code>navigate('/login')</code> (<span class="src">App.tsx:82</span>), rendering "Welcome Back / Sign In" (<span class="src">Login.tsx:504,587</span>). Signup is a footer link only (<span class="src">Login.tsx:898–907</span>). An ad inviting a stranger to "discover yourself" lands them on a returning-user login form — the single biggest click-to-signup killer.</p>
+
+<h3>Wall 3 — Multi-megabyte first paint</h3>
+<p>No route-level code-splitting: <code>App.tsx</code> statically imports every page. Because it eagerly pulls <code>IntakeFlow → VisualStep → useFaceApi → @vladmandic/face-api</code>, TensorFlow (<code>@tensorflow/tfjs</code>) + the WebGL backend land in the main entry chunk, alongside <code>three</code>, <code>@react-three/fiber</code>, framer-motion, and <code>html2pdf</code>. The login/register screens also render a live three.js scene (<span class="src">Login.tsx:63, RegistrationStep.tsx:39</span>). Result: a heavy download and continuous WebGL animation on low-end mobile before the login form is even usable.</p>
+
+<h3>Wall 4 — Signup effort vs. intent</h3>
+<p>Five progressively-disclosed required fields, a password requiring upper + lower + number + symbol at 8+ chars, live username availability, and an online breach check (<span class="src">RegistrationStep.tsx:393–415, 558–565, 104–128</span>). Reasonable for a committed user; far too much for a curiosity click.</p>
+
+<!-- EVIDENCE 2: VERIFICATION -->
+<h2 class="section">Evidence · The verification email (Wall 5)</h2>
+<div class="kicker">The highest-confidence, highest-impact bug</div>
+<p class="lead">Exactly one code path flips <code>email_verified = 1</code>: the user clicking the emailed link and their browser POSTing the token back (<span class="src">emailVerificationController.ts:247</span>). If the email never arrives, no user is ever verified — and the client gates intake on that flag.</p>
+
+<div class="callout red">
+  <div class="hint-title">The chain of silent failure</div>
+  <ul>
+    <li>The email service <b>disables itself</b> when neither <code>EMAIL_API_KEY</code> nor <code>RESEND_API_KEY</code> is set — logging only a warning; every send becomes a no-op (<span class="src">emailService.ts:468–475, 522–525</span>).</li>
+    <li>The initial verification email is <b>queued</b> to Redis and returns success without checking whether the provider is enabled; the queue processor then <b>early-returns when disabled</b>, so the item is never sent and the token expires in 24h (<span class="src">emailService.ts:583–625, 632</span>).</li>
+    <li>Registration nonetheless returns a <b>hardcoded <code>verification.emailSent: true</code></b> and "We just sent you a verification email" — the UI reports success regardless (<span class="src">authController.ts:578</span>).</li>
+    <li>Provider errors (e.g. a 403 "domain not verified") are caught and only logged; the queue retries 3× then drops the item permanently and silently (<span class="src">emailService.ts:363–372, 656–674</span>).</li>
+  </ul>
+</div>
+
+<div class="callout amber">
+  <div class="hint-title">Compounding: the sender-domain mismatch</div>
+  Every email defaults to <code>From: noreply@theundergroundrailroad.world</code> with verify-links to <code>APP_URL = theundergroundrailroad.world/Mirror</code> (<span class="src">emailService.ts:347,398,461,463</span>), while the live app/marketing origin is <code>trymirror.world</code>. If the provider's <i>verified</i> sender is one domain and mail is sent from the other, sends are rejected (403) — silently. And if users live on <code>trymirror.world</code>, verify-links may point at the wrong host. <b>This is the same deliverability issue from the mailbox work — now product-critical.</b>
+</div>
+
+<div class="callout green">
+  <div class="hint-title">First thing to check (5 minutes, operational)</div>
+  On the production host: is <code>RESEND_API_KEY</code> / <code>EMAIL_API_KEY</code> set and non-empty, <code>EMAIL_PROVIDER</code> correct, and <code>EMAIL_DRY_RUN</code> not <code>true</code>? Hit <code>GET /mirror/api/health</code> — it reports the email service as <code>disabled</code>/<code>unhealthy</code> directly. Strong hypothesis: it is disabled, and that one env var is why the funnel is dark.
+</div>
+<p class="src">Note: the <code>users.public_key / private_key / key_generated_at</code> columns are NULL for everyone including sims — dead, unused schema. Not part of the problem; not to be conflated with the email bug.</p>
+
+<!-- EVIDENCE 3: INTAKE -->
+<h2 class="section">Evidence · The onboarding gauntlet (Wall 6–7)</h2>
+<div class="kicker">Why even verified users don't finish</div>
+<p class="lead">"Completing intake" means one API call succeeding — <code>POST /intake/store</code> (<span class="src">intakeController.ts:719</span>) — the <i>last</i> step of a 7-stage UI funnel. A cold user must survive all of it before seeing anything.</p>
+
+<table>
+  <tr><th>#</th><th>Step</th><th>What the user must do</th><th>Hard stop?</th></tr>
+  <tr><td>1</td><td>Registration</td><td>Username + email + strict password + terms; then a forced 3.5s wait before advancing.</td><td class="leak">Validation</td></tr>
+  <tr class="row-fatal"><td>2</td><td>Visual</td><td>Take/upload a photo <b>and pass on-device face detection</b>. Code comment: "there is intentionally no skip path."</td><td class="fatal">YES</td></tr>
+  <tr class="row-fatal"><td>3</td><td>Vocal</td><td>Grant microphone permission and record ≥3 seconds. No mic → cannot proceed.</td><td class="fatal">YES</td></tr>
+  <tr><td>4</td><td>IQ</td><td>Answer <b>30 questions</b>.</td><td class="leak">Required</td></tr>
+  <tr><td>5</td><td>Astrology</td><td>Manually enter birth date + exact time + place.</td><td class="leak">Required</td></tr>
+  <tr><td>6</td><td>Personality</td><td><b>~75 questions</b> (advertised "12–18 minutes"), including free-text reflections needing ≥20 characters.</td><td class="leak">Required</td></tr>
+  <tr class="row-fatal"><td>7</td><td>Submit</td><td>Three sequential network calls (photo upload, voice upload, store). Any failure on weak mobile data drops the user at the finish line.</td><td class="fatal">YES</td></tr>
+</table>
+
+<div class="callout red">
+  <div class="hint-title">~105+ inputs · photo · voice · 25–40 minutes · zero payoff until the last screen</div>
+  Results — the first and only glimpse of "their Mirror" — is gated behind <code>intakeCompleted === true</code> (<span class="src">App.tsx:316,332,362</span>), which only flips after step 7 succeeds. There is no teaser, no partial reveal, no early "aha."
+</div>
+
+<h4>Why simulations pass and humans don't</h4>
+<p>The simulation harness never touches the UI. It calls the same backend endpoints directly over loopback with synthetic data — a 1×1 PNG and a fabricated face-analysis object instead of real face detection, a silent WAV instead of a microphone, hardcoded IQ/astrology/personality fixtures (<span class="src">intakeSimulationController.ts:771,815,824,879</span>). The backend pipeline is healthy; that is precisely why sims reach <code>intake_completed = 1</code>. Real humans fail because reaching the same endpoint requires surviving the entire client gauntlet.</p>
+
+<h4>Fragility that punishes mobile users</h4>
+<ul>
+  <li><b>Media lost on interruption:</b> <code>IntakeContext</code> strips <code>photo</code> and <code>voice</code> before writing to localStorage (<span class="src">IntakeContext.tsx:117</span>); they live only in memory. A refresh, an incoming call, or app-switching during the 25–40 min flow loses them, and Submit then bounces the user back to re-capture.</li>
+  <li><b>Route-order trap:</b> bare <code>/intake</code> redirects to Personality (step 6), not the real start at Visual (<span class="src">IntakeFlow.tsx:17</span>); an interrupted user can land mid-flow with empty context and fail Submit.</li>
+</ul>
+
+<!-- FIXES -->
+<h2 class="section">The fix list, ranked by impact-per-effort</h2>
+
+<h3 style="color:#c0303c;">P0 — This week · small changes that unblock everything</h3>
+<ol class="fixes p0">
+  <li><span class="eff">effort: zero</span><b>Pause paid ads.</b> Stop paying $0.11 for clicks that cannot convert. Resume once P0 is deployed.</li>
+  <li><span class="eff">effort: low</span><b>Fix the verification email.</b> Set the provider key on prod; reconcile <code>EMAIL_FROM_ADDRESS</code> + <code>APP_URL</code> with the provider's verified sending domain; confirm via <code>/health</code>. Nothing converts until this works.</li>
+  <li><span class="eff">effort: low</span><b>Send the logged-out front door to <code>/register</code>, not <code>/login</code></b> (<span class="src">App.tsx:82</span>). Near one-line change; enormous return.</li>
+  <li><span class="eff">effort: low</span><b>Install a Meta Pixel + lightweight analytics</b> on landing and app, firing a signup event — so Instagram optimizes for customers and you can see the drop-off.</li>
+</ol>
+
+<h3 style="color:#b5851a;">P1 — Next · remove the hard walls</h3>
+<ol class="fixes p1">
+  <li><span class="eff">effort: med</span><b>Make the face + voice steps skippable</b> (remove "no skip path"), or move them deep into the intake instead of first.</li>
+  <li><span class="eff">effort: med</span><b>Deliver value before the 40-minute ask</b> — a short teaser result after a few questions, then invite the deeper intake.</li>
+  <li><span class="eff">effort: low</span><b>Stop the "email sent" lie</b> (<span class="src">authController.ts:578</span>) — surface real send status so failures are visible to you and the user.</li>
+</ol>
+
+<h3 style="color:#2b5fbf;">P2 — Then · harden</h3>
+<ol class="fixes p2">
+  <li><span class="eff">effort: med</span><b>Code-split</b> the app (lazy-load intake, face-api, TensorFlow, three.js) so login/register isn't gated behind a multi-MB download.</li>
+  <li><span class="eff">effort: med</span><b>Persist photo/voice</b> to IndexedDB so a refresh or app-switch doesn't destroy the session (<span class="src">IntakeContext.tsx:117</span>).</li>
+  <li><span class="eff">effort: low</span><b>Trim friction:</b> stage/shorten the intake, ease the forced 3.5s wait, fix the <code>/intake</code>→Personality misroute, and consider a dedicated ad landing page with one signup CTA above the fold.</li>
+</ol>
+
+<div class="callout green">
+  <div class="hint-title">Recommended first move</div>
+  The two highest-return, lowest-effort changes are <b>#2 (verification email)</b> and <b>#3 (front door → signup)</b>. Together they turn a dead funnel into a working one. Add <b>#4 (Pixel)</b> so the next ad dollar is spent on conversions, not clicks — then, and only then, turn acquisition back on.
+</div>
+
+<div class="foot">Mirror Conversion Teardown · evidence-based on the live Mirror + mirror-server codebases and production data · Prepared for Gabriel Gomez · trymirror.world · August 2026. Line references are pointers for implementation, current as of this review.</div>
