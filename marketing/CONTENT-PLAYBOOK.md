@@ -78,7 +78,7 @@ Format for each: **Hook** (first line, on-screen + spoken) · **Visual** ·
   *this.* Your personality. Your mind. The way you love. Written back to you —
   gently, honestly. This is Mirror."
 - **Text:** "meet the real you"
-- **CTA:** "Step inside → [domain]"
+- **CTA:** "Step inside → trymirror.world"
 
 ### 2. How You See You vs. How They See You  *(Pillar: Perception gap — signature)*
 - **Hook:** "You think you come across as calm. They think you're intimidating."
@@ -89,7 +89,7 @@ Format for each: **Hook** (first line, on-screen + spoken) · **Visual** ·
   you. Most people never get to measure it. Mirror lets you — anonymously,
   honestly. It might be the most useful thing you learn this year."
 - **Text:** "what's your gap?"
-- **CTA:** "Find out → [domain]"
+- **CTA:** "Find out → trymirror.world"
 
 ### 3. The 3am Overthinker  *(Pillar: Recognition)*
 - **Hook:** "It's 3am and your brain is holding a meeting no one asked for."
@@ -100,7 +100,7 @@ Format for each: **Hook** (first line, on-screen + spoken) · **Visual** ·
   uncharted. Mirror turns the 3am noise into something you can actually
   understand about yourself."
 - **Text:** "you're not too much. you're unmapped."
-- **CTA:** "Map yourself → [domain]"
+- **CTA:** "Map yourself → trymirror.world"
 
 ### 4. Meet the 5 You's  *(Pillar: The five layers)*
 - **Hook:** "There are five versions of you. You've only met one."
@@ -111,7 +111,7 @@ Format for each: **Hook** (first line, on-screen + spoken) · **Visual** ·
   face reveal. And what the sky said the day you were born. Five layers. One
   you. Mirror brings them together for the first time."
 - **Text:** "five layers, one you"
-- **CTA:** "Meet them → [domain]"
+- **CTA:** "Meet them → trymirror.world"
 
 ### 5. The Question No One Answers Honestly  *(Pillar: Perception gap)*
 - **Hook:** "Ask your friends what you're *really* like. Watch them get nervous."
@@ -122,7 +122,7 @@ Format for each: **Hook** (first line, on-screen + spoken) · **Visual** ·
   gives them that — anonymous, kind, honest feedback from the people around you.
   The truth you can't get any other way."
 - **Text:** "the honest version"
-- **CTA:** "Hear it → [domain]"
+- **CTA:** "Hear it → trymirror.world"
 
 ### 6. Your Stars + Your Science  *(Pillar: Cosmos meets science)*
 - **Hook:** "Astrology tells you who you might be. Psychology proves it."
@@ -133,7 +133,7 @@ Format for each: **Hook** (first line, on-screen + spoken) · **Visual** ·
   reads both — your chart *and* your psychology — and shows you where they
   agree. It's uncanny."
 - **Text:** "where the stars meet the science"
-- **CTA:** "See yours → [domain]"
+- **CTA:** "See yours → trymirror.world"
 
 ### 7. The Growth Glow-Up  *(Pillar: Growth)*
 - **Hook:** "Self-awareness is the quietest glow-up there is."
@@ -143,7 +143,7 @@ Format for each: **Hook** (first line, on-screen + spoken) · **Visual** ·
   more each day. That's the glow-up nobody posts about. Mirror is where it
   happens."
 - **Text:** "the glow-up nobody sees coming"
-- **CTA:** "Begin → [domain]"
+- **CTA:** "Begin → trymirror.world"
 
 ### 8. The Group Mirror  *(Pillar: The five layers / Growth)*
 - **Hook:** "What if your friend group could actually *see* each other?"
@@ -153,7 +153,7 @@ Format for each: **Hook** (first line, on-screen + spoken) · **Visual** ·
   inner world? Mirror Groups let a circle share what they're comfortable with,
   and understand each other on a whole new level."
 - **Text:** "see each other, really"
-- **CTA:** "Make a circle → [domain]"
+- **CTA:** "Make a circle → trymirror.world"
 
 ### 9. What's Your Blind Spot?  *(Pillar: Perception gap / Recognition)*
 - **Hook:** "Everyone has one trait they can't see in themselves."
@@ -164,7 +164,7 @@ Format for each: **Hook** (first line, on-screen + spoken) · **Visual** ·
   because you're on the inside. Mirror is how you finally see your blind spot.
   Gently. Kindly. For the first time."
 - **Text:** "we all have one"
-- **CTA:** "Find yours → [domain]"
+- **CTA:** "Find yours → trymirror.world"
 
 ### 10. You're Not Complicated. You're Uncharted.  *(Pillar: Recognition — brand anthem)*
 - **Hook:** "You're not complicated. You're just uncharted."
@@ -174,9 +174,9 @@ Format for each: **Hook** (first line, on-screen + spoken) · **Visual** ·
   to understand you. You're not a problem to solve. You're a place to explore.
   Mirror is the map."
 - **Text:** "a place to explore, not a problem to solve"
-- **CTA:** "Explore you → [domain]"
+- **CTA:** "Explore you → trymirror.world"
 
-> Swap `[domain]` for your final marketing domain once you pick one.
+> Swap `trymirror.world` for your final marketing domain once you pick one.
 
 ---
 

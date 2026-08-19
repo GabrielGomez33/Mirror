@@ -219,7 +219,7 @@ Time on call: 90–120 seconds.
 > reviews of your personality. I've been a listener of [show
 > name] since [episode] and I think your audience would like the
 > story of why we built our own AI to do this. I'll follow up by
-> email, but if you want to skip the queue, my number is [xxx].
+> email, but if you want to skip the queue, my number is [your callback number].
 > Thanks for the show.
 
 ### 4.5 The "warm intro" call — after email reply
