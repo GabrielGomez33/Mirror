@@ -1,0 +1,418 @@
+channel,category,name,phone,email_or_form,social,website,source,notes,status
+CALL,NYC therapist,Williamsburg Therapy Group,347-970-6757,contact@williamsburgtherapygroup.com,@williamsburgtherapygroup,williamsburgtherapygroup.com,nyc-leads,,to-do
+CALL,NYC therapist,Tribeca Therapy,212-571-5799,inquiries@tribecatherapy.com,@tribecatherapy,tribecatherapy.com,nyc-leads,,to-do
+CALL,NYC therapist,Manhattan Therapy Collective,212-271-0216,hello@manhattantherapycollective.com,,manhattantherapycollective.com,nyc-leads,,to-do
+CALL,NYC therapist,Kip Therapy,212-575-4769,hello@kiptherapy.com,@kiptherapy,kiptherapy.com,nyc-leads,,to-do
+CALL,NYC therapist,Brooklyn Minds,929-296-1624,,@bklynminds,brooklynminds.com,nyc-leads,,to-do
+CALL,NYC therapist,Cobb Psychotherapy,212-575-2622,reception@cobbpsychotherapy.com,@cobb_psychotherapy,cobb.nyc,nyc-leads,,to-do
+CALL,NYC therapist,Flourish Psychology,917-737-9475,help@flourishpsychologynyc.com,@flourishpsychologynyc,flourishpsychologynyc.com,nyc-leads,,to-do
+CALL,NYC therapist,Small Brooklyn Psychology,718-622-4058,,@smallbrooklynpsychology,smallbrooklyn.com,nyc-leads,,to-do
+CALL,NYC therapist,Brooklyn Mindful,917-740-6291,brooklynmindful@gmail.com,@brooklynmindful,brooklynmindful.com,nyc-leads,,to-do
+DM,NYC coach,Annie Lin (New York Life Coaching),(646) 789-5612,hello@newyorklifecoaching.com,@newyorklifecoaching,newyorklifecoaching.com,nyc-leads,,to-do
+DM,NYC coach,Irina Popa-Erwin (The NYC Life Coach),(646) 943-9160,nyc@thenyclifecoach.com,@thenyclifecoach,thenyclifecoach.com,nyc-leads,,to-do
+DM,NYC coach,Dominique Perkowski,,(form / DM),@dominiqueperkowski,dominiqueperkowski.com,nyc-leads,,to-do
+DM,NYC coach,Susan Reis (The Cyclical Seed),,susanreis@thecyclicalseed.com,@thecyclicalseed,thecyclicalseed.com,nyc-leads,,to-do
+DM,NYC coach,Kelsey Matheson,,,@thekelseymatheson,kelseymatheson.com,nyc-leads,,to-do
+DM,NYC coach,Heather Edwards,(347) 573-9962,,@heatheredwards.nyc,heatheredwardsnyc.com,nyc-leads,,to-do
+DM,NYC coach,Dr. Anna Yusim,(917) 727-9437,(contact via site),@annayusim,annayusim.com,nyc-leads,,to-do
+DM,NYC coach,Erin Snively,,,@eksnivelycoaching,(IG-based),nyc-leads,,to-do
+DM,NYC coach,Dr. Scott Shapiro (The Productivity Coach),(212) 631-8010,scott@scottshapiromd.com,(Facebook),theproductivitycoachnyc.com,nyc-leads,,to-do
+DM,NYC coach,Kara Loewentheil (School of New Feminist Thought),,,@karaloewentheil,schoolofnewfeministthought.com,nyc-leads,,to-do
+DM,NYC wellness,Maha Rose Center for Healing,(718) 954-7590,info@maharose.com,@maharosenyc,maharose.com,nyc-leads,,to-do
+DM,NYC wellness,SKY TING,(646) 823-9642,,@skyting,skyting.com,nyc-leads,,to-do
+DM,NYC wellness,Kula Yoga Project,917-472-7499,info@kulayoga.com,@kulayogaproject,kulayoga.com,nyc-leads,,to-do
+DM,NYC wellness,Three Jewels,(646) 964-5736,,@threejewelsnyc,threejewels.org,nyc-leads,,to-do
+DM,NYC wellness,Y7 Studio,(646) 820-0781,,@y7studio,y7-studio.com,nyc-leads,,to-do
+DM,NYC wellness,The Class,,,@theclass,theclass.com,nyc-leads,,to-do
+DM,NYC wellness,Fyra Yoga (fka Modo NYC),(212) 780-9642 (verify),westvillage@modoyoganyc.com (verify),@fyrayoga,fyrayoga.com,nyc-leads,,to-do
+DM,NYC wellness,Golden Hour Yoga NY,,,@goldenhour.yoga.ny,goldenhouryogany.com,nyc-leads,,to-do
+DM,NYC wellness,The Path (meditation),,,@the.path,thepath.com,nyc-leads,,to-do
+DM,NYC wellness,The Bhakti Center,(212) 533-4842,info@bhakticenter.org,@bhakticenter,bhakticenter.org,nyc-leads,,to-do
+DM,NYC wellness,Shambhala Meditation Center of NY,(212) 256-9131,,@shambhalanyc,ny.shambhala.org,nyc-leads,,to-do
+DM,NYC wellness,Jivamukti Yoga Collective NYC,(646) 389-0209,info@jivamuktiyoganyc.com,@jivamuktiyoga.nyc,jivamuktiyoganyc.com,nyc-leads,,to-do
+DM,NYC wellness,The BK Yoga Club,,,@bkyogaclub,bkyogaclub.com,nyc-leads,,to-do
+DM,NYC wellness,Brooklyn Yoga Project,,,@brooklynyogaproject,brooklynyogaproject.com,nyc-leads,,to-do
+DM,NYC wellness,Brooklyn Flow (fka Bend + Bloom),347-987-3162,,@bendandbloom,brooklynflow.com,nyc-leads,,to-do
+DM,NYC wellness,New York Insight Meditation Center,(212) 213-4802,,@newyorkinsight,nyimc.org,nyc-leads,,to-do
+DM,NYC wellness,The Shala,,,@theshalanyc,theshala.com,nyc-leads,,to-do
+DM,NYC wellness,Solid Gold Yogi,(917) 754-3446,,@solidgoldyogi,solidgoldyogi.com,nyc-leads,,to-do
+DM,NYC wellness,MNDFL,(212) 477-0601 (verify),village@mndflmeditation.com (verify),@mndflmeditation,mndflmeditation.com,nyc-leads,,to-do
+EMAIL,Coaching school,Co-Active Training Institute (CTI),(415) 451-6000 / 800-691-6008,marketing@coactive.com,,coactive.com,https://coactive.com/contact/,,to-do
+EMAIL,Coaching school,iPEC Coaching,866-722-6224,admissions@ipeccoaching.com,,ipeccoaching.com,https://www.energyleadership.com/contact,,to-do
+EMAIL,Coaching body,International Coaching Federation (ICF),888-423-3131,icfheadquarters@coachingfederation.org,,coachingfederation.org,https://coachingfederation.org/about/contact-us/,,to-do
+EMAIL,Coaching school,The Life Coach School,800-356-1240,theteam@thelifecoachschool.com,,thelifecoachschool.com,https://www.thelifecoachschool.com/contact-us,,to-do
+EMAIL,Coaching school,Robbins-Madanes Training,855-850-7111,support@robbinsmadanes.com,,rmtcenter.com,https://rmtcenter.com/contact/,,to-do
+EMAIL,Coaching school,Institute for Integrative Nutrition (IIN),877-730-5444,admissions@integrativenutrition.com,,integrativenutrition.com,https://www.integrativenutrition.com/contact,,to-do
+EMAIL,Coaching school,Erickson Coaching International,604-879-5600,(web contact form),,erickson.edu,https://www.erickson.edu/,,to-do
+EMAIL,Coaching school,Coach U,1-800-482-6224,clientsuccess@coachu.com,,coachu.com,https://www.coachu.com/contactus/,,to-do
+EMAIL,Coaching school,Health Coach Institute,888-822-1284,support@healthcoachinstitute.com,,healthcoachinstitute.com,https://healthcoachinstitute.com/,,to-do
+EMAIL,Coaching school,Jay Shetty Certification School,,support@jayshettycoaching.com,,jayshettycoaching.com,https://jayshettycoaching.com/,,to-do
+EMAIL,School counselor assoc,California Assoc of School Counselors (CASC),(909) 815-5222,customerservice@schoolcounselor-ca.org,,schoolcounselor-ca.org,https://www.schoolcounselor-ca.org/contact-us,,to-do
+EMAIL,School counselor assoc,Texas School Counselor Association (TSCA),512-472-3403,info@txca.org,,txca.org/tsca,https://www.txca.org/tca/CONTACT2.asp,,to-do
+EMAIL,School counselor assoc,New York State School Counselor Assoc (NYSSCA),(937) 969-7722,info@nyssca.org,,nyssca.org,https://nyssca.org/,,to-do
+EMAIL,School counselor assoc,Florida School Counselor Association (FSCA),(904) 586-1757,fsca@fla-schoolcounselor.org,,fla-schoolcounselor.org,https://www.fla-schoolcounselor.org/,,to-do
+EMAIL,School counselor assoc,Ohio School Counselor Association (OSCA),(614) 401-4642,osca@ohioschoolcounselor.org,,ohioschoolcounselor.org,https://ohioschoolcounselor.org/about,,to-do
+EMAIL,School counselor assoc,Pennsylvania School Counselors Assoc (PSCA),412-612-3801,epeiffer@paschoolcounselor.org,,paschoolcounselor.org,https://www.paschoolcounselor.org/,,to-do
+EMAIL,School counselor assoc,Illinois School Counselor Association (ISCA),,executivedirector@ilschoolcounselor.org,,ilschoolcounselor.org,https://ilschoolcounselor.org/Contact-Us,,to-do
+EMAIL,School counselor assoc,Georgia School Counselor Association (GSCA),(770) 971-6002,info@gaschoolcounselor.org,,gaschoolcounselor.org,https://www.gaschoolcounselor.org/contact-us,,to-do
+CALL,University counseling,UCLA CAPS,310-825-0768,info@caps.ucla.edu,,counseling.ucla.edu,https://counseling.ucla.edu/contact,,to-do
+CALL,University counseling,Ohio State CCS,614-292-5766,(web form),,ccs.osu.edu,https://ccs.osu.edu/,,to-do
+CALL,University counseling,UT Austin CMHC,512-471-3515,(web form),,cmhc.utexas.edu,https://cmhc.utexas.edu/,,to-do
+CALL,University counseling,University of Michigan CAPS,734-764-8312,CAPS-UofM@umich.edu,,uhs.umich.edu,https://caps.umich.edu/,,to-do
+CALL,University counseling,Arizona State University Counseling,(480) 965-6146,(web form),,eoss.asu.edu/counseling,https://eoss.asu.edu/counseling,,to-do
+CALL,University counseling,University of Florida CWC,352-392-1575,(web form),,counseling.ufl.edu,https://counseling.ufl.edu/,,to-do
+CALL,University counseling,Penn State CAPS,814-863-0395,(web form),,studentaffairs.psu.edu/counseling,https://studentaffairs.psu.edu/counseling,,to-do
+CALL,University counseling,NYU Counseling & Wellness,(212) 998-4780,wellness.exchange@nyu.edu,,nyu.edu,https://www.nyu.edu/students/health-and-wellness/services/counseling-services.html,,to-do
+EMAIL,Wellness/retreat,Kripalu Center,413-448-3500,registration@kripalu.org,,kripalu.org,https://kripalu.org/about/kripalu/contact-us,,to-do
+EMAIL,Wellness/retreat,Omega Institute,877-944-2002,registration@eomega.org,,eomega.org,https://www.eomega.org/contact,,to-do
+EMAIL,Wellness/retreat,Esalen Institute,831-667-3000,info@esalen.org,,esalen.org,https://www.esalen.org/contact,,to-do
+EMAIL,Wellness/retreat,Spirit Rock Meditation Center,(415) 488-0164,srmc@spiritrock.org,,spiritrock.org,https://www.spiritrock.org/contact-us,,to-do
+EMAIL,Wellness/retreat,1440 Multiversity,888-727-1440,info@1440.org,,1440.org,https://www.1440.org/contact-us,,to-do
+EMAIL,Wellness/retreat,Drala Mountain Center,970-881-2184,frontdesk@dralamountain.org,,dralamountain.org,https://www.dralamountain.org/contact-us/,,to-do
+EMAIL,Wellness/retreat,Insight Meditation Society,978-355-4378,rc@dharma.org,,dharma.org,https://www.dharma.org/contact-us/,,to-do
+EMAIL,Wellness/retreat,CorePower Yoga (HQ),(866) 441-9642,yogaondemand@corepoweryoga.com,,corepoweryoga.com,https://www.corepoweryoga.com/contact-us,,to-do
+EMAIL,Wellness/retreat,Modo Yoga,,info@modoyoga.com,,modoyoga.com,https://modoyoga.com/contact/,,to-do
+EMAIL,Wellness/retreat,Art of Living Retreat Center,800-392-6870,info@aolrc.org,,artoflivingretreatcenter.org,https://artoflivingretreatcenter.org/contact-us/,,to-do
+EMAIL,Wellness/retreat,Miraval Arizona,520-825-4000,(web form),,miravalresorts.com/arizona,https://www.miravalresorts.com/arizona,,to-do
+EMAIL,Wellness/retreat,Canyon Ranch (Tucson),520-749-9000,reservations@canyonranch.com,,canyonranch.com,https://www.canyonranch.com/contact-us,,to-do
+CALL,Therapy practice,Two Chairs,(415) 202-5159,support@twochairs.com,,twochairs.com,https://www.twochairs.com/referrals,,to-do
+CALL,Therapy practice,Octave,(415) 360-3833,support@findoctave.com,,findoctave.com,https://www.findoctave.com/contact,,to-do
+CALL,Therapy practice,Thriveworks,833-530-2577,(web form),,thriveworks.com,https://thriveworks.com/contact-us/,,to-do
+CALL,Therapy practice,LifeStance Health,1-800-383-8282,wecare@lifestance.com,,lifestance.com,https://lifestance.com/contact/,,to-do
+CALL,Therapy practice,Grow Therapy,(646) 687-9932,support@growtherapy.com,,growtherapy.com,https://growtherapy.com/contact-us/,,to-do
+EMAIL,Therapy practice,Alma,,(support center),,helloalma.com,https://support.helloalma.com/hc/en-us,,to-do
+CALL,Therapy practice,Headway,(833) 910-3781,support@get-headway.com,,headway.co,https://headway.co/,,to-do
+CALL,Therapy practice,SonderMind,844-843-7279,support@sondermind.com,,sondermind.com,https://www.sondermind.com/contact-us/,,to-do
+CALL,Therapy practice,Mindpath Health,1-855-501-1004,(web form),,mindpath.com,https://www.mindpath.com/,,to-do
+CALL,Therapy practice,The Family Institute (Northwestern),(847) 733-4300,(web form),,family-institute.org,https://www.family-institute.org/about-us/contact-us,,to-do
+CALL,Therapy practice,Talkiatry,833-351-8255,hello@talkiatry.com,,talkiatry.com,https://www.talkiatry.com/contact-us,,to-do
+CALL,Therapy practice,Ellie Mental Health,1-888-693-5543,(web form),,elliementalhealth.com,https://elliementalhealth.com/contact/,,to-do
+CALL,Therapy practice,Rula (formerly Path),(800) 985-3059,support@rula.com,,rula.com,https://www.rula.com/contact/,,to-do
+CALL,Therapy body,American Counseling Association (ACA),800-347-6647,memberservices@counseling.org,,counseling.org,https://www.counseling.org/contact,,to-do
+CALL,Therapy body,American Psychological Association (APA),(800) 374-2721,(web form),,apa.org,https://www.apa.org/about/contact,,to-do
+CALL,Therapy body,AAMFT,703-838-9808,central@aamft.org,,aamft.org,https://networks.aamft.org/contactus,,to-do
+EMAIL,Podcast,The Astrology Podcast (Chris Brennan),,theastrologypodcast@gmail.com,,theastrologypodcast.com,https://theastrologypodcast.com/contact/,,to-do
+EMAIL,Podcast,Ghost of a Podcast (Jessica Lanyadoo),,ghostofapodcast@gmail.com,,lovelanyadoo.com,https://www.lovelanyadoo.com/contact,,to-do
+EMAIL,Podcast,Typology (Ian Morgan Cron),,wendy@ianmorgancron.com,,typologypodcast.com,https://www.ianmorgancron.com/,,to-do
+EMAIL,Podcast,The One You Feed (Eric Zimmer),,guest@oneyoufeed.net,,oneyoufeed.net,https://www.oneyoufeed.net/contact/,,to-do
+EMAIL,Podcast,Therapy for Black Girls (Dr. Joy Harden Bradford),,(memo.fm form),,therapyforblackgirls.com,https://therapyforblackgirls.com/podcast/,,to-do
+EMAIL,Podcast,On Purpose (Jay Shetty),,(verify) opowner@jayshetty.me,,jayshetty.me,https://jayshetty.me/podcast/,,to-do
+EMAIL,Podcast,The Enneagram Journey (Suzanne Stabile),,(site contact form),,theenneagramjourney.org,https://www.theenneagramjourney.org/,,to-do
+EMAIL,Podcast,Reimagining Love (Dr. Alexandra Solomon),,(site form),,dralexandrasolomon.com,https://www.dralexandrasolomon.com/podcast,,to-do
+EMAIL,Podcast,We Can Do Hard Things (Glennon Doyle),,(voicemail 747-200-5307),,wecandohardthingspodcast.com,https://wecandohardthingspodcast.com/,,to-do
+EMAIL,Podcast,Optimal Living Daily (Justin Malik),,,,oldpodcast.com,https://oldpodcast.com/,,to-do
+DM,Creator,@enneagramandcoffee (Sarajane Case),Instagram ~500k,,@enneagramandcoffee,instagram.com/enneagramandcoffee,https://www.instagram.com/enneagramandcoffee/,,to-do
+DM,Creator,@ninetypesco (Steph Barron Hall),Instagram ~140k-240k,,@ninetypesco,instagram.com/ninetypesco,https://www.instagram.com/ninetypesco/,,to-do
+DM,Creator,@enneagramenthusiast (Sierra Mackenzie),Instagram ~109k,,@enneagramenthusiast,instagram.com/enneagramenthusiast,https://www.instagram.com/enneagramenthusiast/,,to-do
+DM,Creator,@the.holistic.psychologist (Dr. Nicole LePera),Instagram ~7.8M,,@the.holistic.psychologist,instagram.com/the.holistic.psychologist,https://www.instagram.com/the.holistic.psychologist/,,to-do
+DM,Creator,@nedratawwab (Nedra Glover Tawwab),Instagram ~1.8M,,@nedratawwab,instagram.com/nedratawwab,https://www.instagram.com/nedratawwab/,,to-do
+DM,Creator,@jillian.turecki,Instagram ~3.9M / TikTok,,@jillian.turecki,instagram.com/jillian.turecki,https://www.instagram.com/jillian.turecki/,,to-do
+DM,Creator,@thesecurerelationship (Julie Menanno),Instagram ~1M,,@thesecurerelationship,instagram.com/thesecurerelationship,https://www.instagram.com/thesecurerelationship/,,to-do
+DM,Creator,@sanctuarywrld,Instagram ~2M,,@sanctuarywrld,instagram.com/sanctuarywrld,https://www.instagram.com/sanctuarywrld/,,to-do
+DM,Creator,@moonomens,Instagram (verify),,@moonomens,instagram.com/moonomens,https://www.instagram.com/moonomens/,,to-do
+DM,Creator,@chaninicholas,Instagram (verify),,@chaninicholas,instagram.com/chaninicholas,https://www.instagram.com/chaninicholas/,,to-do
+DM,Creator,@ifrankjames,TikTok (verify),,@ifrankjames,tiktok.com/@ifrankjames,https://www.tiktok.com/@ifrankjames,,to-do
+DM,Creator,@sarajanecase,Instagram ~399k,,@sarajanecase,instagram.com/sarajanecase,https://www.instagram.com/sarajanecase/,,to-do
+DM,Creator,@yung_pueblo,,,@yung_pueblo,,creators-dm-list,Instagram · Poetry on healing & self-awareness,to-do
+DM,Creator,@morganharpernichols,,,@morganharpernichols,,creators-dm-list,Instagram · Art + self-reflection,to-do
+DM,Creator,@drjuliesmith,,,@drjuliesmith,,creators-dm-list,Instagram/TikTok · Practical psychology,to-do
+DM,Creator,@estherperelofficial,,,@estherperelofficial,,creators-dm-list,Instagram · Relationships & self-knowledge,to-do
+DM,Creator,@glennondoyle,,,@glennondoyle,,creators-dm-list,Instagram · Self-knowledge & courage,to-do
+DM,Creator,@itsmarkgroves,,,@itsmarkgroves,,creators-dm-list,Instagram · Human connection,to-do
+DM,Creator,@therapyforwomen,,,@therapyforwomen,,creators-dm-list,Instagram · Therapy,to-do
+DM,Creator,@the.truth.doctor,,,@the.truth.doctor,,creators-dm-list,Instagram · Psychology,to-do
+DM,Creator,@_lisaolivera,,,@_lisaolivera,,creators-dm-list,Instagram · Therapist / self-compassion,to-do
+DM,Creator,@vienna_pharaon,,,@vienna_pharaon,,creators-dm-list,Instagram · Therapist / relationships,to-do
+DM,Creator,@yourenneagramcoach,,,@yourenneagramcoach,,creators-dm-list,Instagram · Enneagram,to-do
+DM,Creator,@costarastrology,,,@costarastrology,,creators-dm-list,Instagram · Astrology,to-do
+DM,Creator,@nadiaaddesi,,,@nadiaaddesi,,creators-dm-list,TikTok · Therapist,to-do
+DM,Creator,@stephanie__rigg,,,@stephanie__rigg,,creators-dm-list,Instagram · Attachment / relationships,to-do
+DM,Creator,@thesecurelove,,,@thesecurelove,,creators-dm-list,Instagram · Attachment,to-do
+DM,Creator,@nate_postlethwait,,,@nate_postlethwait,,creators-dm-list,Instagram · Self-awareness / emotional patterns,to-do
+DM,Creator,@mindfulmft,,,@mindfulmft,,creators-dm-list,Instagram · Therapist,to-do
+DM,Creator,@enneagramashton,,,@enneagramashton,,creators-dm-list,Instagram · Enneagram,to-do
+DM,Creator,@workwithshadow_,,,@workwithshadow_,,creators-dm-list,Instagram · Shadow work,to-do
+DM,Creator,@lindsay.fleminglpc,,,@lindsay.fleminglpc,,creators-dm-list,TikTok · Therapist,to-do
+CALL,Therapy practice,The Therapy Collective,(929) 284-2390 (verify),,,,https://www.psychologytoday.com/us/therapists/the-therapy-collective-new-york-ny/1808597,,to-do
+CALL,Therapy practice,New York City Psychotherapy Collective,(646) 600-8375 (verify),form,,https://www.newyorkcitypsychotherapists.com,https://www.newyorkcitypsychotherapists.com/contact,,to-do
+CALL,Therapy practice,Downtown Psychological Services PC,646-588-5667 (verify),info@downtownpsychological.com (verify),,https://www.downtownpsychological.com,https://www.downtownpsychological.com/group-therapy-nyc,,to-do
+CALL,Therapy practice,NYU Langone Group Psychotherapy,212-263-7419 (verify),FGPGroupTherapy@NYULangone.org (verify),,https://nyulangone.org,https://nyulangone.org/locations/nyu-langone-psychiatry-associates/group-psychotherapy,,to-do
+CALL,Therapy practice,Madison Park Psychiatry,212-506-5935 (verify),info@madisonparkpsych.com (verify),,https://madisonparkpsych.com,https://madisonparkpsych.com/group-therapy-in-nyc/,,to-do
+CALL,Therapy practice,Airport Marina Counseling Service,(424) 372-4238 (verify),,,,https://www.psychologytoday.com/us/groups/group-therapy-los-angeles-ca/141643,,to-do
+CALL,Therapy practice,California Psychological Services Inc,(213) 207-6561 (verify),intake@capsychservices.com (verify),,https://capsychservices.com,https://capsychservices.com/,,to-do
+CALL,Therapy practice,Wright Institute Los Angeles (WILA),(424) 371-5191 (verify),,,https://wila.org,https://wila.org/affordable-psychotherapy/group-therapy/,,to-do
+CALL,Therapy practice,Justyn's Corner (Child and Family Counseling Center),323-248-1228 (verify),intake@justynscorner.com (verify),,https://justynscorner.com,https://justynscorner.com/group-therapy,,to-do
+CALL,Therapy practice,Chicago Women's Health Center,773-935-6126 (verify),counselinginfo@chicagowomenshealthcenter.org (verify),,https://www.chicagowomenshealthcenter.org,https://www.chicagowomenshealthcenter.org/counseling,,to-do
+CALL,Therapy practice,Flourish Counseling,(312) 659-4718 (verify),contact@flourishcounselingltd.com (verify),,https://womenscounselingchicago.com,https://womenscounselingchicago.com/groups-workshops/,,to-do
+CALL,Therapy practice,Howard Brown Health,872-304-4401 (verify),GroupTherapy@howardbrown.org (verify),,https://howardbrown.org,https://howardbrown.org/service/group-therapy/,,to-do
+CALL,Therapy practice,Chicago Therapy Group,(312) 646-0342 (verify),form,,https://www.chicagotherapy.com,https://www.chicagotherapy.com/,,to-do
+CALL,Therapy practice,Bay Area CBT Center,415-941-5373 (verify),Info@BayAreaCBTCenter.com (verify),,https://bayareacbtcenter.com,https://bayareacbtcenter.com/san-francisco-therapy-counseling/,,to-do
+CALL,Therapy practice,SF Bay Therapist Group,(650) 618-6434 (verify),therapy@sfbaytherapistgroup.com (verify),,https://www.sfbaytherapistgroup.com,https://www.sfbaytherapistgroup.com/contact.html,,to-do
+CALL,Therapy practice,Calm Again Counseling,(415) 480-5192 (verify),form,,https://www.calmagaincounseling.com,https://www.calmagaincounseling.com/,,to-do
+CALL,Therapy practice,The Brookline Center,(617) 277-8107 (verify),intake@brooklinecenter.org (verify),,https://www.brooklinecenter.org,https://www.brooklinecenter.org/services/group-counseling/,,to-do
+CALL,Therapy practice,Cambridge Psychology Group,617-977-4770 (verify),info@cambridgepsych.org (verify),,https://cambridgepsych.org,https://cambridgepsych.org/group-therapy/,,to-do
+CALL,Therapy practice,Overstory Health,617-202-3530 (verify),form,,https://www.overstoryhealth.com,https://www.overstoryhealth.com/,,to-do
+CALL,Therapy practice,Austin Family Counseling,512-298-3381 (verify),info@austinfamilycounseling.com (verify),,https://austinfamilycounseling.com,https://austinfamilycounseling.com/,,to-do
+CALL,Therapy practice,Therapy Austin,(512) 201-4501 (verify),form,,https://therapyaustin.com,https://therapyaustin.com/contact/,,to-do
+CALL,Therapy practice,Austin Trauma Therapy Center,512-270-8215 (verify),,,https://atxtraumatherapycenter.com,https://atxtraumatherapycenter.com/service/group-therapy/,,to-do
+CALL,Therapy practice,LightHeart Associates,425-504-6419 (verify),,,https://lightheartassociates.com,https://lightheartassociates.com/mental-health-treatment-programs-seattle/group-therapy/,,to-do
+EMAIL,Therapy practice,Seattle Counseling and Wellness,,form,,https://www.seattlecounselingandwellness.com,https://www.seattlecounselingandwellness.com/group-therapy,,to-do
+EMAIL,Therapy practice,Puget Sound Psychotherapy and Psychiatry,,form,,https://pugetpsychotherapy.com,https://pugetpsychotherapy.com/,,to-do
+CALL,Therapy practice,Her Time Therapy,(720) 255-1667 (verify),,,https://www.hertimetherapy.com,https://www.hertimetherapy.com/group-counseling,,to-do
+CALL,Therapy practice,Whole Connection,(720) 442-0946 (verify),,,https://wholeconnection.org,https://wholeconnection.org/denver-therapy/,,to-do
+CALL,Therapy practice,Denver Metro Counseling,303-809-3341 (verify),,,https://denvermetrocounseling.com,https://denvermetrocounseling.com/group-therapy,,to-do
+CALL,Therapy practice,In-Town Counseling,404-478-9890 (verify),,,https://intowncounseling.com,https://intowncounseling.com/group-therapy-atlanta-ga/,,to-do
+CALL,Therapy practice,Counseling Services of Atlanta,678-771-6943 (verify),,,https://www.counselingservicesofatlanta.com,https://www.counselingservicesofatlanta.com/contact-us/,,to-do
+EMAIL,Therapy practice,Key Counseling Group,,form,,https://www.keycounselingatl.com,https://www.keycounselingatl.com/,,to-do
+CALL,Therapy practice,Therapy Group of DC,(202) 986-5941 (verify),,,,https://www.yelp.com/biz/therapy-group-of-dc-washington-2,,to-do
+CALL,Therapy practice,The Sibley Group DC,301-679-8827 (verify),intake@thesibleygroupdc.com (verify),,https://thesibleygroupdc.com,https://thesibleygroupdc.com/contact-us/hours-location/,,to-do
+CALL,Therapy practice,Rock Creek Therapy,(202) 630-8120 (verify),form,,https://rockcreektherapy.com,https://rockcreektherapy.com/group-psychotherapy/,,to-do
+CALL,Therapy practice,Counseling Center Group,1-888-604-6776 (verify),info@ccgrouptherapy.com (verify),,https://counselingcentergroup.com,https://counselingcentergroup.com/contact-us/,,to-do
+CALL,Therapy practice,The Center for Growth,215-922-5683 (verify),,,https://thecenterforgrowth.com,https://thecenterforgrowth.com/locations/society-hill-office,,to-do
+CALL,Therapy practice,PhilaTherapy LLC,215-282-3004 (verify),contact@myphilatherapy.com (verify),,https://myphilatherapy.com,https://myphilatherapy.com/group-psychotherapy,,to-do
+EMAIL,Therapy practice,Turning Leaf Therapy,,form,,https://turningleaftherapyservices.com,https://turningleaftherapyservices.com/,,to-do
+CALL,Therapy practice,The Counseling Group,(786) 839-4385 (verify),,,,https://www.psychologytoday.com/us/therapists/the-counseling-group-miami-fl/1271005,,to-do
+CALL,Therapy practice,Miami Counseling & Resource Center,(305) 448-8325 (verify),,,https://miamicounseling.com,https://miamicounseling.com/,,to-do
+CALL,Therapy practice,Inclusion Online Therapy,(786) 600-4631 (verify),,,,https://www.psychologytoday.com/us/therapists/inclusion-online-therapy-miami-fl/1808028,,to-do
+CALL,Therapy practice,Connections First,(971) 272-0796 (verify),,,,https://www.psychologytoday.com/us/therapists/connections-first-psychotherapy-group-practice-portland-or/107944,,to-do
+EMAIL,Therapy practice,Sprout Therapy PDX,,intakes@sprouttherapypdx.com (verify),,https://sprouttherapypdx.com,https://sprouttherapypdx.com/,,to-do
+EMAIL,Therapy practice,Family Ties Counseling Center,,form,,https://familytiescounselingcenter.com,https://familytiescounselingcenter.com/,,to-do
+CALL,Therapy practice,Nashville CARES,615-921-0284 (verify),counseling@nashvillecares.org (verify),,https://www.nashvillecares.org,https://www.nashvillecares.org/counseling/,,to-do
+CALL,Therapy practice,Southeast Psych Nashville,615-373-9955 (verify),form,,https://www.southeastpsychnashville.com,https://www.southeastpsychnashville.com/contact/,,to-do
+EMAIL,Therapy practice,Nashville Therapy Group,,form,,https://nashvilletherapygroup.com,https://nashvilletherapygroup.com/,,to-do
+CALL,University counseling,University of Washington Counseling Center,206-543-1240,form,,https://wellbeing.uw.edu/counseling-center/,https://wellbeing.uw.edu/counseling-center/about/,,to-do
+CALL,University counseling,Michigan State University Counseling & Psychiatric Services (CAPS),517-355-8270,form,,https://caps.msu.edu/,https://caps.msu.edu/,,to-do
+CALL,University counseling,University of Wisconsin-Madison University Health Services Mental Health,608-265-5600,form,,https://www.uhs.wisc.edu/mental-health/,https://www.uhs.wisc.edu/mental-health/,,to-do
+CALL,University counseling,University of Minnesota Boynton Mental Health & Counseling,612-624-1444,form,,https://boynton.umn.edu/mental-health,https://boynton.umn.edu/mental-health,,to-do
+CALL,University counseling,Rutgers University Counseling ADAP & Psychiatric Services (CAPS),848-932-7884,form,,https://health.rutgers.edu/medical-and-counseling-services/counseling-services/,https://health.rutgers.edu/medical-and-counseling-services/counseling-services/facultystaff-resources/consultations-and,,to-do
+CALL,University counseling,University of Illinois Urbana-Champaign Counseling Center,217-333-3704,form,,https://counselingcenter.illinois.edu/,https://counselingcenter.illinois.edu/contact-us,,to-do
+CALL,University counseling,Indiana University Bloomington Counseling & Psychological Services (CAPS),812-855-5711,form,,https://healthcenter.indiana.edu/counseling/index.html,https://healthcenter.indiana.edu/counseling/index.html,,to-do
+CALL,University counseling,Purdue University Counseling & Psychological Services (CAPS),765-494-6995,form,purduecaps,https://www.purdue.edu/caps/,https://www.purdue.edu/caps/about/contact.php,,to-do
+CALL,University counseling,University of Georgia Counseling and Psychiatric Services (CAPS),706-542-2273,form,,https://caps.uga.edu/,https://caps.uga.edu/caps/,,to-do
+CALL,University counseling,UNC Chapel Hill Counseling and Psychological Services (CAPS),919-966-3658,form,,https://caps.unc.edu/,https://caps.unc.edu/about-us/contact-us-2/,,to-do
+CALL,University counseling,Duke University Counseling & Psychological Services (CAPS),919-660-1000,form,,https://students.duke.edu/wellness/caps/,https://students.duke.edu/wellness/caps/,,to-do
+CALL,University counseling,Boston University Student Health Services Behavioral Medicine,617-353-3569,form,,https://www.bu.edu/shs/behavioral-medicine/,https://www.bu.edu/shs/behavioral-medicine/services-we-provide/,,to-do
+CALL,University counseling,Northeastern University University Health and Counseling Services,617-373-2772,form,,https://uhcs.northeastern.edu/,https://uhcs.northeastern.edu/services/mental-health-visits-at-uhcs/,,to-do
+CALL,University counseling,University of Maryland Counseling Center,301-314-7651,form,,https://counseling.umd.edu/,https://counseling.umd.edu/aboutus/hours-contact-info,,to-do
+CALL,University counseling,Texas A&M University Counseling & Psychological Services (CAPS),979-845-4427,form,,https://caps.tamu.edu/,https://caps.tamu.edu/about/contact/,,to-do
+CALL,University counseling,USC Student Health Counseling and Mental Health,213-740-9355,studenthealth@usc.edu,,https://studenthealth.usc.edu/mental-health-and-well-being/,https://studenthealth.usc.edu/mental-health-and-well-being/,,to-do
+CALL,University counseling,UC Berkeley Counseling and Psychological Services (CAPS),510-642-9494,form,,https://uhs.berkeley.edu/caps,https://uhs.berkeley.edu/caps,,to-do
+CALL,University counseling,UC San Diego Counseling and Psychological Services (CAPS),858-534-3755,form,,https://caps.ucsd.edu/,https://caps.ucsd.edu/about/contact.html,,to-do
+CALL,University counseling,University of Colorado Boulder Counseling and Psychiatric Services (CAPS),303-492-2277,form,,https://www.colorado.edu/counseling/,https://www.colorado.edu/counseling/hours-and-contact,,to-do
+CALL,University counseling,University of Oregon Counseling Services,541-346-3227,form,,https://counseling.uoregon.edu/,https://counseling.uoregon.edu/crisis-support,,to-do
+CALL,University counseling,University of Arizona Counseling & Psych Services (CAPS),520-621-3334,form,,https://caps.arizona.edu/,https://caps.arizona.edu/appointments,,to-do
+CALL,University counseling,University of Virginia Counseling and Psychological Services (CAPS),434-243-5150,form,,https://studenthealth.virginia.edu/counseling-psychological-services-caps,https://studenthealth.virginia.edu/counseling-psychological-services-caps,,to-do
+CALL,University counseling,Cornell University Counseling & Psychological Services (CAPS),607-255-5155,form,,https://health.cornell.edu/services/mental-health-care,https://health.cornell.edu/services/mental-health-care,,to-do
+CALL,University counseling,University of Pittsburgh University Counseling Center,412-648-7930,form,,https://www.studentaffairs.pitt.edu/counseling/,https://www.studentaffairs.pitt.edu/counseling/services,,to-do
+CALL,University counseling,University of Iowa University Counseling Service,319-335-7294,form,,https://counseling.uiowa.edu/,https://counseling.uiowa.edu/about-us/contact-and-locations,,to-do
+CALL,University counseling,Iowa State University Student Counseling Services,515-294-5056,form,,https://www.counseling.iastate.edu/,https://www.counseling.iastate.edu/about-us/contact-information/,,to-do
+CALL,University counseling,Florida State University Counseling & Psychological Services,850-644-8255,form,,https://counseling.fsu.edu/,https://counseling.fsu.edu/contact,,to-do
+CALL,University counseling,University of Miami Counseling Center,305-284-5511,form,umcounselingcenter,https://counseling.studentaffairs.miami.edu/,https://counseling.studentaffairs.miami.edu/about/contact-us/index.html,,to-do
+CALL,University counseling,Vanderbilt University University Counseling Center,615-322-2571,form,,https://www.vanderbilt.edu/ucc/,https://www.vanderbilt.edu/ucc/about-us/contact-information/,,to-do
+CALL,University counseling,Emory University Counseling and Psychological Services (CAPS),404-727-7450,caps.info@emory.edu,,https://counseling.emory.edu/,https://counseling.emory.edu/about/contact-us.html,,to-do
+CALL,University counseling,Georgetown University Counseling and Psychiatric Services (CAPS),202-687-6985,form,georgetowncaps,https://studenthealth.georgetown.edu/counseling-and-psychiatric-services/,https://studenthealth.georgetown.edu/counseling-and-psychiatric-services/,,to-do
+EMAIL,Coach,Vanessa Marie,,form,,https://www.vanessamarielifecoach.com,https://www.vanessamarielifecoach.com/confidence-course,,to-do
+EMAIL,Coach,Michelle Woods,,form,,https://woodslifecoaching.com,https://woodslifecoaching.com/about,,to-do
+EMAIL,Coach,Suzy Rosenstein,,form,,https://suzyrosenstein.com,https://suzyrosenstein.com/,,to-do
+EMAIL,Coach,Kara (Reshape Midlife),,form,,https://www.reshapemidlife.com,https://www.reshapemidlife.com/,,to-do
+EMAIL,Coach,Arris Charles (Live Inspired by Purpose),,form,,https://liveinspiredbypurpose.com,https://liveinspiredbypurpose.com/coaching/,,to-do
+EMAIL,Coach,Lisa Jeffs,,form,,https://lisajeffs.com,https://lisajeffs.com/confidence-coaching/,,to-do
+EMAIL,Coach,Josh Dolin,,form,,https://www.joshdolin.com,https://www.joshdolin.com/self-esteem-coaching,,to-do
+DM,Coach,Rosie Milsom,,,@rosie_milsom_coaching,,https://www.instagram.com/rosie_milsom_coaching/,,to-do
+EMAIL,Coach,Coach Simona,,contact@coachsimona.com (verify),,https://coachsimona.com,https://coachsimona.com/,,to-do
+EMAIL,Coach,Laura Eiman,,form,,https://lauraeiman.com,https://lauraeiman.com/,,to-do
+EMAIL,Coach,Emma Ward,,form,,https://www.emma-ward.com,https://www.emma-ward.com/1-1-confidence-coaching,,to-do
+EMAIL,Coach,Trish Blackwell,,form,,https://www.trishblackwell.com,https://www.trishblackwell.com/confidence-coaching/,,to-do
+EMAIL,Coach,Lucy Baker (She Coaches Confidence),,form,,https://shecoachesconfidence.com,https://shecoachesconfidence.com/,,to-do
+EMAIL,Coach,Nicole Everingham,07702 746997 (verify),form,,https://www.nicoleeveringham.com,https://www.nicoleeveringham.com/confidence,,to-do
+DM,Coach,Lara Young (Mindset Coach Academy),,,@mindsetcoachacademy,https://mindsetcoachacademy.com,https://www.instagram.com/mindsetcoachacademy/,,to-do
+DM,Coach,Rebecca Schocker,,,@realwithrebecca,,https://www.instagram.com/realwithrebecca/,,to-do
+DM,Coach,Jackie Ona Cascarano,,,@your_mindset_coach_,,https://www.instagram.com/your_mindset_coach_/,,to-do
+DM,Coach,Shruti Chaudhary,,,@shrutichaudhary.official,,https://www.instagram.com/shrutichaudhary.official/,,to-do
+DM,Coach,Thibaut (Liberty Coaching),,,@liberty_coaching,,https://www.instagram.com/liberty_coaching/,,to-do
+EMAIL,Coach,Roseanna Croft,,form,,https://www.roseannacroft.com,https://www.roseannacroft.com/spiritual-life-coaching,,to-do
+EMAIL,Coach,Shana Olmstead,,form,,https://shanaolmstead.com,https://shanaolmstead.com/spiritual-life-coaching/,,to-do
+EMAIL,Coach,Soul Guided Coach,,form,,https://soulguidedcoach.com,https://soulguidedcoach.com/,,to-do
+EMAIL,Coach,Andrea Belzer,,form,,https://andreabelzer.com,https://andreabelzer.com/spiritual-life-coach/,,to-do
+DM,Coach,Nakshatra Agarwal,,careercoachnaksh@gmail.com (verify),@careercoachnaksh,,https://www.instagram.com/careercoachnaksh/,,to-do
+DM,Coach,Kendall Berg (That Career Coach),,,@thatcareercoach_,,https://www.instagram.com/thatcareercoach_/,,to-do
+EMAIL,Coach,SEEK! Career Coach,,form,,https://www.seekcareercoach.com,https://www.seekcareercoach.com/contact-8,,to-do
+EMAIL,Coach,Susie Procini,,form,,https://empoweredfromtheheart.com,https://empoweredfromtheheart.com/,,to-do
+EMAIL,Coach,Kim Marie,,form,,https://kimmariecoaching.com,https://kimmariecoaching.com/,,to-do
+EMAIL,Coach,Anne McKeown,,form,,https://annemckeown.com,https://annemckeown.com/,,to-do
+EMAIL,Coach,Samantha Buck (She The Warrior),,form,,https://www.shethewarrior.net,https://www.shethewarrior.net/,,to-do
+EMAIL,Coach,Reece (Practical Intimacy),,form,,https://practicalintimacy.com,https://practicalintimacy.com/masculinity-coach-mens-coaching/,,to-do
+EMAIL,Coach,Brandon Archer,,form,,https://brandonarcher.com,https://brandonarcher.com/mensworkcoach/,,to-do
+DM,Coach,J. Moreno (Masculinity Mastered),,,@masculinity_mastered,,https://www.instagram.com/masculinity_mastered/,,to-do
+EMAIL,Coach,Frank (Life Coaching NY),,form,,https://www.lifecoachingny.com,https://www.lifecoachingny.com/,,to-do
+DM,Coach,Jason Schnitzer,,,@jasonschnitzercoaching,,https://www.instagram.com/jasonschnitzercoaching/,,to-do
+EMAIL,Coach,Wayne Levine (BetterMen Coaching),,form,,https://bettermencoaching.com,https://bettermencoaching.com/services/relationship-coaching-for-men/,,to-do
+EMAIL,Coach,Coach Ken,,form,,https://realcoachken.com,https://realcoachken.com/,,to-do
+EMAIL,Coach,Good Guys 2 Great Men,,form,,https://goodguys2greatmen.com,https://goodguys2greatmen.com/mens-relationship-coaching/,,to-do
+DM,Coach,Casandra 'Coach Cass' Henriquez,,,@inspiremany,,https://www.instagram.com/inspiremany/,,to-do
+DM,Coach,Lauren Fondriest,,,@laurenfondriest,,https://www.instagram.com/laurenfondriest/,,to-do
+DM,Coach,Kelsey Wonderlin,,form,@kelseywonderlin,https://coaching.kelseywonderlin.com,https://coaching.kelseywonderlin.com/,,to-do
+DM,Coach,Grace Lee,,grace@agoodfirstdate.com (verify),@agoodfirstdate,,https://www.instagram.com/agoodfirstdate/,,to-do
+DM,Coach,Camille Virginia,,,@masterofflinedating,,https://www.instagram.com/masterofflinedating/,,to-do
+DM,Coach,YONCI,,,@chasingyonci,,https://www.instagram.com/chasingyonci/,,to-do
+EMAIL,Coach,Carole Ann Rice (Real Coaching Co),0208 566 2862 (verify),form,,https://www.realcoachingco.com,https://www.realcoachingco.com/book-your-call/,,to-do
+EMAIL,Coaching school,Newfield Network,303.449.6117,connect@newfieldnetwork.com (verify),,https://newfieldnetwork.com,https://newfieldnetwork.com/contact/,,to-do
+EMAIL,Coaching school,Coach Training EDU (CTEDU),503.360.6700,form,,https://www.coachtrainingedu.com,https://www.coachtrainingedu.com/contact/,,to-do
+EMAIL,Coaching school,Hudson Institute of Coaching,805-682-3883,form,,https://hudsoninstitute.com,https://hudsoninstitute.com/contact/,,to-do
+EMAIL,Coaching school,International Coach Academy (ICA),,form,,https://internationalcoachacademy.com,https://coachcampus.com/contact/,,to-do
+EMAIL,Coaching school,Barefoot Coaching,01332 863641,info@barefootcoaching.co.uk (verify),,https://barefootcoaching.co.uk,https://barefootcoaching.co.uk/contact/,,to-do
+EMAIL,Coaching school,Animas Centre for Coaching,+442038266290,info@animascoaching.com (verify),,https://www.animascoaching.com,https://www.animascoaching.com/contact-us/,,to-do
+EMAIL,Coaching school,Coach Training Alliance,888-291-3025,Ideas@CoachTrainingAlliance.com (verify),,https://www.coachtrainingalliance.com,https://www.coachtrainingalliance.com/contact/,,to-do
+EMAIL,Coaching school,Center for Executive Coaching,941-539-9623,info@centerforexecutivecoaching.com (verify),,https://centerforexecutivecoaching.com,https://centerforexecutivecoaching.com/in-person,,to-do
+EMAIL,Coaching school,Wellcoaches School of Coaching,866-932-6224,contact@wellcoaches.com (verify),,https://www.wellcoachesschool.com,https://www.wellcoachesschool.com/contact,,to-do
+EMAIL,Coaching school,Coaches Rising,,info@coachesrising.com (verify),,https://www.coachesrising.com,https://www.coachesrising.com/about/,,to-do
+EMAIL,Coaching school,New Ventures West,415-221-4618,form,,https://newventureswest.com,https://newventureswest.com/about-us/contact-us/,,to-do
+EMAIL,Coaching school,Institute for Life Coach Training (ILCT),888-267-1206,form,,https://www.lifecoachtraining.com,https://www.lifecoachtraining.com/contact,,to-do
+EMAIL,Coaching school,Coaching Out of the Box,888-422-6224,form,,https://coachingoutofthebox.com,https://coachingoutofthebox.com/contact-us/,,to-do
+EMAIL,Coaching school,Accomplishment Coaching,619-238-3600,ContactUs@accomplishmentcoaching.com (verify),,https://www.accomplishmentcoaching.com,https://www.accomplishmentcoaching.com/contact/,,to-do
+EMAIL,Coaching school,Lumia Coaching,,form,,https://www.lumiacoaching.com,https://www.lumiacoaching.com/contact,,to-do
+EMAIL,Coaching school,Adler Graduate Professional School (Professional Coaching),416-923-4419,info@adler.ca (verify),,https://adler.ca,https://adler.ca/professional-coaching/,,to-do
+EMAIL,Coaching school,College of Executive Coaching,,form,,https://www.executivecoachcollege.com,https://www.executivecoachcollege.com/contact/,,to-do
+EMAIL,Coaching school,Certified Life Coach Institute,,form,,https://certifiedlifecoachinstitute.com,https://www.psychologytoday.com/us/therapists/certified-life-coach-institute-colorado-springs-co/241837,,to-do
+EMAIL,School counselor assoc,Michigan School Counselor Association,(269) 330-8343 (verify),msca1964@gmail.com (verify),,michiganschoolcounselor.org,https://www.michiganschoolcounselor.org/,,to-do
+EMAIL,School counselor assoc,Washington School Counselor Association,(253) 445-0541 (verify),form,,waschoolcounselor.org,https://waschoolcounselor.org/contact,,to-do
+EMAIL,School counselor assoc,North Carolina School Counselor Association,(919) 645-5730 (verify),manager@ncschoolcounselor.org (verify),,ncschoolcounselor.org,https://www.ncschoolcounselor.org/,,to-do
+EMAIL,School counselor assoc,Virginia School Counselor Association,,form,,vsca.org,https://www.vsca.org/page-18202,,to-do
+EMAIL,School counselor assoc,Wisconsin School Counselor Association,(608) 204-9825 (verify),admin@wscaweb.org (verify),,wscaweb.org,https://www.wscaweb.org/contact/,,to-do
+EMAIL,School counselor assoc,Minnesota School Counselors Association,(612) 428-3203 (verify),form,,mnschoolcounselors.org,https://www.mnschoolcounselors.org/,,to-do
+EMAIL,School counselor assoc,Arizona School Counselors Association,(623) 249-3406 (verify),business.manager@azsca.org (verify),,azsca.org,https://www.azsca.org/i4a/pages/index.cfm?pageid=3291,,to-do
+EMAIL,School counselor assoc,Colorado School Counselor Association,(720) 505-2711 (verify),form,,coloradoschoolcounselor.org,https://www.coloradoschoolcounselor.org/about-us,,to-do
+EMAIL,School counselor assoc,Indiana School Counselor Association,(317) 941-6125 (verify),form,,indianaschoolcounselor.org,https://www.indianaschoolcounselor.org/,,to-do
+EMAIL,School counselor assoc,Missouri School Counselor Association,573-635-9109 (verify),msca@c2cpro.solutions (verify),,moschoolcounselor.org,https://www.moschoolcounselor.org/contact,,to-do
+EMAIL,School counselor assoc,New Jersey School Counselors Association,,jimlukach@msn.com (verify),,njsca.org,https://www.njsca.org/about-the-njsca,,to-do
+EMAIL,School counselor assoc,Massachusetts School Counselors Association,(413) 267-4589 (verify),form,,masca.wildapricot.org,https://masca.wildapricot.org/,,to-do
+EMAIL,School counselor assoc,Maryland School Counselor Association,(301) 725-0200 (verify),president@mscaonline.org (verify),,mscaonline.org,http://www.mscaonline.org/contact,,to-do
+EMAIL,School counselor assoc,Tennessee School Counselor Association,,TSCAconnects@gmail.com (verify),,tennesseeschoolcounselor.org,https://tennesseeschoolcounselor.org/Contact,,to-do
+EMAIL,School counselor assoc,Palmetto State School Counselor Association,,pssca.sc@gmail.com (verify),,psschoolcounselor.org,https://www.psschoolcounselor.org/Membership,,to-do
+EMAIL,School counselor assoc,Oregon School Counselor Association,,info@oscainc.org (verify),,oscainc.org,https://www.oscainc.org/site/about,,to-do
+EMAIL,School counselor assoc,Kentucky School Counselor Association,,kscamemberships@gmail.com (verify),,kyschoolcounselor.org,https://www.kyschoolcounselor.org/,,to-do
+EMAIL,School counselor assoc,Louisiana School Counselor Association,(985) 632-2569 (verify),form,,louisianaschoolcounselor.com,https://www.louisianaschoolcounselor.com/home,,to-do
+EMAIL,School counselor assoc,Alabama School Counselor Association,,form,,alabamaschoolcounselors.org,https://alabamaschoolcounselors.org/,,to-do
+EMAIL,School counselor assoc,Oklahoma School Counselor Association,(405) 871-5880 (verify),oksca.membership@gmail.com (verify),,okschoolcounselor.org,https://okschoolcounselor.org/Contact,,to-do
+EMAIL,School counselor assoc,Iowa School Counselors Association,,info@iaschoolcounselor.org (verify),,iaschoolcounselor.org,https://iaschoolcounselor.org/contact,,to-do
+EMAIL,School counselor assoc,Kansas School Counselor Association,,info@kansasschoolcounselor.org (verify),,kansasschoolcounselor.org,https://kansasschoolcounselor.org/Contact,,to-do
+EMAIL,School counselor assoc,Nebraska School Counselor Association,(402) 471-2244 (verify),form,,neschoolcounselor.org,https://neschoolcounselor.org/,,to-do
+EMAIL,School counselor assoc,Nevada School Counselor Association,(775) 501-8200 (verify),membership1@nvsca.org (verify),,nvsca.org,https://nvsca.org/Governance,,to-do
+EMAIL,School counselor assoc,Connecticut School Counselor Association,(203) 699-6320 (verify),execdirectorCSCA@gmail.com (verify),,csca.wildapricot.org,https://csca.wildapricot.org/contactCSCA,,to-do
+EMAIL,School counselor assoc,Utah School Counselor Association,,admin@utschoolcounselor.org (verify),,utschoolcounselor.org,https://www.utschoolcounselor.org/,,to-do
+EMAIL,School counselor assoc,New Mexico School Counselor Association,,outreach@nmschoolcounselor.org (verify),,nmschoolcounselor.org,https://www.nmschoolcounselor.org/,,to-do
+EMAIL,School counselor assoc,Idaho School Counselor Association,,idahoschoolcounselorleadership@gmail.com (verify),,idahoschoolcounselor.org,https://www.idahoschoolcounselor.org/membership,,to-do
+EMAIL,School counselor assoc,Arkansas School Counselor Association,(501) 428-7167 (verify),office@arschoolcounselor.org (verify),,arschoolcounselor.org,https://www.arschoolcounselor.org/contact-us/,,to-do
+EMAIL,School counselor assoc,Magnolia State School Counselor Association,,form,,mssca.wildapricot.org,https://mssca.wildapricot.org/,,to-do
+EMAIL,Wellness/retreat,Blue Cliff Monastery,845-213-1782,office@bluecliffmonastery.org,,https://www.bluecliffmonastery.org,https://www.bluecliffmonastery.org/contact-us,,to-do
+EMAIL,Wellness/retreat,Garrison Institute,845-424-4800,retreats@garrisoninstitute.org,,https://www.garrisoninstitute.org,https://www.garrisoninstitute.org/contact-us/,,to-do
+EMAIL,Wellness/retreat,Feathered Pipe Ranch,406-442-8196,office@featheredpipe.com,,https://featheredpipe.com,https://featheredpipe.com/contact-us/,,to-do
+EMAIL,Wellness/retreat,Mount Madonna Center,408-847-0406,reception@mountmadonna.org,,https://mountmadonna.org,https://mountmadonna.org/about/contact/,,to-do
+EMAIL,Wellness/retreat,Breitenbush Hot Springs,503-854-3320,office@breitenbush.com,,https://breitenbush.com,https://breitenbush.com/connect,,to-do
+EMAIL,Wellness/retreat,Southern Dharma Retreat Center,828-622-7112,registrar@southerndharma.org,,https://southerndharma.org,https://southerndharma.org/stay-connected/,,to-do
+EMAIL,Wellness/retreat,Vallecitos Mountain Retreat Center,505-469-9017,refuge@vallecitos.org,,https://www.vallecitos.org,https://www.vallecitos.org/contact/,,to-do
+EMAIL,Wellness/retreat,Kalani Oceanside Retreat,808-756-9530,form,,https://kalani.com,https://kalani.com/contact/,,to-do
+EMAIL,Wellness/retreat,Rancho La Puerta,800-443-7565,form,,https://rancholapuerta.com,https://rancholapuerta.com/find-your-joy-retreat/,,to-do
+EMAIL,Wellness/retreat,Sivananda Ashram Yoga Ranch,845-436-6492,yogaranchregistration@sivananda.org,,https://sivanandayogaranch.org,https://sivanandayogaranch.org/contact-us/,,to-do
+EMAIL,Wellness/retreat,Ratna Ling Retreat Center,510-809-4995,reservations@ratnaling.org,,https://ratnaling.org,https://ratnaling.org/contact/,,to-do
+EMAIL,Wellness/retreat,Sedona Mago Center for Well-being and Retreat,928-204-3391,welcome@sedonamagoretreat.org,,https://sedonamagoretreat.org,https://sedonamagoretreat.org/about/contact-us/,,to-do
+EMAIL,Wellness/retreat,Deer Park Monastery,760-291-1003,office@deerparkmonastery.org,,https://deerparkmonastery.org,https://deerparkmonastery.org/visit/register-for-a-retreat/,,to-do
+EMAIL,Wellness/retreat,Cloud Mountain Retreat Center,360-274-4859,info@cloudmountain.org,,https://cloudmountain.org,https://cloudmountain.org/contact/,,to-do
+EMAIL,Wellness/retreat,Sky Lake Retreat Center,845-658-8556,form,,https://skylake.shambhala.org,https://skylake.shambhala.org/contact/,,to-do
+EMAIL,Wellness/retreat,Pema Osel Ling Retreat Center,831-761-6274,events@polmountainretreat.com (verify),,https://www.vajrayana.org,https://www.vajrayana.org/retreat-info/,,to-do
+EMAIL,Wellness/retreat,Tassajara Zen Mountain Center,415-865-1899,reservations@sfzc.org,,https://www.sfzc.org/locations/tassajara,https://www.sfzc.org/locations/tassajara/contact-tassajara,,to-do
+EMAIL,Wellness/retreat,Zen Mountain Monastery,845-688-2228,registrar@dharma.net,,https://zmm.org,https://zmm.org/contact/,,to-do
+EMAIL,Wellness/retreat,Won Dharma Center,518-851-2581,info@wondharmacenter.org,,https://wondharmacenter.org,https://wondharmacenter.org/contact2/,,to-do
+EMAIL,Wellness/retreat,Karme Choling,802-633-2384,info@karmecholing.org,,https://www.karmecholing.org,https://www.karmecholing.org/about/contact-us,,to-do
+EMAIL,Wellness/retreat,Menla Retreat,845-688-6897,frontdesk@menla.org,,https://menla.org,https://menla.org/contact/,,to-do
+EMAIL,Wellness/retreat,Satchidananda Ashram-Yogaville,434-969-3121,form,,https://www.yogaville.org,https://www.yogaville.org/contact/,,to-do
+EMAIL,Wellness/retreat,Kadampa Meditation Center New York,845-856-9000,form,,https://www.kadampanewyork.org,https://www.kadampanewyork.org/,,to-do
+EMAIL,Podcast,Highest Self Podcast,,pr@iamsahararose.com (verify),,https://iamsahararose.com,https://iamsahararose.com/contact/,,to-do
+EMAIL,Podcast,Starzology Podcast,,form,,https://www.starzology.com,https://www.starzology.com/podcast-guest/,,to-do
+EMAIL,Podcast,The Astrology of You,,hello@theastrologyofyou.com (verify),,https://theastrologyofyou.com,https://theastrologyofyou.com/podcast/,,to-do
+EMAIL,Podcast,Relationship Alive,,neilius@neilsattin.com (verify),,https://www.neilsattin.com,https://www.neilsattin.com/relationshipalive/,,to-do
+EMAIL,Podcast,Foreplay Radio - Couples and Sex Therapy,,info@foreplayrst.com (verify),,https://foreplayrst.com,https://podcasts.apple.com/us/podcast/foreplay-radio-couples-and-sex-therapy/id1083324677,,to-do
+EMAIL,Podcast,The Trauma Therapist,,,,https://www.thetraumatherapistproject.com,https://www.thetraumatherapistproject.com/,,to-do
+EMAIL,Podcast,The Anxious Truth,,,,https://theanxioustruth.com,https://theanxioustruth.com/,,to-do
+EMAIL,Podcast,Small Things Often (The Gottman Institute),,form,,https://www.gottman.com,https://www.gottman.com/podcast/,,to-do
+DM,Wellness studio,Laughing Frog Yoga,(310) 985-4847,,@laughingfrogyoga,laughingfrogyoga.com,https://laughingfrogyoga.com/contact-us/,,to-do
+DM,Wellness studio,Kadampa Meditation Center Los Angeles,(323) 486-7074,info@meditateinla.org,@meditateinlosangeles,meditateinla.org,https://meditateinla.org/,,to-do
+DM,Wellness studio,Meditation Center of Chicago,,dmcmcc072@gmail.com,@meditationchicago,dmcchicago.org,https://www.dmcchicago.org/contact-us-1,,to-do
+DM,Wellness studio,Kadampa Meditation Center Chicago,(312) 767-1898,,@meditateinchicago,,https://www.oprfchamber.org/members/member/kadampa-meditation-center-chicago-6002,,to-do
+DM,Wellness studio,Zen Life & Meditation Center,(708) 689-1220,info@zlmc.org,@zenlifemc,zlmc.org,https://www.zlmc.org/contact,,to-do
+DM,Wellness studio,Yoga Flow SF,(415) 466-6576,ocean@yogaflowsf.com,@yogaflowsf,yogaflowsf.com,https://yogaflowsf.com/contact/,,to-do
+DM,Wellness studio,Blissful Monkey Yoga,617-971-8608,,@blissfulmonkeyyoga,blissfulmonkey.com,https://www.blissfulmonkey.com/contact-us,,to-do
+DM,Wellness studio,Halea Yoga,(206) 402-6772,info@haleayoga.com,@haleayoga,haleayoga.com,https://haleayoga.com/,,to-do
+DM,Wellness studio,Bohemian Studios,(406) 298-2084 (verify),,@bohemianstudios,,https://www.instagram.com/bohemianstudios/,,to-do
+DM,Wellness studio,Denver - Yoga Social,720-464-7718,info@yogasocial.org,@denveryogasocial,yogasocial.org,https://www.yogasocial.org/,,to-do
+DM,Wellness studio,The Yoga Studio Atlanta,678-941-9667,,@theyogastudioatlanta,theyogastudioatlanta.com,https://www.theyogastudioatlanta.com/,,to-do
+DM,Wellness studio,Yoga District,(202) 265-9642,,@yogadistrict,yogadistrict.com,https://www.yogadistrict.com/,,to-do
+DM,Wellness studio,Flow Yoga Center,(202) 462-3569,happiness@flowyogacenter.com,@flowyogacenter,flowyogacenter.com,https://www.flowyogacenter.com/contact,,to-do
+DM,Wellness studio,Hot Yoga Sutra,(267) 244-6655,info@hotyogasutra.com,@hotyogasutraphiladelphia,hotyogasutra.com,https://hotyogasutra.com/contact/,,to-do
+DM,Wellness studio,Synergy Yoga Center,(305) 538-7073,info@synergyyoga.org,@synergyyoga,synergyyoga.org,https://synergyyoga.org/,,to-do
+DM,Wellness studio,Wynwood Yoga,(786) 558-9390 (verify),,@wynwood_yoga,,https://breathemiami.us/top-15-best-yoga-studios-in-miami/,,to-do
+DM,Wellness studio,Nashville Yoga Co,(615) 928-7424,,@nashyogaco,nashvilleyogaco.com,https://nashvilleyogaco.com/contactus,,to-do
+DM,Wellness studio,Hola Yoga,615-964-7295,,@holayogastudio,holayogastudio.com,https://holayogastudio.com/,,to-do
+DM,Creator,Sara Kuburic,,,@millennial.therapist,,https://www.instagram.com/millennial.therapist/,Instagram · Existential therapy / self-awareness · Mega (1M+),to-do
+DM,Creator,Whitney Goodman,,,@sitwithwhit,,https://www.instagram.com/sitwithwhit/,Instagram · Therapy / toxic positivity / boundaries · (verify),to-do
+DM,Creator,Sarah Crosby,,,@themindgeek,,https://www.instagram.com/themindgeek/,Instagram · Mental health / personal growth · Large (250k-1M),to-do
+DM,Creator,Nawal Mustafa,,,@thebraincoach,,https://www.instagram.com/thebraincoach/,IG/TikTok · Neuropsychology / brain health · Mid (50-250k),to-do
+DM,Creator,Britt Piper,,,@healwithbritt,,https://www.instagram.com/healwithbritt/,Instagram · Somatic healing / trauma · Mid (50-250k),to-do
+DM,Creator,Irene Lyon,,,@irenelyon,,https://www.instagram.com/irenelyon/,Instagram · Nervous system / somatic trauma · Mid (50-250k),to-do
+DM,Creator,Somia International,,,@somiainternational,,https://www.instagram.com/somiainternational/,Instagram · Nervous system / somatic healing · Mid (50-250k),to-do
+DM,Creator,@lovingwitnesssomatics,,,@lovingwitnesssomatics,,https://www.instagram.com/lovingwitnesssomatics/,Instagram · Somatic anxiety therapy · (verify),to-do
+DM,Creator,@theuntamedself,,,@theuntamedself,,https://www.instagram.com/theuntamedself/,Instagram · Shadow work / inner child · (verify),to-do
+DM,Creator,Elizabeth Earnshaw,,,@lizlistens,,https://www.instagram.com/lizlistens/,Instagram · Boundaries / couples therapy · (verify),to-do
+DM,Creator,Meghan,,,@thrive_withmeg,,https://www.instagram.com/thrive_withmeg/,Instagram · Self-compassion / grief / boundaries · (verify),to-do
+DM,Creator,Anne Power,,,@and_attachment,,https://www.instagram.com/and_attachment/,Instagram · Attachment / couples therapy · Niche (<50k),to-do
+DM,Creator,Steph,,,@steph_the_attachment_therapist,,https://www.instagram.com/steph_the_attachment_therapist/,Instagram · Attachment healing · Niche (<50k),to-do
+DM,Creator,Dean Blankfield,,,@deanblankfield,,https://www.instagram.com/deanblankfield/,Instagram · Attachment / relationships · Mid (50-250k),to-do
+DM,Creator,Hannah Dorsher,,,@healing_with_hannah,,https://www.instagram.com/healing_with_hannah/,Instagram · Attachment therapy / moms · (verify),to-do
+DM,Creator,Kasturi Mahanta,,,@heymisstherapist,,https://www.instagram.com/heymisstherapist/,Instagram · Relationship therapy · Mid (50-250k),to-do
+DM,Creator,Jessica Da Silva,,,@thejessicadasilva,,https://www.instagram.com/thejessicadasilva/,Instagram · Attachment coaching · Mid (50-250k),to-do
+DM,Creator,Shabana,,,@coaching.with.shabana,,https://www.instagram.com/coaching.with.shabana/,Instagram · Attachment styles coaching · (verify),to-do
+DM,Creator,Lauren Auer,,,@yourtraumatherapist_,,https://www.instagram.com/yourtraumatherapist_/,Instagram · Trauma healing · (verify),to-do
+DM,Creator,Sharon Peykar,,,@sitwithsharon,,https://www.instagram.com/sitwithsharon/,Instagram · Self-reflection / relationships · (verify),to-do
+DM,Creator,Mariel Buque,,,@dr.marielbuque,,https://www.instagram.com/dr.marielbuque/,Instagram · Intergenerational trauma / healing · (verify),to-do
+DM,Creator,Latinx Therapy,,,@latinxtherapy,,https://www.instagram.com/latinxtherapy/,Instagram · Latinx mental health · Mid (50-250k),to-do
+DM,Creator,Therapy While Black,,,@therapywhileblack,,https://www.instagram.com/therapywhileblack/,Instagram · BIPOC mental health · (verify),to-do
+DM,Creator,Genesis Espinoza,,,@healing_and_growth,,https://www.instagram.com/healing_and_growth/,Instagram · Latinx MFT / anxiety · (verify),to-do
+DM,Creator,@notallgeminis,,,@notallgeminis,,https://hypebae.com/2020/10/best-astrology-instagram-accounts-to-follow-zodiac-signs-horoscopes-memes-costar-notallgeminis-jakesastrology,Instagram · astrology · (verify),to-do
+DM,Creator,@glossy_zodiac,,,@glossy_zodiac,,https://hypebae.com/2020/10/best-astrology-instagram-accounts-to-follow-zodiac-signs-horoscopes-memes-costar-notallgeminis-jakesastrology,Instagram · astrology · (verify),to-do
+DM,Creator,@jakesastrology,,,@jakesastrology,,https://hypebae.com/2020/10/best-astrology-instagram-accounts-to-follow-zodiac-signs-horoscopes-memes-costar-notallgeminis-jakesastrology,Instagram · astrology · (verify),to-do
+DM,Creator,Nadine Jane,,,@nadinejane_astrology,,https://hypebae.com/2020/10/best-astrology-instagram-accounts-to-follow-zodiac-signs-horoscopes-memes-costar-notallgeminis-jakesastrology,Instagram · astrology · (verify),to-do
+DM,Creator,Colin Bedell,,,@queerscosmo,,https://hypebae.com/2020/10/best-astrology-instagram-accounts-to-follow-zodiac-signs-horoscopes-memes-costar-notallgeminis-jakesastrology,Instagram · astrology · (verify),to-do
+DM,Creator,Maren Altman,,,@marenaltman,,https://www.instagram.com/marenaltman/,IG/TikTok · astrology · (verify),to-do
+DM,Creator,Aliza Kelly,,,@alizakelly,,https://www.instagram.com/alizakelly/?hl=en,Instagram · astrology · Mid (50-250k),to-do
+DM,Creator,Debra Silverman,,,@debrasilverman_astrology,,https://www.instagram.com/debrasilverman_astrology/,Instagram · astrology · (verify),to-do
+DM,Creator,Nick Grigolia,,,@zodiacboyfriend,,https://www.instagram.com/zodiacboyfriend/,Instagram · astrology · Large (250k-1M),to-do
+DM,Creator,Elisabeth Bennett,,,@enneagram.life,,https://www.instagram.com/enneagram.life/?hl=en,Instagram · enneagram · Mid (50-250k),to-do
+DM,Creator,Brittany,,,@enneagramexplained,,https://parade.com/991519/kelseypelzer/best-enneagram-instagram-accounts/,Instagram · enneagram · (verify),to-do
+DM,Creator,Jenn Lisak Golding,,,@uncovered.gems,,https://indymaven.com/articles/3-enneagram-accounts-you-should-be-following-on-instagram/,Instagram · enneagram · (verify),to-do
+DM,Creator,Jessica Betz,,,@menneagram,,https://parade.com/991519/kelseypelzer/best-enneagram-instagram-accounts/,Instagram · enneagram · (verify),to-do
+DM,Creator,Amy Wicks,,,@wholeheartedenneagram,,https://www.instagram.com/wholeheartedenneagram/reel/DHeXKxaSimM/,Instagram · enneagram · (verify),to-do
+DM,Creator,Abbi Rodriguez,,,@enneagramspace,,https://www.instagram.com/enneagramspace/reel/CjlTw9CACyM/,Instagram · enneagram · (verify),to-do
+DM,Creator,Tyler Zach,,,@gospelforenneagram,,https://www.instagram.com/gospelforenneagram/?hl=en,Instagram · enneagram · (verify),to-do
+DM,Creator,@living_my_human_design,,,@living_my_human_design,,https://www.instagram.com/living_my_human_design/,Instagram · human design · (verify),to-do
+DM,Creator,Kiera Doyle,,,@meetingyourmagic,,https://www.instagram.com/meetingyourmagic/?hl=en,Instagram · human design · (verify),to-do
+DM,Creator,@humandesignofficial,,,@humandesignofficial,,https://www.instagram.com/humandesignofficial/?hl=en,Instagram · human design · (verify),to-do
+DM,Creator,Jenna Zoe,,,@humandesign,,https://www.instagram.com/humandesign/,Instagram · human design · (verify),to-do
+DM,Creator,Jana Kellam,,,@janakellam,,https://www.instagram.com/janakellam/,Instagram · human design · (verify),to-do
+DM,Creator,Kasia Vermaire,,,@kasiavermaire,,https://www.instagram.com/kasiavermaire/,Instagram · human design · (verify),to-do
+DM,Creator,Erin Claire Jones,,,@erinclairejones,,https://www.instagram.com/erinclairejones/?hl=en,Instagram · human design · Mid (50-250k),to-do
+DM,Creator,Emma Dunwoody,,,@the_human_design_coach,,https://www.instagram.com/the_human_design_coach/?hl=en,Instagram · human design · Mid (50-250k),to-do
+DM,Creator,Claire Hellevang,,,@mbti_as_things,,https://www.instagram.com/mbti_as_things/?hl=en,Instagram · MBTI · Mid (50-250k),to-do
+DM,Creator,@16personalitiesofficial,,,@16personalitiesofficial,,https://www.instagram.com/16personalitiesofficial/,Instagram · MBTI · Mid (50-250k),to-do
+DM,Creator,@mbtitime,,,@mbtitime,,https://www.instagram.com/mbtitime/?hl=en,Instagram · MBTI · Mid (50-250k),to-do
+DM,Creator,@mbti.types,,,@mbti.types,,https://www.instagram.com/mbti.types/?hl=en,Instagram · MBTI · Niche (<50k),to-do
+DM,Creator,@mbti_personality,,,@mbti_personality,,https://www.instagram.com/mbti_personality/,Instagram · MBTI · Niche (<50k),to-do
+DM,Creator,@infpmemesdaily,,,@infpmemesdaily,,https://mbtimemesdaily.medium.com/top-25-biggest-mbti-accounts-on-instagram-jan-2022-8da0903076d8,Instagram · MBTI · (verify),to-do
+DM,Creator,@infj_things,,,@infj_things,,https://mbtimemesdaily.medium.com/top-25-biggest-mbti-accounts-on-instagram-jan-2022-8da0903076d8,Instagram · MBTI · (verify),to-do
+DM,Creator,@typefy,,,@typefy,,https://www.tumblr.com/mbtitime/711510241204977664/the-16-types-as-symbols-follow-me-on-instagram,Instagram · MBTI · (verify),to-do
+DM,Creator,@mbtimemesdaily,,,@mbtimemesdaily,,https://mbtimemesdaily.medium.com/top-25-biggest-mbti-accounts-on-instagram-jan-2022-8da0903076d8,Instagram · MBTI · (verify),to-do
+DM,Creator,@numerologistcom,,,@numerologistcom,,https://www.instagram.com/numerologistcom/,Instagram · numerology · Mid (50-250k),to-do
+DM,Creator,@numerology.report,,,@numerology.report,,https://www.instagram.com/numerology.report/,Instagram · numerology · Niche (<50k),to-do
+DM,Creator,@numerologyguru9,,,@numerologyguru9,,https://www.instagram.com/numerologyguru9/,Instagram · numerology · Niche (<50k),to-do
+DM,Creator,@numerologynamecalculator,,,@numerologynamecalculator,,https://www.instagram.com/numerologynamecalculator/?hl=en,Instagram · numerology · (verify),to-do
+DM,Creator,@kristy.numerology,,,@kristy.numerology,,https://www.instagram.com/kristy.numerology/,Instagram · numerology · (verify),to-do
+DM,Creator,Stephanie,,,@altaredstatesofconsciousness,,https://www.instagram.com/altaredstatesofconsciousness/,Instagram · spiritual self-discovery · Niche (<50k),to-do

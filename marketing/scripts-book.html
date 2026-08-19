@@ -1,0 +1,348 @@
+<meta charset="utf-8">
+<title>Mirror Outreach Scripts</title>
+<style>
+  @page { size: Letter; margin: 0.75in 0.8in 0.9in 0.8in; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    font-family: Georgia, "Times New Roman", serif;
+    color: #1c1a24; font-size: 10.5pt; line-height: 1.5; margin: 0;
+  }
+  h1, h2, h3, h4, .kicker, .tag, .hint-title, th, .toc { font-family: "Helvetica Neue", Arial, sans-serif; }
+
+  /* Cover */
+  .cover { height: 9.2in; display: flex; flex-direction: column; justify-content: center;
+           text-align: center; page-break-after: always; }
+  .cover .mark { letter-spacing: .35em; font-size: 11pt; color: #6b5bd2; font-family:"Helvetica Neue",Arial,sans-serif; text-transform: uppercase; }
+  .cover h1 { font-size: 40pt; margin: 12px 0 6px; letter-spacing: -.5px; }
+  .cover .sub { font-style: italic; color: #55506a; font-size: 13pt; }
+  .cover .meta { margin-top: 40px; font-family:"Helvetica Neue",Arial,sans-serif; font-size: 9.5pt; color:#6f6a82; }
+  .cover .rule { width: 60px; height: 3px; background:#6b5bd2; margin: 22px auto; border-radius:2px; }
+
+  /* Section dividers */
+  h2.section { page-break-before: always; font-size: 22pt; margin: 6px 0 2px;
+    padding-bottom: 8px; border-bottom: 3px solid; letter-spacing:-.3px; }
+  .call h2.section { color:#1f7a5a; border-color:#1f7a5a; }
+  .email h2.section { color:#2b5fbf; border-color:#2b5fbf; }
+  .social h2.section { color:#a8447c; border-color:#a8447c; }
+  .kicker { text-transform: uppercase; letter-spacing:.2em; font-size:8.5pt; font-weight:700; }
+  .call .kicker{color:#1f7a5a}.email .kicker{color:#2b5fbf}.social .kicker{color:#a8447c}
+  .lead { color:#44405a; margin: 10px 0 16px; }
+
+  h3 { font-size: 13pt; margin: 22px 0 4px; page-break-after: avoid; }
+  h4 { font-size: 10.5pt; margin: 14px 0 3px; color:#3a3550; page-break-after: avoid; }
+  .subj { font-family:"Helvetica Neue",Arial,sans-serif; font-size:9pt; color:#3a3550; }
+  .subj code { background:#f0eef8; padding:1px 5px; border-radius:3px; }
+
+  /* Script blocks */
+  .script { border-left: 3px solid #cfc9e8; background:#faf9fd; padding: 10px 14px;
+    margin: 8px 0 14px; border-radius: 0 6px 6px 0; white-space: pre-wrap; page-break-inside: avoid; }
+  .call .script{border-color:#8fd4bd;background:#f4fbf8}
+  .email .script{border-color:#a9c2f0;background:#f5f8fe}
+  .social .script{border-color:#e6a9cd;background:#fdf5fa}
+  .fill { color:#8a3f6d; font-style: italic; }
+  .stage { color:#8a8698; font-style: italic; }
+
+  /* Hint / instruction boxes */
+  .hint { border:1px solid #e5e2f0; background:#fbfaff; border-radius:7px; padding:9px 12px;
+    margin: 10px 0; font-family:"Helvetica Neue",Arial,sans-serif; font-size:9pt; page-break-inside: avoid; }
+  .hint-title { font-weight:700; font-size:8.5pt; text-transform:uppercase; letter-spacing:.12em; color:#6b5bd2; margin-bottom:4px; }
+  .hint ul { margin:4px 0 0; padding-left:16px; } .hint li { margin:2px 0; }
+  .goal { font-family:"Helvetica Neue",Arial,sans-serif; font-size:9pt; color:#1f7a5a; font-weight:600; margin:2px 0 6px;}
+  .call .goal{color:#1f7a5a}.email .goal{color:#2b5fbf}.social .goal{color:#a8447c}
+
+  table { border-collapse: collapse; width:100%; margin:8px 0 14px; font-size:9pt; page-break-inside: avoid; }
+  th,td { border:1px solid #e0dcec; padding:5px 8px; text-align:left; vertical-align:top; }
+  th { background:#f2f0f9; font-size:8.5pt; text-transform:uppercase; letter-spacing:.05em; }
+
+  code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size:9pt; }
+  .divider-note { font-family:"Helvetica Neue",Arial,sans-serif; font-size:9pt; color:#55506a; }
+  a { color: inherit; text-decoration: none; }
+  .foot { margin-top:26px; padding-top:8px; border-top:1px solid #e5e2f0; font-family:"Helvetica Neue",Arial,sans-serif; font-size:8pt; color:#9a95a8; }
+
+  /* TOC */
+  .toc { page-break-after: always; }
+  .toc h2 { font-size:18pt; color:#6b5bd2; margin-bottom:4px; }
+  .toc ol { font-family:"Helvetica Neue",Arial,sans-serif; font-size:10pt; line-height:1.9; padding-left:20px;}
+  .toc .m { font-weight:700; margin-top:10px; }
+  .toc .m.c1{color:#1f7a5a}.toc .m.c2{color:#2b5fbf}.toc .m.c3{color:#a8447c}
+  .toc ul{list-style:none;padding-left:14px;margin:2px 0}
+</style>
+
+<!-- ============ COVER ============ -->
+<div class="cover">
+  <div class="mark">Mirror</div>
+  <div class="rule"></div>
+  <h1>Outreach Scripts</h1>
+  <div class="sub">Every script, in one place — by medium.</div>
+  <div class="meta">
+    Gabriel Gomez · Founder, Mirror · trymirror.world<br>
+    gabrielgomez@trymirror.world &nbsp;·&nbsp; Prepared August 2026
+  </div>
+</div>
+
+<!-- ============ TOC ============ -->
+<div class="toc">
+  <h2>What's inside</h2>
+  <div class="divider-note">Three sections, one per channel. Each script is preceded by its goal and followed by hints. Anything in <span class="fill">purple italics</span> is a fill-in you personalize per person — never send it blank.</div>
+  <ol>
+    <li class="m c1">📞 Phone &amp; Voicemail</li>
+    <ul>
+      <li>The 20-second cold-call opener</li>
+      <li>Cold call — Therapist / Coach</li>
+      <li>Cold call — Retreat organizer</li>
+      <li>Cold call — HR / People-ops</li>
+      <li>Podcast pitch — voicemail-safe</li>
+      <li>The warm-intro call (after a reply)</li>
+      <li>The break-up call</li>
+    </ul>
+    <li class="m c2">✉️ Email</li>
+    <ul>
+      <li>The universal short email</li>
+      <li>Template 1 — Podcast host (+ follow-up)</li>
+      <li>Template 2 — Therapist / Coach</li>
+      <li>Template 3 — Group facilitator / Retreat</li>
+      <li>Template 4 — Corporate wellness / HR</li>
+      <li>The 3-touch follow-up cadence</li>
+    </ul>
+    <li class="m c3">📱 Social &amp; DM</li>
+    <ul>
+      <li>The 3-line creator DM</li>
+      <li>Short creator DM (one-liner)</li>
+      <li>Social post CTAs (the 10 content lines)</li>
+      <li>DM etiquette</li>
+    </ul>
+  </ol>
+</div>
+
+<!-- ============ HOW TO USE ============ -->
+<div class="hint" style="margin-top:0">
+  <div class="hint-title">How to use this book</div>
+  <ul>
+    <li><b>Personalize the first line, every time.</b> The <span class="fill">italic fill-ins</span> are where you name something specific about the person. If you can't fill them, you're not ready to contact that person yet.</li>
+    <li><b>One channel per prospect to start.</b> Call businesses (they answer phones), email practitioners, DM creators. The contact CSVs tell you which.</li>
+    <li><b>Give before you ask.</b> Every script offers free access first — value, not a pitch.</li>
+    <li><b>Cap &amp; log.</b> 10–20 personalized sends a day, max. Log every touch in <code>partner-outreach-tracker.csv</code>.</li>
+    <li><b>Three touches, then stop.</b> Never more. A fast "no" is a win.</li>
+  </ul>
+</div>
+
+<!-- ============ SECTION 1: PHONE ============ -->
+<div class="call">
+<h2 class="section">📞 Phone &amp; Voicemail</h2>
+<div class="kicker">Section 1 · Live calls &amp; voicemails</div>
+<p class="lead">Businesses answer phones — therapists, clinics, retreat centers, small HR teams. The goal of a first call is almost never a sale; it's <b>an email address to send a free demo to</b>, a 15-minute follow-up, or a clean "no." Keep every call to 60–120 seconds.</p>
+
+<div class="hint">
+  <div class="hint-title">Before you dial</div>
+  <ul>
+    <li>Smile — it's audible. Stand up. Have their name and one specific detail in front of you.</li>
+    <li>Call in blocks (10 in a row); you warm up after the first two.</li>
+    <li>If they're busy: "No problem — what's the best email? I'll send it over." Still a win.</li>
+  </ul>
+</div>
+
+<h3>The 20-second cold-call opener</h3>
+<div class="goal">Goal: a name + email to send the demo to.</div>
+<div class="script">"Hi, this is Gabriel — I'll be quick. I'm the founder of a self-reflection app called Mirror, and I work with <span class="fill">{therapists / coaches / counselors}</span> who want something structured for the people they serve <i>between</i> sessions. I'm not selling anything — I'd just love to give your team free access to look at. Who's the best person to send that to?"</div>
+<div class="hint"><div class="hint-title">Then</div><ul><li>Get a name + email → send the therapist email that same day → log it.</li></ul></div>
+
+<h3>Cold call — Therapist / Coach</h3>
+<div class="goal">Goal: capture an email. Time: 60–90 seconds.</div>
+<div class="script">"Hi, is this <span class="fill">[name]</span>? — Hey <span class="fill">[name]</span>, my name is Gabriel, I'm the founder of Mirror. It's a personal intelligence app my clients — sorry, my <i>users</i> — use between sessions with people like you.
+
+I'm calling therapists in <span class="fill">[city]</span> this week for feedback, not to sell you anything. Do you have 90 seconds?
+
+<span class="stage">[wait for yes]</span>
+
+Mirror is a phone app your clients can use to journal daily with real emotion tracking, take a full personality and reflection intake, and get anonymous feedback from other users about how they come across. The angle is: it gives your clients structure between the times they see you, and it gives you a shared reference point when they come in.
+
+Two questions. One — does that sound like something you'd want to look at? And two — if I gave you a lifetime free Premium account to evaluate, what's the best email to send that to?
+
+<span class="stage">[capture email, confirm spelling, tell them you'll follow up next week to hear what they thought.]</span>"</div>
+
+<h3>Cold call — Retreat organizer</h3>
+<div class="goal">Goal: send a free founder's account. Time: 90–120 seconds.</div>
+<div class="script">"Hi, is this <span class="fill">[name]</span>? Hi <span class="fill">[name]</span>, I'm Gabriel, founder of Mirror. I saw you run <span class="fill">[retreat name]</span> — the one in <span class="fill">[month/place]</span>. Quick question, not a sales call: do your attendees currently do any intake or integration between the time they book and the time they show up?
+
+<span class="stage">[listen]</span>
+
+Reason I ask — I built a personal reflection app that a few retreat leaders have started using as a pre-retreat prep and post-retreat integration tool. It captures a personality and emotional baseline before, and gives them a way to journal and get grounded after. I'd love to send you a free founder's account so you can look at it. Would that be useful?"</div>
+
+<h3>Cold call — HR / People-ops (small company)</h3>
+<div class="goal">Goal: send a one-pager / pilot. Keep it crisp.</div>
+<div class="script">"Hi, is this <span class="fill">[name]</span>? Hey <span class="fill">[name]</span>, I'm Gabriel, founder of a small wellness product called Mirror. I'm calling because we're pricing a team plan and I only need to talk to 8 people. Is that you?
+
+<span class="stage">[if not, ask who and get referred out]</span>
+
+Very quick — Mirror is $10 per employee per month. What people get is a personal reflection dashboard, private journaling, and the option to form small anonymous feedback groups inside the company. It's not a mental health tool, it's a self-awareness one, so there's no PHI liability for you.
+
+I'll send you a one-pager if it's interesting. Best email?"</div>
+
+<h3>Podcast pitch — voicemail-safe</h3>
+<div class="goal">Goal: plant the hook; the email does the closing.</div>
+<div class="script">"Hi <span class="fill">[name]</span>, this is Gabriel — I'm the founder of Mirror, the app that gives you a perception-gap score based on anonymous peer reviews of your personality. I've been a listener of <span class="fill">[show name]</span> since <span class="fill">[episode]</span> and I think your audience would like the story of why we built our own AI to do this. I'll follow up by email, but if you want to skip the queue, my number is <span class="fill">[your callback number]</span>. Thanks for the show."</div>
+
+<h3>The warm-intro call — after an email reply</h3>
+<div class="goal">Goal: a referral link + one introduction.</div>
+<div class="script">"Hey <span class="fill">[name]</span>, thanks for getting back to me. You mentioned you looked at the intake — what did you think?
+
+<span class="stage">[shut up. let them talk. take notes.]</span>
+
+Great, that's really useful. Two things I want to leave you with. One, if this fits your practice, I'll set you up with a referral link so you can pass Premium codes to five clients to start. Two, is there anyone else in your network — another therapist, a coach, a group leader — who'd want to hear about this? A one-sentence intro from you is worth 50 of my cold calls."</div>
+
+<h3>The break-up call — after 3 tries, no reply</h3>
+<div class="goal">Goal: a "no" with a reason, or a surprise "yes." Works as an email too.</div>
+<div class="script">"Hey <span class="fill">[name]</span> — closing the loop on this, I don't want to be a pest. If it's not a fit right now, totally fair, and I'd love to know what would have made it a fit. Two lines back is enough. Either way, I'll leave you alone after this. Thanks for the time."</div>
+
+<div class="hint"><div class="hint-title">Voicemail note</div><ul><li>Line 5's <span class="fill">[your callback number]</span> is the one blank you must fill — use a free Google Voice number, not a personal cell, so callbacks stay separate.</li></ul></div>
+</div>
+
+<!-- ============ SECTION 2: EMAIL ============ -->
+<div class="email">
+<h2 class="section">✉️ Email</h2>
+<div class="kicker">Section 2 · Sent 1:1 from your inbox</div>
+<p class="lead">Send these by hand from <b>gabrielgomez@trymirror.world</b>, one at a time — never mail-merge. Personalize the first two sentences, keep it under ~130 words, one easy ask, free access offered. This is <i>not</i> the bulk campaign engine.</p>
+
+<div class="hint">
+  <div class="hint-title">Universal rules — apply to every email</div>
+  <ul>
+    <li><b>Personalize the first two sentences.</b> Reference their actual work. If you can't, you're not ready to send.</li>
+    <li><b>Lead with them, not you.</b> Mirror shows up as useful <i>to their audience</i>, not a pitch.</li>
+    <li><b>One low-effort ask</b> · <b>under ~130 words</b> · <b>free access offered</b> · <b>signed as you, with the site link.</b></li>
+    <li><b>Add the opt-out line</b> at the bottom: <i>"Reply 'no thanks' and I won't write again."</i> Honor it instantly.</li>
+    <li><b>Cap 10–20/day.</b> Above that, quality drops and domain reputation is at risk.</li>
+  </ul>
+</div>
+
+<h3>The universal short email</h3>
+<div class="goal">Goal: a reply and a free-access yes. Works for any practitioner.</div>
+<div class="subj"><b>Subject:</b> <code>A quiet tool for the people you work with</code></div>
+<div class="script">Hi <span class="fill">{first name}</span>,
+
+I came across your work in <span class="fill">{their focus — e.g. "measurement-based therapy" / "training new coaches" / "guiding retreat guests"}</span>, and it's the reason I'm writing.
+
+I'm the founder of <b>Mirror</b> — a personal-reflection tool that helps someone see themselves clearly: their personality and patterns, how they think and feel, and even how others actually perceive them. Practitioners are pointing people to it for structure <i>between</i> sessions. It's a mirror, never a replacement for the work you do.
+
+I'm not selling anything today — I'd value your eye on it. Could I set you up with free access to try? If it helps the people you serve, wonderful; if not, your honest read would help me more than you know.
+
+Warmly,
+Gabriel Gomez · Founder, Mirror · trymirror.world
+
+<span class="stage">Reply 'no thanks' and I won't write again.</span></div>
+
+<h3>Template 1 — Podcast host</h3>
+<div class="goal">Goal: free-access yes → an eventual guest spot.</div>
+<div class="subj"><b>Subject options:</b> <code>Loved your episode on {topic} — an idea for your audience</code> · <code>{Show name} + a self-knowledge tool built on real data</code></div>
+<div class="script">Hi <span class="fill">{First name}</span>,
+
+Your recent episode on <span class="fill">{specific topic / guest}</span> stuck with me — <span class="fill">{one genuine, specific sentence proving you actually listened}</span>.
+
+I built Mirror, a personal-intelligence app that maps who someone is across personality, cognition, emotion, and cosmology, then lets them see how others actually perceive them (anonymous peer review with a "perception-gap" score). It's exactly the kind of self-knowledge your listeners lean into.
+
+Would you be open to me setting you up with free access to try it? If it resonates, I'd love to explore coming on the show — no pressure either way.
+
+Either way, thanks for the work you put out.
+
+— Gabriel Gomez, founder · Mirror · trymirror.world</div>
+<h4>Follow-up (if no reply, +5 days)</h4>
+<div class="script">Hi <span class="fill">{First name}</span> — floating this back up in case it slipped by. Happy to just send you a free login so you can poke around, no strings. Loved <span class="fill">{other specific thing}</span>. — Gabriel Gomez</div>
+
+<h3>Template 2 — Therapist / Coach</h3>
+<div class="goal">Goal: free Premium access to evaluate with clients.</div>
+<div class="subj"><b>Subject options:</b> <code>A between-session tool for your clients (free to try)</code> · <code>Built a self-reflection app — would value your read</code></div>
+<div class="script">Hi <span class="fill">{First name}</span>,
+
+I came across your practice — <span class="fill">{specific: their niche, e.g. "your focus on attachment work with couples"}</span> — and thought you might have a sharp opinion on something I built.
+
+Mirror is a self-reflection app: structured journaling with mood/emotion tracking, a personality-and-cognition profile, and AI-guided reflection. Some clinicians are using it with clients as light structure <i>between</i> sessions — never a replacement for care, just a mirror.
+
+Could I give you free Premium access to evaluate it? If it's useful to your clients, wonderful; if not, your honest feedback would genuinely help me.
+
+— Gabriel Gomez, founder · Mirror · trymirror.world</div>
+<div class="hint"><div class="hint-title">Guardrail</div><ul><li>Never imply clinical/diagnostic claims. Position as <i>reflection &amp; structure</i>, not treatment.</li></ul></div>
+
+<h3>Template 3 — Group facilitator / Retreat leader</h3>
+<div class="goal">Goal: set a few members up before their next gathering.</div>
+<div class="subj"><b>Subject options:</b> <code>A shared-profile tool for your {circle/retreat/mastermind}</code> · <code>Something your group might love — free to try</code></div>
+<div class="script">Hi <span class="fill">{First name}</span>,
+
+I saw you run <span class="fill">{specific: their men's circle / women's retreat / mastermind}</span> — <span class="fill">{one specific, genuine line}</span>.
+
+Mirror has a groups feature built for exactly this: each member builds a personal profile (personality, values, reflections), opts into what they share with the group, and the group gets shared insight plus AI-guided prompts — great for deepening a cohort quickly.
+
+Could I set you and a few members up with free access before your next <span class="fill">{session/retreat}</span>? I'd love to see if it adds to what you already do.
+
+— Gabriel Gomez, founder · Mirror · trymirror.world</div>
+
+<h3>Template 4 — Corporate wellness / HR (small companies)</h3>
+<div class="goal">Goal: a 15-minute look / free small-team pilot.</div>
+<div class="subj"><b>Subject options:</b> <code>A $10/employee self-awareness benefit — no PHI liability</code> · <code>Team self-awareness tool for {Company}</code></div>
+<div class="script">Hi <span class="fill">{First name}</span>,
+
+Quick one for <span class="fill">{Company}</span>'s people team. Most wellness perks are meditation apps; teams rarely stick with them.
+
+Mirror gives each employee a personal-intelligence profile (personality, cognition, communication style) plus private reflection — self-awareness that improves how people work together. It's low-cost per seat, and because the personal data stays with the employee, it's light on privacy/PHI liability for you.
+
+Would a 15-minute look be worth it? I can set up a free pilot for a small team.
+
+— Gabriel Gomez, founder · Mirror · trymirror.world</div>
+
+<h3>The 3-touch follow-up cadence</h3>
+<div class="goal">Three touches, then stop. Never more. Log every touch.</div>
+<table>
+  <tr><th>Touch</th><th>When</th><th>Content</th></tr>
+  <tr><td>1</td><td>Day 0</td><td>The template above.</td></tr>
+  <tr><td>2</td><td>Day +5</td><td>Short bump — re-offer the free access, add one new specific detail.</td></tr>
+  <tr><td>3</td><td>Day +12</td><td>"Break-up" — <i>"I'll stop here; if it's ever useful, the door's open: trymirror.world"</i> (surprisingly high reply rate).</td></tr>
+</table>
+</div>
+
+<!-- ============ SECTION 3: SOCIAL / DM ============ -->
+<div class="social">
+<h2 class="section">📱 Social &amp; DM</h2>
+<div class="kicker">Section 3 · Direct messages &amp; post CTAs</div>
+<p class="lead">For creators (MBTI / astrology / self-dev on TikTok, IG, YouTube). DMs are personal, never copy-paste — platforms flag identical text and creators can smell it. Change the first line every single time.</p>
+
+<div class="hint">
+  <div class="hint-title">DM etiquette</div>
+  <ul>
+    <li><b>One message,</b> no wall of text.</li>
+    <li><b>No link in the first DM</b> if the platform buries it — offer to send it when they reply.</li>
+    <li><b>Never mass-send identical text.</b> Reference a specific recent post so it's obviously human.</li>
+    <li><b>Reply fast</b> when they respond — momentum is everything in DMs.</li>
+  </ul>
+</div>
+
+<h3>The 3-line creator DM</h3>
+<div class="goal">Goal: a free founder link → possible collab.</div>
+<div class="script"><b>Line 1 (personal hook):</b> "Your post on <span class="fill">{specific thing they said}</span> genuinely stopped my scroll — <span class="fill">{one honest sentence about why}</span>."
+
+<b>Line 2 (the bridge):</b> "I built something in that exact spirit: <b>Mirror</b>, a tool that reflects back who someone actually is — personality, how they think and feel, even the gap between how they see themselves and how others see them."
+
+<b>Line 3 (the ask, tiny):</b> "No pitch — I'd love to just give you a free founder link to poke at. If it resonates, maybe it's something your audience would love too. Either way, thank you for the work you put out."</div>
+
+<h3>Short creator DM (one-liner)</h3>
+<div class="goal">Goal: a fast yes when you only get one line of attention.</div>
+<div class="script">Hey <span class="fill">{handle}</span> — your <span class="fill">{specific post/series}</span> is great, the <span class="fill">{specific detail}</span> bit especially. I built Mirror, an app that profiles personality + cognition + astrology <i>and</i> shows how others actually perceive you (anonymous peer review with a perception-gap score). Feels made for your audience. Can I give you free access to try — and if you like it, talk about a collab? No pressure either way.</div>
+<div class="hint"><div class="hint-title">If they reply positively</div><ul><li>Move to email for specifics — free codes, timing, and what a partnership looks like (affiliate %, a sponsored post, or a giveaway).</li></ul></div>
+
+<h3>Social post CTAs — the 10 content lines</h3>
+<div class="goal">The closing line on each content pillar's video. Put the link in bio, not the caption.</div>
+<table>
+  <tr><th>Pillar</th><th>CTA</th></tr>
+  <tr><td>Recognition</td><td>"Step inside → trymirror.world"</td></tr>
+  <tr><td>Perception gap</td><td>"Find out → trymirror.world"</td></tr>
+  <tr><td>Five layers</td><td>"Map yourself → trymirror.world"</td></tr>
+  <tr><td>How they see you</td><td>"Meet them → trymirror.world"</td></tr>
+  <tr><td>Voice / cosmos</td><td>"Hear it → trymirror.world"</td></tr>
+  <tr><td>Your profile</td><td>"See yours → trymirror.world"</td></tr>
+  <tr><td>Begin</td><td>"Begin → trymirror.world"</td></tr>
+  <tr><td>Groups</td><td>"Make a circle → trymirror.world"</td></tr>
+  <tr><td>Growth</td><td>"Find yours → trymirror.world"</td></tr>
+  <tr><td>Explore</td><td>"Explore you → trymirror.world"</td></tr>
+</table>
+<div class="hint"><div class="hint-title">Posting rhythm</div><ul><li>2×/day: an AM video (reach) + a PM lighter post (engagement). After each, 10 min replying to comments/DMs. Full shot lists live in <code>VIDEO-STORYBOARDS.md</code> and <code>CONTENT-PLAYBOOK.md</code>.</li></ul></div>
+
+<div class="foot">Mirror Outreach Scripts · Gabriel Gomez · trymirror.world · Companion files: PROSPECT-LIST.md, the contact CSVs, ZOHO-MAIL-SETUP.md. Fill-ins in italics are per-prospect — personalize every one.</div>
+</div>
