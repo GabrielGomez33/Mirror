@@ -310,6 +310,12 @@ export function computeAstrology(birth: BirthInput): AstrologicalResult {
   const time = birth.time && /^\d{2}:\d{2}/.test(birth.time) ? birth.time : '12:00';
   const localDate = new Date(`${birth.date}T${time}:00`);
 
+  // Fail loud on an unparseable date rather than silently producing a wrong
+  // chart (e.g. new Date('') -> Invalid Date -> NaN month). Callers catch this.
+  if (Number.isNaN(localDate.getTime())) {
+    throw new Error(`Invalid birth date/time: "${birth.date}" "${birth.time ?? ''}"`);
+  }
+
   let ascOverride: { risingSign?: SignName; houses?: HouseMap } | undefined;
   if (isValidLatLon(birth.latitude, birth.longitude)) {
     const ascDeg = computeAscendantDeg(localDate, birth.latitude as number, birth.longitude as number);

@@ -14,8 +14,15 @@ import { useNavigate } from 'react-router-dom';
 import { computeAstrology, type AstrologicalResult } from '../shared/astrology/computeAstrology';
 import { scoreEntryPersonality, type EntryPersonalityResult } from './logic/entryScoring';
 import { entryPersonalityQuestions } from './data/entryQuestionBank';
-import { submitEntryIntake } from './logic/entryApi';
+import { submitEntryIntake, EntryApiError } from './logic/entryApi';
 import { loadEntryDraft, saveEntryDraft, clearEntryDraft } from './logic/entryDraft';
+import {
+  allAnswered,
+  answeredCount as countAnswered,
+  firstUnansweredIndex,
+  clampDraftStep,
+  isValidBirthDate,
+} from './logic/entryFlowLogic';
 
 type Answers = Record<string, { value: string; score: number }>;
 
@@ -41,7 +48,8 @@ export default function EntryIntakeFlow() {
   useEffect(() => {
     const d = loadEntryDraft();
     if (!d) return;
-    setStep(typeof d.step === 'number' ? d.step : STEP.WELCOME);
+    // Clamp a possibly-stale step into the valid pre-result range.
+    setStep(clampDraftStep(d.step, STEP.WELCOME, STEP.PERSONALITY));
     if (d.name) setName(d.name);
     if (d.birthDate) setBirthDate(d.birthDate);
     if (d.birthTime) setBirthTime(d.birthTime);
@@ -57,10 +65,9 @@ export default function EntryIntakeFlow() {
   }, [step, name, birthDate, birthTime, birthPlace, answers]);
 
   const questions = entryPersonalityQuestions;
-  const answeredCount = useMemo(
-    () => questions.filter((q) => answers[q.id]).length,
-    [questions, answers]
-  );
+  const questionIds = useMemo(() => questions.map((q) => q.id), [questions]);
+  const answered = countAnswered(questionIds, answers);
+  const complete = allAnswered(questionIds, answers);
 
   const chooseAnswer = useCallback(
     (qid: string, value: string, score: number) => {
@@ -71,9 +78,13 @@ export default function EntryIntakeFlow() {
     [questions.length]
   );
 
-  const canFinishPersonality = answeredCount === questions.length;
-
   const handleSubmit = useCallback(async () => {
+    // Guard: never submit without a real birth date (send the user back to fix it).
+    if (!isValidBirthDate(birthDate)) {
+      setError('Please enter a valid birth date to continue.');
+      setStep(STEP.BIRTH);
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -94,11 +105,16 @@ export default function EntryIntakeFlow() {
       clearEntryDraft();
       setStep(STEP.RESULT);
     } catch (e) {
+      // An expired/invalid session must route to re-auth, not dead-end the user.
+      if (e instanceof EntryApiError && (e.status === 401 || e.status === 403)) {
+        navigate('/login', { replace: true });
+        return;
+      }
       setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
     } finally {
       setSubmitting(false);
     }
-  }, [answers, birthDate, birthTime, birthPlace, name]);
+  }, [answers, birthDate, birthTime, birthPlace, name, navigate]);
 
   // ------------------------------------------------------------------ render
   return (
@@ -156,9 +172,9 @@ export default function EntryIntakeFlow() {
         {step === STEP.PERSONALITY && (
           <section style={styles.section}>
             <div style={styles.progressWrap}>
-              <div style={{ ...styles.progressBar, width: `${(answeredCount / questions.length) * 100}%` }} />
+              <div style={{ ...styles.progressBar, width: `${(answered / questions.length) * 100}%` }} />
             </div>
-            <p style={styles.count}>{answeredCount} / {questions.length}</p>
+            <p style={styles.count}>{answered} / {questions.length}</p>
 
             {(() => {
               const q = questions[Math.min(qIndex, questions.length - 1)];
@@ -191,11 +207,21 @@ export default function EntryIntakeFlow() {
               >
                 Back
               </button>
-              {qIndex < questions.length - 1 ? (
-                <button style={styles.ghost} onClick={() => setQIndex(qIndex + 1)}>Skip</button>
-              ) : (
-                <button style={styles.primary} disabled={!canFinishPersonality || submitting} onClick={handleSubmit}>
+              {complete ? (
+                // All answered — the reward is one tap away, from any question.
+                <button style={styles.primary} disabled={submitting} onClick={handleSubmit}>
                   {submitting ? 'Reflecting…' : 'See my Mirror'}
+                </button>
+              ) : qIndex < questions.length - 1 ? (
+                <button style={styles.ghost} onClick={() => setQIndex(qIndex + 1)}>Next</button>
+              ) : (
+                // On the last card with gaps: jump back to the first unanswered
+                // rather than stranding the user behind a disabled button.
+                <button
+                  style={styles.primary}
+                  onClick={() => setQIndex(Math.max(0, firstUnansweredIndex(questionIds, answers)))}
+                >
+                  Answer remaining ({questions.length - answered})
                 </button>
               )}
             </div>

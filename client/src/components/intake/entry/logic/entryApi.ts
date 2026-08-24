@@ -43,13 +43,23 @@ async function authFetch(
   }
 }
 
-/** POST the Entry result. Throws with a useful message on failure. */
+/** Error thrown by the Entry API, carrying the HTTP status for the caller. */
+export class EntryApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'EntryApiError';
+    this.status = status;
+  }
+}
+
+/** POST the Entry result. Throws EntryApiError (with .status) on failure. */
 export async function submitEntryIntake(payload: EntrySubmitPayload): Promise<any> {
   const { ok, status, json } = await authFetch(ENTRY_SUBMIT, {
     method: 'POST',
     body: JSON.stringify(payload),
   });
-  if (!ok) throw new Error(json?.error || `Entry submission failed (HTTP ${status}).`);
+  if (!ok) throw new EntryApiError(json?.error || `Entry submission failed (HTTP ${status}).`, status);
   return json;
 }
 
