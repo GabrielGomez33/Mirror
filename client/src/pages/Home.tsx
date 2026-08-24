@@ -33,7 +33,7 @@ export default function Home() {
             <GlassButton onClick={() => navigate('/dashboard')}>
               ENTER The Mirror
             </GlassButton>
-            <GlassButton onClick={() => navigate('/intake/register')}>
+            <GlassButton onClick={() => navigate('/register')}>
               LOOK into The Mirror
             </GlassButton>
           </div>
@@ -41,7 +41,7 @@ export default function Home() {
           {/* Students: free Premium. Carry intent through signup. */}
           <button
             type="button"
-            onClick={() => { try { localStorage.setItem('student_intent', '1'); } catch { /* ignore */ } navigate('/intake/register'); }}
+            onClick={() => { try { localStorage.setItem('student_intent', '1'); } catch { /* ignore */ } navigate('/register'); }}
             className="text-white/80 hover:text-white text-sm underline underline-offset-4"
           >
             🎓 Student? Get Premium free →

@@ -2,6 +2,8 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useIntake } from '../../context/IntakeContext';
+import { saveCoreSection } from '../../services/coreIntakeSave';
+import { useDeepenMode } from '../../hooks/useDeepenMode';
 import GlassCard, { GlassButton, GlassProgress } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import BasicScene from '../three/BasicScene';
@@ -439,6 +441,7 @@ function buildSynthesis(w: WesternAstrology, c: ChineseAstrology, a: AfricanAstr
 
 const AstroLogicalStep = () => {
   const navigate = useNavigate();
+  const deepen = useDeepenMode();
   const { updateIntake, markStepComplete } = useIntake();
 
 
@@ -566,6 +569,10 @@ const AstroLogicalStep = () => {
 
   const goNext = () => {
     if (showResult) {
+      if (deepen && result) {
+        saveCoreSection({ astrologicalResult: result }).finally(() => navigate('/dashboard'));
+        return;
+      }
       navigate('/intake/personality');
       return;
     }

@@ -2,6 +2,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useIntake } from '../../context/IntakeContext';
+import { saveCoreSection } from '../../services/coreIntakeSave';
+import { useDeepenMode } from '../../hooks/useDeepenMode';
 import GlassCard, { GlassButton, GlassProgress } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import BasicScene from '../three/BasicScene';
@@ -161,7 +163,8 @@ function computeInitialState(): InitialState {
 
 const PersonalityStep = () => {
   const navigate = useNavigate();
-  const { updateIntake, markStepComplete } = useIntake();
+  const deepen = useDeepenMode();
+  const { updateIntake, markStepComplete, getIntake } = useIntake();
 
   // Resolve saved progress (if any) exactly once. Resuming the exact question
   // order + index here — synchronously, before the first render — is what lets a
@@ -381,6 +384,13 @@ const PersonalityStep = () => {
       localStorage.setItem('mirror:intake:lastStep', 'personality');
     } catch {
       /* noop */
+    }
+    if (deepen) {
+      saveCoreSection({
+        personalityResult: getIntake.personalityResult,
+        personalityAnswers: getIntake.personalityAnswers,
+      }).finally(() => navigate('/dashboard'));
+      return;
     }
     navigate('/intake/submit');
   };
