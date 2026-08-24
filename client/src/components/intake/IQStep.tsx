@@ -2,6 +2,8 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useIntake } from '../../context/IntakeContext';
+import { saveCoreSection } from '../../services/coreIntakeSave';
+import { useDeepenMode } from '../../hooks/useDeepenMode';
 import GlassCard, { GlassButton, GlassProgress } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import BasicScene from '../three/BasicScene';
@@ -528,6 +530,7 @@ if (import.meta.env.DEV) {
 /** ---------- Component ---------- */
 const IQStep = () => {
   const navigate = useNavigate();
+  const deepen = useDeepenMode();
   const { updateIntake, markStepComplete } = useIntake();
 
   // State
@@ -709,6 +712,11 @@ const IQStep = () => {
       await updateIntake({ iqResults: iqResult, iqAnswers: userAnswers });
       await markStepComplete('IQStep', { iqScore: iqResult.iqScore });
       clearSavedProgress(); // committed to intake — don't resurrect this attempt
+      if (deepen) {
+        await saveCoreSection({ iqResults: iqResult, iqAnswers: userAnswers });
+        navigate('/dashboard');
+        return;
+      }
       navigate('/intake/astrology');
     } catch {
       setSaveError('We couldn’t save your results. Please check your connection and try again.');

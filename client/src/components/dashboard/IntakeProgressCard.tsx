@@ -139,7 +139,7 @@ export default function IntakeProgressCard() {
                       type="button"
                       className="enhanced-action-button"
                       style={{ fontSize: 12, padding: '6px 14px' }}
-                      onClick={() => navigate(meta.route)}
+                      onClick={() => navigate(`${meta.route}?deepen=1`)}
                     >
                       {st === 'in_progress' ? 'Continue →' : 'Start →'}
                     </button>

@@ -50,6 +50,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useIntake } from '../../context/IntakeContext';
+import { saveCoreSection } from '../../services/coreIntakeSave';
+import { useDeepenMode } from '../../hooks/useDeepenMode';
 import { useFaceApi } from '../../hooks/useFaceApi';
 import GlassCard, { GlassButton, GlassProgress } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -315,8 +317,9 @@ const SuggestionsPanel: React.FC = () => (
 // ============================================================================
 const VisualStep: React.FC = () => {
   const navigate = useNavigate();
+  const deepen = useDeepenMode();
   const location = useLocation();
-  const { updateIntake, markStepComplete } = useIntake();
+  const { updateIntake, markStepComplete, getIntake } = useIntake();
   const { isModelLoaded, loadingError, loadingProgress, analyzeImage, reload } = useFaceApi();
 
   // Fix-mode support (coming from SubmitStep to re-do photo)
@@ -613,6 +616,8 @@ const VisualStep: React.FC = () => {
 
     if (fixMode && returnTo) {
       navigate(returnTo, { replace: true });
+    } else if (deepen) {
+      saveCoreSection({ faceAnalysis: getIntake.faceAnalysis }).finally(() => navigate('/dashboard'));
     } else {
       navigate('/intake/vocal');
     }

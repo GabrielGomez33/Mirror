@@ -18,6 +18,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useIntake } from '../../context/IntakeContext';
+import { saveCoreSection } from '../../services/coreIntakeSave';
+import { useDeepenMode } from '../../hooks/useDeepenMode';
 import GlassCard, { GlassButton } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import GlassySakuraOrb from '../visualizers/GlassySakuraOrb';
@@ -253,6 +255,7 @@ function getPermissionInstructions(device: DeviceInfo): string[] {
 // ============================================================================
 const VocalStep = () => {
   const navigate = useNavigate();
+  const deepen = useDeepenMode();
   const location = useLocation();
   const { updateIntake, markStepComplete, getIntake } = useIntake();
 
@@ -1078,6 +1081,8 @@ const VocalStep = () => {
     // If in fix-mode (came from SubmitStep), return to submit
     if (fixMode && returnTo) {
       navigate(returnTo, { replace: true });
+    } else if (deepen) {
+      saveCoreSection({ voiceMetadata: getIntake.voiceMetadata }).finally(() => navigate('/dashboard'));
     } else {
       navigate('/intake/iq');
     }
