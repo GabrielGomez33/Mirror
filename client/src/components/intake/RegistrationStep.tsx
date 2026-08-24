@@ -601,7 +601,9 @@ const RegistrationStep: React.FC = () => {
 
       setIsSuccess(true);
       setMessage('Registration successful!');
-      setTimeout(() => navigate('/intake/visual'), 3500);
+      // New signups go to the fast Entry intake (name → birth → mini-personality
+      // → instant result), NOT straight into the heavy Core media steps.
+      setTimeout(() => navigate('/entry'), 3500);
     } catch (err: any) {
       // The server speaks a structured error contract: { error, code, field }.
       // Consume it directly — `code` is the stable signal, `field` says which

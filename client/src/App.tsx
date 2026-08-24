@@ -35,6 +35,7 @@ import Results from './pages/Results';
 import Review from './pages/Review';
 import LogUserIn from './components/Login';
 import RegistrationStep from './components/intake/RegistrationStep';
+import EntryIntakeFlow from './components/intake/entry/EntryIntakeFlow';
 import Landing from './pages/Landing';
 import TestPage from './pages/TestPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
@@ -82,7 +83,9 @@ const IntakeGate: React.FC = () => {
         const userRaw = localStorage.getItem('user');
         const token = localStorage.getItem('accessToken');
         if (!userRaw || !token) {
-          navigate('/login', { replace: true });
+          // Cold, logged-out visitors go to signup (the front door), not the
+          // returning-user "Welcome Back" login.
+          navigate('/register', { replace: true });
           return;
         }
 
@@ -321,6 +324,22 @@ const App: React.FC = () => {
                 >
                   <IntakeErrorBoundary>
                     <IntakeFlow />
+                  </IntakeErrorBoundary>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Entry ("initial") intake — the fast onboarding after signup */}
+            <Route
+              path="/entry"
+              element={
+                <ProtectedRoute
+                  accessLevel={AccessLevel.AUTHENTICATED}
+                  securityLevel={SecurityLevel.BASIC}
+                  redirectTo="/login"
+                >
+                  <IntakeErrorBoundary>
+                    <EntryIntakeFlow />
                   </IntakeErrorBoundary>
                 </ProtectedRoute>
               }
