@@ -12,7 +12,7 @@ const Landing = () => {
         <p className="text-gray-300 max-w-md mx-auto">
           Mirror helps you see yourself through the eyes of others.
         </p>
-        <Button label="Start Session" onClick={() => navigate('/intake/welcome')} />
+        <Button label="Start Session" onClick={() => navigate('/register')} />
 		<h2 className="text-center space-y-6 font-bold">Log In</h2>
 		<Button label="Log In" onClick={() => navigate('/login')}/>
       </div>
