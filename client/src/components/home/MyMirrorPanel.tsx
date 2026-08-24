@@ -7,6 +7,7 @@ import {
   clearAnalysisCache,
 } from '../../services/mirrorDashboard';
 const DataExportTab = lazy(() => import('./DataExportTab'));
+import IntakeProgressCard from '../dashboard/IntakeProgressCard';
 
 import type {
   PersonalAnalysisResult,
@@ -936,6 +937,9 @@ export function MyMirrorPanel() {
           {/* OVERVIEW */}
           {active === 'overview' && (
             <>
+              {/* Deepen your Mirror — complete the deep intake steps over time */}
+              <IntakeProgressCard />
+
               {/* Micro Narratives */}
               <div className="enhanced-glass-card">
                 <h3 className="enhanced-glass-heading text-lg mb-3" style={{ color: THEME.textHeading }}>Micro Narratives</h3>
