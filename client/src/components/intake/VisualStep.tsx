@@ -48,10 +48,8 @@
 //        same file still fires onChange.
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import { useIntake } from '../../context/IntakeContext';
-import { saveCoreSection } from '../../services/coreIntakeSave';
-import { useDeepenMode } from '../../hooks/useDeepenMode';
+import { useReflectionSave, ReflectionComplete, ReturnToMirrorButton } from './shared/ReflectionComplete';
 import { useFaceApi } from '../../hooks/useFaceApi';
 import GlassCard, { GlassButton, GlassProgress } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -316,15 +314,9 @@ const SuggestionsPanel: React.FC = () => (
 // VISUAL STEP COMPONENT
 // ============================================================================
 const VisualStep: React.FC = () => {
-  const navigate = useNavigate();
-  const deepen = useDeepenMode();
-  const location = useLocation();
+  const reflect = useReflectionSave();
   const { updateIntake, markStepComplete, getIntake } = useIntake();
   const { isModelLoaded, loadingError, loadingProgress, analyzeImage, reload } = useFaceApi();
-
-  // Fix-mode support (coming from SubmitStep to re-do photo)
-  const fixMode = (location.state as any)?.fixMode === true;
-  const returnTo = (location.state as any)?.returnTo || '/intake/vocal';
 
   // Refs
   const imgRef = useRef<HTMLImageElement>(null);
@@ -614,21 +606,15 @@ const VisualStep: React.FC = () => {
       qualityScore: analysisState.qualityScore,
     });
 
-    if (fixMode && returnTo) {
-      navigate(returnTo, { replace: true });
-    } else if (deepen) {
-      saveCoreSection({ faceAnalysis: getIntake.faceAnalysis }).finally(() => navigate('/dashboard'));
-    } else {
-      navigate('/intake/vocal');
-    }
+    // One reflection: persist the face section, confirm, return to the Mirror.
+    void reflect.save({ faceAnalysis: getIntake.faceAnalysis });
   }, [
     captureState.hasPhoto,
     analysisState.hasAnalysis,
     analysisState.qualityScore,
     markStepComplete,
-    navigate,
-    fixMode,
-    returnTo,
+    reflect,
+    getIntake,
   ]);
 
   // ============================================================================
@@ -653,8 +639,13 @@ const VisualStep: React.FC = () => {
   // ============================================================================
   // RENDER
   // ============================================================================
+  if (reflect.phase !== 'idle') {
+    return <ReflectionComplete label="Visual" phase={reflect.phase} error={reflect.error} onRetry={handleNext} />;
+  }
+
   return (
     <div className="min-h-screen relative overflow-hidden">
+      <ReturnToMirrorButton />
       {/* 3D Background */}
       <div className="absolute inset-0 -z-10 pointer-events-none">
         <BasicScene />

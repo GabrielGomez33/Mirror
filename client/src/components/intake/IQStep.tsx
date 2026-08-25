@@ -1,9 +1,7 @@
 // src/components/intake/IQStep.tsx
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useIntake } from '../../context/IntakeContext';
-import { saveCoreSection } from '../../services/coreIntakeSave';
-import { useDeepenMode } from '../../hooks/useDeepenMode';
+import { useReflectionSave, ReflectionComplete, ReturnToMirrorButton } from './shared/ReflectionComplete';
 import GlassCard, { GlassButton, GlassProgress } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import BasicScene from '../three/BasicScene';
@@ -529,8 +527,7 @@ if (import.meta.env.DEV) {
 
 /** ---------- Component ---------- */
 const IQStep = () => {
-  const navigate = useNavigate();
-  const deepen = useDeepenMode();
+  const reflect = useReflectionSave();
   const { updateIntake, markStepComplete } = useIntake();
 
   // State
@@ -547,8 +544,6 @@ const IQStep = () => {
   const [imageError, setImageError] = useState(false);
 
   // Save guard
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Self-norm: how this score compares to other Mirror users (server-computed).
   // null until fetched; .ready is false until enough users have completed.
@@ -703,26 +698,16 @@ const IQStep = () => {
     return () => { cancelled = true; };
   }, [showResult, iqResult]);
 
-  // Guarded proceed: block navigation on save failure
+  // Complete this reflection: record it in the in-memory intake context, then
+  // persist the single section to the server. The shared hook awaits + CHECKS
+  // the result and drives the confirmation/return-home (or a retryable error) —
+  // no silent failure. There is no "next step": each Core step stands alone.
   const handleNext = async () => {
     if (!iqResult) return;
-    setSaveError(null);
-    setSaving(true);
-    try {
-      await updateIntake({ iqResults: iqResult, iqAnswers: userAnswers });
-      await markStepComplete('IQStep', { iqScore: iqResult.iqScore });
-      clearSavedProgress(); // committed to intake — don't resurrect this attempt
-      if (deepen) {
-        await saveCoreSection({ iqResults: iqResult, iqAnswers: userAnswers });
-        navigate('/dashboard');
-        return;
-      }
-      navigate('/intake/astrology');
-    } catch {
-      setSaveError('We couldn’t save your results. Please check your connection and try again.');
-    } finally {
-      setSaving(false);
-    }
+    updateIntake({ iqResults: iqResult, iqAnswers: userAnswers });
+    markStepComplete('IQStep', { iqScore: iqResult.iqScore });
+    clearSavedProgress(); // committed to intake — don't resurrect this attempt
+    await reflect.save({ iqResults: iqResult, iqAnswers: userAnswers });
   };
 
   // Focus first option on question change (keyboard UX); reset image state.
@@ -744,8 +729,14 @@ const IQStep = () => {
     }
   }, [showResult]);
 
+  // Saving / saved / error takes over the whole view (confirmation + auto-home).
+  if (reflect.phase !== 'idle') {
+    return <ReflectionComplete label="IQ" phase={reflect.phase} error={reflect.error} onRetry={handleNext} />;
+  }
+
   return (
     <div className="min-h-screen relative overflow-hidden">
+      <ReturnToMirrorButton />
       {/* Background */}
       <BasicScene />
 
@@ -1057,8 +1048,6 @@ const IQStep = () => {
                       norm-referenced IQ measurement. Scores are estimates based on this short test.
                     </p>
 
-                    {saveError && <div className="text-red-300 text-sm text-center">{saveError}</div>}
-
                     <motion.div
                       ref={resultActionsRef}
                       initial={{ opacity: 0 }}
@@ -1083,18 +1072,14 @@ const IQStep = () => {
 
                       <GlassButton
                         onClick={handleNext}
-                        disabled={saving}
-                        aria-busy={saving ? true : undefined}
                         className="bg-gradient-to-r from-cyan-400/20 to-teal-400/20 hover:from-cyan-400/30 hover:to-teal-400/30"
                       >
-                        {saving ? 'Saving…' : (
-                          <span className="flex items-center space-x-2">
-                            <span>Continue</span>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
-                            </svg>
-                          </span>
-                        )}
+                        <span className="flex items-center space-x-2">
+                          <span>Complete reflection</span>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </span>
                       </GlassButton>
                     </motion.div>
                   </motion.div>

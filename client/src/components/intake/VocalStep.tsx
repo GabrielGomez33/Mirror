@@ -16,10 +16,8 @@
 //   - Proper cleanup of all resources (streams, contexts, intervals, animation frames)
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import { useIntake } from '../../context/IntakeContext';
-import { saveCoreSection } from '../../services/coreIntakeSave';
-import { useDeepenMode } from '../../hooks/useDeepenMode';
+import { useReflectionSave, ReflectionComplete, ReturnToMirrorButton } from './shared/ReflectionComplete';
 import GlassCard, { GlassButton } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import GlassySakuraOrb from '../visualizers/GlassySakuraOrb';
@@ -254,14 +252,8 @@ function getPermissionInstructions(device: DeviceInfo): string[] {
 // VOCAL STEP COMPONENT
 // ============================================================================
 const VocalStep = () => {
-  const navigate = useNavigate();
-  const deepen = useDeepenMode();
-  const location = useLocation();
+  const reflect = useReflectionSave();
   const { updateIntake, markStepComplete, getIntake } = useIntake();
-
-  // Fix-mode: if navigated from SubmitStep, return there after recording
-  const fixMode = (location.state as any)?.fixMode === true;
-  const returnTo = (location.state as any)?.returnTo || '/intake/iq';
 
   // Persist last step for resume
   useEffect(() => {
@@ -1078,15 +1070,9 @@ const VocalStep = () => {
       durationMs: Math.round(duration * 1000),
     });
 
-    // If in fix-mode (came from SubmitStep), return to submit
-    if (fixMode && returnTo) {
-      navigate(returnTo, { replace: true });
-    } else if (deepen) {
-      saveCoreSection({ voiceMetadata: getIntake.voiceMetadata }).finally(() => navigate('/dashboard'));
-    } else {
-      navigate('/intake/iq');
-    }
-  }, [recordingState, markStepComplete, navigate, fixMode, returnTo]);
+    // One reflection: persist the voice section, confirm, return to the Mirror.
+    void reflect.save({ voiceMetadata: getIntake.voiceMetadata });
+  }, [recordingState, markStepComplete, reflect, getIntake]);
 
   // ============================================================================
   // COMPUTED VALUES
@@ -1117,8 +1103,13 @@ const VocalStep = () => {
   // ============================================================================
   // RENDER
   // ============================================================================
+  if (reflect.phase !== 'idle') {
+    return <ReflectionComplete label="Voice" phase={reflect.phase} error={reflect.error} onRetry={handleNext} />;
+  }
+
   return (
     <div className="min-h-screen relative overflow-hidden">
+      <ReturnToMirrorButton />
       {/* 3D background */}
       <div className="absolute inset-0 -z-10 pointer-events-none">
         <BasicScene />
