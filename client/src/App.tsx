@@ -381,16 +381,19 @@ const App: React.FC = () => {
               }
             />
 
-            {/* MyMirror - Requires Completed Intake */}
+            {/* MyMirror — the self-reflection surface. Reachable after the fast
+                ENTRY intake (not the full Core intake): its data comes from the
+                merged read-model (Entry⊕Core), so an Entry-only user sees their
+                preliminary Mirror and deepens Core at their own pace from here.
+                Core-complete users trivially satisfy ENTRY_REQUIRED too. */}
             <Route
               path="/mymirror"
               element={
                 <ProtectedRoute
-                  accessLevel={AccessLevel.INTAKE_REQUIRED}
+                  accessLevel={AccessLevel.ENTRY_REQUIRED}
                   securityLevel={SecurityLevel.BASIC}
-                  customCheck={(user) => user?.intakeCompleted === true}
-                  redirectTo="/intake"
-                  errorMessage="Please complete the intake process to view your Mirror."
+                  redirectTo="/entry"
+                  errorMessage="Complete your quick intro to view your Mirror."
                 >
                   <MyMirrorPage />
                 </ProtectedRoute>

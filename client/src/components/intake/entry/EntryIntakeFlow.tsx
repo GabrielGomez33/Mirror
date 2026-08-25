@@ -1,10 +1,14 @@
 // components/intake/entry/EntryIntakeFlow.tsx
 // ----------------------------------------------------------------------------
 // The Entry ("initial") intake — the fast onboarding shown right after signup.
-// name -> birth -> mini-personality -> instant result -> dashboard. It is its
-// own self-contained pipeline: it reuses computeAstrology + scoreEntryPersonality
-// for real output, persists a one-sitting draft to localStorage, and POSTs to
-// the authenticated /mirror/api/intake/entry/submit endpoint. It deliberately
+// welcome -> birth (date/time + geocoded place) -> mini-personality -> instant
+// result -> dashboard. The user's name is NOT collected — they already
+// registered, so we greet + submit by the session username. It is its own
+// self-contained pipeline: it reuses computeAstrology (with the resolved
+// lat/lon for a REAL rising sign) + the shared birthplace geocoder
+// (resolveLocationPublic, shared with the Core AstroLogicalStep) +
+// scoreEntryPersonality, persists a one-sitting draft to localStorage, and POSTs
+// to the authenticated /mirror/api/intake/entry/submit endpoint. It deliberately
 // does NOT touch Core intake state (IntakeContext) — the two pipelines are
 // decoupled and meet only server-side on read.
 // ----------------------------------------------------------------------------
@@ -13,6 +17,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { computeAstrology, type AstrologicalResult } from '../shared/astrology/computeAstrology';
+import {
+  resolveLocationPublic,
+  type ResolvedLocation,
+} from '../shared/astrology/resolveLocation';
 import { scoreEntryPersonality, type EntryPersonalityResult } from './logic/entryScoring';
 import { entryPersonalityQuestions } from './data/entryQuestionBank';
 import { submitEntryIntake, EntryApiError } from './logic/entryApi';
@@ -26,20 +34,30 @@ import {
 } from './logic/entryFlowLogic';
 
 type Answers = Record<string, { value: string; score: number }>;
+type LocStatus = 'idle' | 'resolving' | 'resolved' | 'error';
 
 const STEP = { WELCOME: 0, BIRTH: 1, PERSONALITY: 2, RESULT: 3 } as const;
 
 export default function EntryIntakeFlow() {
   const navigate = useNavigate();
-  const { markInitialIntakeCompleted } = useAuth();
+  const { user, markInitialIntakeCompleted } = useAuth();
+
+  // The display name is NOT asked here — the user just registered, so we greet
+  // them by their session username and submit that as the displayName.
+  const displayName = (user?.username || '').trim();
 
   const [step, setStep] = useState<number>(STEP.WELCOME);
-  const [name, setName] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [birthTime, setBirthTime] = useState('');
-  const [birthPlace, setBirthPlace] = useState('');
   const [answers, setAnswers] = useState<Answers>({});
   const [qIndex, setQIndex] = useState(0);
+
+  // Birthplace resolution (reuses the Core AstroLogicalStep geocoder).
+  const [locQuery, setLocQuery] = useState('');
+  const [locStatus, setLocStatus] = useState<LocStatus>('idle');
+  const [locError, setLocError] = useState<string | null>(null);
+  const [locSuggestions, setLocSuggestions] = useState<ResolvedLocation[]>([]);
+  const [resolvedLoc, setResolvedLoc] = useState<ResolvedLocation | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,10 +70,15 @@ export default function EntryIntakeFlow() {
     if (!d) return;
     // Clamp a possibly-stale step into the valid pre-result range.
     setStep(clampDraftStep(d.step, STEP.WELCOME, STEP.PERSONALITY));
-    if (d.name) setName(d.name);
     if (d.birthDate) setBirthDate(d.birthDate);
     if (d.birthTime) setBirthTime(d.birthTime);
-    if (d.birthPlace) setBirthPlace(d.birthPlace);
+    if (d.birthPlace) setLocQuery(d.birthPlace);
+    // Rehydrate a previously-resolved location so the user need not re-resolve.
+    if (d.birthPlaceLabel && typeof d.birthLat === 'number' && typeof d.birthLon === 'number') {
+      const loc = { label: d.birthPlaceLabel, lat: d.birthLat, lon: d.birthLon };
+      setResolvedLoc(loc);
+      setLocStatus('resolved');
+    }
     if (d.answers) setAnswers(d.answers);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -63,8 +86,14 @@ export default function EntryIntakeFlow() {
   // ---- Persist the draft on any meaningful change (not the result step) ----
   useEffect(() => {
     if (step === STEP.RESULT) return;
-    saveEntryDraft({ step, name, birthDate, birthTime, birthPlace, answers });
-  }, [step, name, birthDate, birthTime, birthPlace, answers]);
+    saveEntryDraft({
+      step, birthDate, birthTime, answers,
+      birthPlace: locQuery,
+      birthPlaceLabel: resolvedLoc?.label,
+      birthLat: resolvedLoc?.lat,
+      birthLon: resolvedLoc?.lon,
+    });
+  }, [step, birthDate, birthTime, answers, locQuery, resolvedLoc]);
 
   const questions = entryPersonalityQuestions;
   const questionIds = useMemo(() => questions.map((q) => q.id), [questions]);
@@ -80,6 +109,50 @@ export default function EntryIntakeFlow() {
     [questions.length]
   );
 
+  // ---- Birthplace resolution (geocode → pick coordinates) ----
+  // Editing the query invalidates any prior resolution so we never submit a
+  // label that no longer matches the coordinates.
+  const onLocQueryChange = useCallback((v: string) => {
+    setLocQuery(v);
+    setResolvedLoc(null);
+    setLocSuggestions([]);
+    setLocStatus('idle');
+    setLocError(null);
+  }, []);
+
+  const runResolve = useCallback(async () => {
+    const q = locQuery.trim();
+    if (q.length < 3) {
+      setLocError('Enter at least 3 characters of your birth city.');
+      setLocStatus('error');
+      return;
+    }
+    setLocStatus('resolving');
+    setLocError(null);
+    setLocSuggestions([]);
+    const results = await resolveLocationPublic(q);
+    if (!results || results.length === 0) {
+      setLocStatus('error');
+      setLocError("Couldn't find that place. Try 'City, Country'.");
+      return;
+    }
+    if (results.length === 1) {
+      setResolvedLoc(results[0]);
+      setLocStatus('resolved');
+      return;
+    }
+    // Multiple candidates — let the user disambiguate.
+    setLocSuggestions(results);
+    setLocStatus('idle');
+  }, [locQuery]);
+
+  const pickSuggestion = useCallback((loc: ResolvedLocation) => {
+    setResolvedLoc(loc);
+    setLocSuggestions([]);
+    setLocStatus('resolved');
+    setLocError(null);
+  }, []);
+
   const handleSubmit = useCallback(async () => {
     // Guard: never submit without a real birth date (send the user back to fix it).
     if (!isValidBirthDate(birthDate)) {
@@ -87,10 +160,24 @@ export default function EntryIntakeFlow() {
       setStep(STEP.BIRTH);
       return;
     }
+    // Birthplace is required for a meaningful chart (Rising sign + houses).
+    if (!resolvedLoc) {
+      setError('Please find and select your birth place to continue.');
+      setStep(STEP.BIRTH);
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
-      const astrologyResult = computeAstrology({ date: birthDate, time: birthTime || undefined });
+      // Feed the resolved coordinates so computeAstrology returns a REAL,
+      // location-dependent Rising sign + Whole-Sign houses (not the sun-derived
+      // fallback). Same math the Core AstroLogicalStep uses.
+      const astrologyResult = computeAstrology({
+        date: birthDate,
+        time: birthTime || undefined,
+        latitude: resolvedLoc.lat,
+        longitude: resolvedLoc.lon,
+      });
       const personalityResult = scoreEntryPersonality(answers);
 
       await submitEntryIntake({
@@ -98,8 +185,8 @@ export default function EntryIntakeFlow() {
         astrologyResult,
         birthDate: birthDate || undefined,
         birthTime: birthTime || undefined,
-        birthPlace: birthPlace.trim() || undefined,
-        displayName: name.trim() || undefined,
+        birthPlace: resolvedLoc.label,
+        displayName: displayName || undefined,
       });
 
       // The server set initial_intake_completed=1 atomically inside the submit
@@ -122,7 +209,7 @@ export default function EntryIntakeFlow() {
     } finally {
       setSubmitting(false);
     }
-  }, [answers, birthDate, birthTime, birthPlace, name, navigate, markInitialIntakeCompleted]);
+  }, [answers, birthDate, birthTime, resolvedLoc, displayName, navigate, markInitialIntakeCompleted]);
 
   // ------------------------------------------------------------------ render
   return (
@@ -130,26 +217,12 @@ export default function EntryIntakeFlow() {
       <div style={styles.card}>
         {step === STEP.WELCOME && (
           <section style={styles.section}>
-            <h1 style={styles.h1}>Meet your Mirror</h1>
+            <h1 style={styles.h1}>Meet your Mirror{displayName ? `, ${displayName}` : ''}</h1>
             <p style={styles.sub}>
               A few quick questions and you'll see your first reflection — your chart and your type,
               in about three minutes. You can go deeper anytime.
             </p>
-            <label style={styles.label} htmlFor="entry-name">What should we call you?</label>
-            <input
-              id="entry-name"
-              style={styles.input}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
-              maxLength={120}
-              autoFocus
-            />
-            <button
-              style={styles.primary}
-              disabled={name.trim().length === 0}
-              onClick={() => setStep(STEP.BIRTH)}
-            >
+            <button style={styles.primary} onClick={() => setStep(STEP.BIRTH)} autoFocus>
               Begin
             </button>
           </section>
@@ -158,19 +231,49 @@ export default function EntryIntakeFlow() {
         {step === STEP.BIRTH && (
           <section style={styles.section}>
             <h2 style={styles.h2}>Your birth</h2>
-            <p style={styles.sub}>This unlocks your astrology. Time and place are optional but sharpen it.</p>
+            <p style={styles.sub}>Your date, time and place unlock a real chart — including your rising sign.</p>
             <label style={styles.label} htmlFor="entry-date">Birth date</label>
             <input id="entry-date" type="date" style={styles.input}
               value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
-            <label style={styles.label} htmlFor="entry-time">Birth time (optional)</label>
+            <label style={styles.label} htmlFor="entry-time">Birth time (optional — sharpens your rising sign)</label>
             <input id="entry-time" type="time" style={styles.input}
               value={birthTime} onChange={(e) => setBirthTime(e.target.value)} />
-            <label style={styles.label} htmlFor="entry-place">Birth place (optional)</label>
-            <input id="entry-place" style={styles.input} placeholder="City, Country"
-              value={birthPlace} maxLength={180} onChange={(e) => setBirthPlace(e.target.value)} />
+
+            <label style={styles.label} htmlFor="entry-place">Birth place</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input id="entry-place" style={{ ...styles.input, flex: 1 }} placeholder="City, Country"
+                value={locQuery} maxLength={180}
+                onChange={(e) => onLocQueryChange(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void runResolve(); } }} />
+              <button
+                style={styles.ghost}
+                disabled={locStatus === 'resolving' || locQuery.trim().length < 3}
+                onClick={() => void runResolve()}
+              >
+                {locStatus === 'resolving' ? 'Finding…' : 'Find'}
+              </button>
+            </div>
+            {resolvedLoc && locStatus === 'resolved' && (
+              <div style={styles.locChip}>✓ {resolvedLoc.label}</div>
+            )}
+            {locSuggestions.length > 0 && (
+              <div style={styles.options}>
+                {locSuggestions.map((s, i) => (
+                  <button key={`${s.label}-${i}`} style={styles.option} onClick={() => pickSuggestion(s)}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {locError && <p style={styles.error}>{locError}</p>}
+
             <div style={styles.row}>
               <button style={styles.ghost} onClick={() => setStep(STEP.WELCOME)}>Back</button>
-              <button style={styles.primary} disabled={!birthDate} onClick={() => setStep(STEP.PERSONALITY)}>
+              <button
+                style={styles.primary}
+                disabled={!birthDate || !resolvedLoc}
+                onClick={() => setStep(STEP.PERSONALITY)}
+              >
                 Continue
               </button>
             </div>
@@ -239,7 +342,7 @@ export default function EntryIntakeFlow() {
 
         {step === STEP.RESULT && astro && personality && (
           <section style={styles.section}>
-            <h1 style={styles.h1}>Your Mirror{name ? `, ${name}` : ''}</h1>
+            <h1 style={styles.h1}>Your Mirror{displayName ? `, ${displayName}` : ''}</h1>
             <div style={styles.resultGrid}>
               <ResultTile label="Sun" value={astro.western.sunSign} />
               <ResultTile label="Rising" value={astro.western.risingSign} />
@@ -285,6 +388,7 @@ const styles: Record<string, React.CSSProperties> = {
   options: { display: 'flex', flexDirection: 'column', gap: 8 },
   option: { textAlign: 'left', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 12, padding: '12px 14px', color: '#e7e3f5', fontSize: 15, cursor: 'pointer' },
   optionSelected: { background: 'rgba(124,92,255,0.25)', borderColor: '#7c5cff' },
+  locChip: { alignSelf: 'flex-start', background: 'rgba(74,222,128,0.14)', border: '1px solid rgba(74,222,128,0.4)', color: '#8ef0b0', borderRadius: 999, padding: '6px 12px', fontSize: 13 },
   error: { color: '#ff9a9a', fontSize: 14, margin: 0 },
   resultGrid: { display: 'flex', gap: 12, justifyContent: 'space-between' },
   tile: { flex: 1, textAlign: 'center', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 14, padding: '16px 8px' },
