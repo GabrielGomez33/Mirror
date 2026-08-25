@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../context/AuthContext';
 import { computeAstrology, type AstrologicalResult } from '../shared/astrology/computeAstrology';
 import { scoreEntryPersonality, type EntryPersonalityResult } from './logic/entryScoring';
 import { entryPersonalityQuestions } from './data/entryQuestionBank';
@@ -30,6 +31,7 @@ const STEP = { WELCOME: 0, BIRTH: 1, PERSONALITY: 2, RESULT: 3 } as const;
 
 export default function EntryIntakeFlow() {
   const navigate = useNavigate();
+  const { markInitialIntakeCompleted } = useAuth();
 
   const [step, setStep] = useState<number>(STEP.WELCOME);
   const [name, setName] = useState('');
@@ -100,6 +102,12 @@ export default function EntryIntakeFlow() {
         displayName: name.trim() || undefined,
       });
 
+      // The server set initial_intake_completed=1 atomically inside the submit
+      // transaction; mirror that into the in-memory auth user immediately so the
+      // RouteProtection access gate lets the user into /dashboard on the next
+      // tap instead of bouncing them back here before verify-token re-hydrates.
+      markInitialIntakeCompleted();
+
       setAstro(astrologyResult);
       setPersonality(personalityResult);
       clearEntryDraft();
@@ -114,7 +122,7 @@ export default function EntryIntakeFlow() {
     } finally {
       setSubmitting(false);
     }
-  }, [answers, birthDate, birthTime, birthPlace, name, navigate]);
+  }, [answers, birthDate, birthTime, birthPlace, name, navigate, markInitialIntakeCompleted]);
 
   // ------------------------------------------------------------------ render
   return (

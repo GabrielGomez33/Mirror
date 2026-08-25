@@ -140,6 +140,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     isLoading,
     authChecked,
     user,
+    isInitialIntakeCompleted,
+    isIntakeCompleted,
     hasAccessLevel,
     hasSecurityLevel,
     setRedirectAfterLogin,
@@ -185,18 +187,33 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <AuthErrorScreen error={errorMessage || 'Custom permission check failed'} redirectTo={redirectTo} />;
   }
 
-  // ========== INTAKE-COMPLETION GATE (centralized) ==========
-  // Routes exempt from intake-completion requirement (user must be able to reach these
-  // even when intake is incomplete, otherwise they'd be stuck in a redirect loop).
-  const INTAKE_EXEMPT_ROUTES = new Set([
-    '/intake', '/login', '/register', '/home', '/landing', '/test',
-  ]);
+  // ========== ENTRY-INTAKE ACCESS GATE (centralized) ==========
+  // Day-one app access is gated on the fast ENTRY ("initial") intake — NOT the
+  // deep Core intake. Core is optional, resumable per-step enrichment (driven
+  // from the dashboard card), so it must never block general navigation here;
+  // the specific deep surfaces that truly need core data keep their own
+  // intakeCompleted customCheck (see /results, /review, /mymirror, /truthstream).
+  //
+  // Legacy-safe guard: a user who completed the OLD monolithic intake has
+  // intakeCompleted=true but (per migration 022's backfill) may still have
+  // initial_intake_completed=0. Treat core-complete as entry-satisfied so we
+  // never bounce an established user into the Entry flow. New signups have
+  // neither flag → they are routed to /entry (the fast onboarding).
   const isIntakeRoute = pathname === '/intake' || pathname.startsWith('/intake/');
-  const isExemptRoute = INTAKE_EXEMPT_ROUTES.has(pathname) || isIntakeRoute;
+  const ENTRY_EXEMPT_ROUTES = new Set([
+    '/entry', '/intake', '/login', '/register', '/home', '/landing', '/test',
+  ]);
+  const isExemptRoute = ENTRY_EXEMPT_ROUTES.has(pathname) || isIntakeRoute;
+  // Read the first-class auth triggers (peers of isPremiumUser/isIntakeCompleted),
+  // not user.* directly. hasEntryAccess mirrors hasAccessLevel(ENTRY_REQUIRED):
+  // Entry done OR Core done (core implies entry — also covers legacy users whose
+  // initial_intake_completed was never backfilled).
+  const hasEntryAccess = isInitialIntakeCompleted || isIntakeCompleted;
 
-  // If authenticated, intake NOT completed, and this is NOT an intake/exempt route → redirect to intake
-  if (isAuthenticated && !user?.intakeCompleted && !isExemptRoute) {
-    return <Navigate to="/intake" replace />;
+  // Authenticated, has done NEITHER entry nor core, and this is not an
+  // entry/intake/exempt route → send them to the fast Entry onboarding.
+  if (isAuthenticated && !hasEntryAccess && !isExemptRoute) {
+    return <Navigate to="/entry" replace />;
   }
 
   // ========== INTAKE FLOW ROUTING ==========
@@ -267,7 +284,7 @@ export const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
 // ========== CONDITIONAL RENDERING ==========
 interface ConditionalRenderProps {
   children: React.ReactNode;
-  condition: 'authenticated' | 'unauthenticated' | 'verified' | 'unverified' | 'premium' | 'admin' | 'intake-completed';
+  condition: 'authenticated' | 'unauthenticated' | 'verified' | 'unverified' | 'premium' | 'admin' | 'entry-completed' | 'intake-completed';
   fallback?: React.ReactNode;
 }
 export const ConditionalRender: React.FC<ConditionalRenderProps> = ({ children, condition, fallback = null }) => {
@@ -276,6 +293,7 @@ export const ConditionalRender: React.FC<ConditionalRenderProps> = ({ children, 
     isEmailVerified,
     isPremiumUser,
     isAdmin,
+    isInitialIntakeCompleted,
     isIntakeCompleted,
     authChecked
   } = useAuth();
@@ -298,6 +316,8 @@ export const ConditionalRender: React.FC<ConditionalRenderProps> = ({ children, 
     (condition === 'unverified' && isAuthenticated && !isEmailVerified) ||
     (condition === 'premium' && isAuthenticated && isPremiumUser) ||
     (condition === 'admin' && isAuthenticated && isAdmin) ||
+    // Entry-satisfied: fast intake done OR the deeper core intake done (core implies entry).
+    (condition === 'entry-completed' && isAuthenticated && (isInitialIntakeCompleted || isIntakeCompleted)) ||
     (condition === 'intake-completed' && isAuthenticated && isIntakeCompleted);
   return shouldRender ? <>{children}</> : <>{fallback}</>;
 };
@@ -321,6 +341,8 @@ function getDefaultRedirectForAccessLevel(level: AccessLevel): string {
     case AccessLevel.AUTHENTICATED:
     case AccessLevel.VERIFIED:
       return '/login';
+    case AccessLevel.ENTRY_REQUIRED:
+      return '/entry';
     case AccessLevel.INTAKE_REQUIRED:
       return '/intake';
     case AccessLevel.PREMIUM:
@@ -352,6 +374,8 @@ function getDefaultErrorForAccessLevel(level: AccessLevel): string {
       return 'Please log in to access this page.';
     case AccessLevel.VERIFIED:
       return 'Email verification required.';
+    case AccessLevel.ENTRY_REQUIRED:
+      return 'Please complete your quick intro to continue.';
     case AccessLevel.INTAKE_REQUIRED:
       return 'Please complete the intake process first.';
     case AccessLevel.PREMIUM:
