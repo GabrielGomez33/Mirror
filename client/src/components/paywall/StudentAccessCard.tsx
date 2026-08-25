@@ -79,7 +79,44 @@ function friendlyError(err: ApiError): string {
   }
 }
 
-export default function StudentAccessCard() {
+/**
+ * Small collapsible wrapper so the student flow can live as a tidy field INSIDE
+ * the dashboard's Subscription card instead of a separate card. Only wraps real
+ * content — the parent renders nothing when StudentAccessCard returns null, so
+ * no empty collapsible ever appears. Defaults open for intent-driven arrivals
+ * (came from a "Students get Premium free" CTA) and for the active state.
+ */
+function CollapsibleField({
+  title, badge, defaultOpen, children,
+}: { title: string; badge?: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(Boolean(defaultOpen));
+  return (
+    <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, overflow: 'hidden', background: 'rgba(255,255,255,0.04)' }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 10, padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer',
+        }}
+      >
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#e8e8f0', fontWeight: 600, fontSize: 14 }}>
+          🎓 {title}
+          {badge && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#a7f3d0', background: 'rgba(16,185,129,0.18)', border: '1px solid rgba(16,185,129,0.4)', borderRadius: 999, padding: '1px 8px' }}>
+              {badge}
+            </span>
+          )}
+        </span>
+        <span aria-hidden style={{ color: '#a78bfa', fontSize: 13, transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}>▾</span>
+      </button>
+      {open && <div style={{ padding: '0 14px 14px' }}>{children}</div>}
+    </div>
+  );
+}
+
+export default function StudentAccessCard({ collapsible = false }: { collapsible?: boolean }) {
   const [phase, setPhase] = useState<Phase>('loading');
   const [status, setStatus] = useState<StudentStatus | null>(null);
   const [email, setEmail] = useState('');
@@ -127,9 +164,16 @@ export default function StudentAccessCard() {
 
   if (phase === 'loading' || phase === 'disabled') return null;
 
+  // Build the phase-specific body (no outer chrome), then render it either as a
+  // standalone card (default) or as a collapsible field inside another card.
+  let body: React.ReactNode;
+  let badge: string | undefined;
+  let defaultOpen = cameForStudent;
+
   if (phase === 'active' && status) {
-    return (
-      <div style={wrap}>
+    badge = 'Active';
+    body = (
+      <>
         <h3 style={{ color: '#fff', margin: '0 0 8px' }}>🎓 Student Premium is active</h3>
         <p style={{ color: '#ccc', lineHeight: 1.6, margin: 0 }}>
           Verified via <strong>{status.institutionDomain}</strong>.
@@ -137,68 +181,73 @@ export default function StudentAccessCard() {
             <> Free Premium for {status.daysLeft} more day{status.daysLeft === 1 ? '' : 's'} — we'll remind you to re-verify.</>
           )}
         </p>
-      </div>
+      </>
     );
-  }
-
-  if (phase === 'sent') {
-    return (
-      <div style={wrap}>
+  } else if (phase === 'sent') {
+    badge = 'Check inbox';
+    defaultOpen = true; // they just submitted — keep the confirmation visible
+    body = (
+      <>
         <h3 style={{ color: '#fff', margin: '0 0 8px' }}>Check your school inbox 📬</h3>
         <p style={{ color: '#ccc', lineHeight: 1.6, margin: 0 }}>
           We sent a confirmation link to <strong>{email.trim()}</strong>. Click it to activate free
           Premium. The link expires soon, so grab it while it's fresh.
         </p>
-      </div>
+      </>
+    );
+  } else {
+    // form / submitting
+    body = (
+      <>
+        <h3 style={{ color: '#fff', margin: '0 0 6px' }}>Students get Premium, free 🎓</h3>
+        <p style={{ color: '#aaa', fontSize: 14, margin: '0 0 16px', lineHeight: 1.5 }}>
+          {cameForStudent
+            ? "You're one step away — confirm your school email to unlock everything, on us, for as long as you're enrolled."
+            : "Confirm your school email to unlock everything, on us — for as long as you're enrolled."}
+        </p>
+        <form onSubmit={submit}>
+          <label htmlFor="campusEmail" style={{ display: 'block', fontSize: 13, color: '#bbb', marginBottom: 6 }}>
+            School email
+          </label>
+          <input
+            id="campusEmail"
+            type="email"
+            required
+            autoComplete="email"
+            placeholder="you@school.edu"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={input}
+          />
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, margin: '16px 0', color: '#ccc', fontSize: 14, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={attest18}
+              onChange={(e) => setAttest18(e.target.checked)}
+              style={{ marginTop: 3 }}
+            />
+            <span>I confirm I am 18 years of age or older.</span>
+          </label>
+
+          {error && (
+            <div role="alert" style={{ color: '#fca5a5', fontSize: 14, marginBottom: 12 }}>
+              {error}
+            </div>
+          )}
+
+          <button type="submit" style={{ ...btn, opacity: phase === 'submitting' || !attest18 ? 0.6 : 1 }} disabled={phase === 'submitting' || !attest18}>
+            {phase === 'submitting' ? 'Sending…' : 'Send confirmation link'}
+          </button>
+        </form>
+        <p style={{ color: '#666', fontSize: 12, marginTop: 14, marginBottom: 0 }}>
+          We only use your school email to confirm eligibility. Premium as a student is free — no card required.
+        </p>
+      </>
     );
   }
 
-  // form / submitting
-  return (
-    <div style={wrap}>
-      <h3 style={{ color: '#fff', margin: '0 0 6px' }}>Students get Premium, free 🎓</h3>
-      <p style={{ color: '#aaa', fontSize: 14, margin: '0 0 16px', lineHeight: 1.5 }}>
-        {cameForStudent
-          ? "You're one step away — confirm your school email to unlock everything, on us, for as long as you're enrolled."
-          : "Confirm your school email to unlock everything, on us — for as long as you're enrolled."}
-      </p>
-      <form onSubmit={submit}>
-        <label htmlFor="campusEmail" style={{ display: 'block', fontSize: 13, color: '#bbb', marginBottom: 6 }}>
-          School email
-        </label>
-        <input
-          id="campusEmail"
-          type="email"
-          required
-          autoComplete="email"
-          placeholder="you@school.edu"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={input}
-        />
-        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, margin: '16px 0', color: '#ccc', fontSize: 14, cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={attest18}
-            onChange={(e) => setAttest18(e.target.checked)}
-            style={{ marginTop: 3 }}
-          />
-          <span>I confirm I am 18 years of age or older.</span>
-        </label>
-
-        {error && (
-          <div role="alert" style={{ color: '#fca5a5', fontSize: 14, marginBottom: 12 }}>
-            {error}
-          </div>
-        )}
-
-        <button type="submit" style={{ ...btn, opacity: phase === 'submitting' || !attest18 ? 0.6 : 1 }} disabled={phase === 'submitting' || !attest18}>
-          {phase === 'submitting' ? 'Sending…' : 'Send confirmation link'}
-        </button>
-      </form>
-      <p style={{ color: '#666', fontSize: 12, marginTop: 14, marginBottom: 0 }}>
-        We only use your school email to confirm eligibility. Premium as a student is free — no card required.
-      </p>
-    </div>
-  );
+  if (collapsible) {
+    return <CollapsibleField title="Student Premium" badge={badge} defaultOpen={defaultOpen}>{body}</CollapsibleField>;
+  }
+  return <div style={wrap}>{body}</div>;
 }

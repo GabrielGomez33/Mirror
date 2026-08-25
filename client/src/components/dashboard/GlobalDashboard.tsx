@@ -1621,16 +1621,16 @@ export default function GlobalDashboard() {
                   )}
                 </Section>
 
-                {/* Subscription */}
+                {/* Subscription — the Student Premium flow lives INSIDE this card
+                    as a collapsible field (StudentAccessCard collapsible mode),
+                    which self-hides entirely when student access isn't applicable
+                    (already loading/disabled), so no empty field ever renders. */}
                 <Section title="Subscription" icon="✦" onToggle={(isOpen) => { if (isOpen) refreshSubscription(); }}>
                   <SubscriptionManager />
+                  <div style={{ marginTop: 12 }}>
+                    <StudentAccessCard collapsible />
+                  </div>
                 </Section>
-
-                {/* Student access — self-hides when already premium / not applicable,
-                    so no empty block renders for paying or already-verified users. */}
-                <div style={{ display: 'flex', justifyContent: 'center', margin: '4px 0' }}>
-                  <StudentAccessCard />
-                </div>
 
                 {/* Account Settings — sign-out + destructive actions */}
                 <Section title="Account Settings" icon="⚙️">

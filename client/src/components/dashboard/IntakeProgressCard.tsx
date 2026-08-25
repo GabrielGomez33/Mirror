@@ -24,6 +24,21 @@ const STATUS_META: Record<StepStatus, { label: string; color: string; glow: stri
 const ACCENT = '#a78bfa';
 const ACCENT_GLOW = 'rgba(167,139,250,0.35)';
 
+// Theme-aware text colors — the SAME CSS variables MyMirrorPanel's cards use
+// (var(--mg-*)), so this card's text tracks the active theme instead of
+// defaulting to near-white (which vanished on the light theme). The fallbacks
+// are the light-theme mauves; a dark theme redefines the vars. Sibling cards
+// pair these with the textShadow below — we mirror that for legibility on glass.
+const THEME = {
+  textPrimary: 'var(--mg-label, #6a1f33)',
+  textBody: 'var(--mg-body, #7e4151)',
+  textHeading: 'var(--mg-heading, #784552)',
+};
+const TEXT_SHADOW = '0px 1px 3px var(--mg-body, #7e4151)';
+// Ring track derived from --mg-body so it reads on both themes (a flat white
+// track disappeared on the light theme).
+const RING_TRACK = 'rgba(126,65,81,0.18)';
+
 /** Static completion ring — mirrors MyMirrorPanel's ScoreRing (no animation dep). */
 function CompletionRing({ percent, size = 56, strokeWidth = 4 }: { percent: number; size?: number; strokeWidth?: number }) {
   const radius = (size - strokeWidth * 2) / 2;
@@ -32,7 +47,7 @@ function CompletionRing({ percent, size = 56, strokeWidth = 4 }: { percent: numb
   return (
     <div style={{ width: size, height: size, position: 'relative', flexShrink: 0 }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)', display: 'block' }}>
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={strokeWidth} />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={RING_TRACK} strokeWidth={strokeWidth} />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -88,8 +103,8 @@ export default function IntakeProgressCard() {
         style={{ width: '100%', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}
       >
         <div style={{ textAlign: 'left' }}>
-          <h3 className="enhanced-glass-heading" style={{ fontSize: 16, margin: 0 }}>Deepen your Mirror</h3>
-          <p className="enhanced-glass-subtle" style={{ fontSize: 12, margin: '3px 0 0' }}>
+          <h3 className="enhanced-glass-heading" style={{ fontSize: 16, margin: 0, color: THEME.textHeading, textShadow: TEXT_SHADOW }}>Deepen your Mirror</h3>
+          <p className="enhanced-glass-subtle" style={{ fontSize: 12, margin: '3px 0 0', color: THEME.textPrimary, textShadow: TEXT_SHADOW }}>
             {done === total ? 'Your Mirror is fully realized ✨' : `${done} of ${total} reflections complete`}
           </p>
         </div>
@@ -119,7 +134,7 @@ export default function IntakeProgressCard() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span aria-hidden style={{ fontSize: 16 }}>{meta.emoji}</span>
-                    <span className="enhanced-glass-text" style={{ fontSize: 14, fontWeight: 600 }}>{meta.title}</span>
+                    <span className="enhanced-glass-text" style={{ fontSize: 14, fontWeight: 600, color: THEME.textHeading, textShadow: TEXT_SHADOW }}>{meta.title}</span>
                   </div>
                   <span
                     className="capitalize"
@@ -128,10 +143,10 @@ export default function IntakeProgressCard() {
                     {sm.label}
                   </span>
                 </div>
-                <p className="enhanced-glass-body" style={{ fontSize: 12, margin: '6px 0 2px' }}>{meta.description}</p>
-                <p className="enhanced-glass-subtle" style={{ fontSize: 11, margin: 0 }}>{meta.benefit}</p>
+                <p className="enhanced-glass-body" style={{ fontSize: 12, margin: '6px 0 2px', color: THEME.textBody, textShadow: TEXT_SHADOW }}>{meta.description}</p>
+                <p className="enhanced-glass-subtle" style={{ fontSize: 11, margin: 0, color: THEME.textPrimary, textShadow: TEXT_SHADOW }}>{meta.benefit}</p>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                  <span className="enhanced-glass-subtle" style={{ fontSize: 10 }}>~{meta.estMinutes} min</span>
+                  <span className="enhanced-glass-subtle" style={{ fontSize: 10, color: THEME.textPrimary }}>~{meta.estMinutes} min</span>
                   {isDone ? (
                     <span style={{ fontSize: 11, color: STATUS_META.completed.color, fontWeight: 600 }}>✓ Done</span>
                   ) : (
