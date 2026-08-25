@@ -48,7 +48,8 @@ export interface User {
   intakeCompleted: boolean;
   // Entry ("initial") intake completion — the fast ~4-min onboarding. Decoupled
   // from intakeCompleted: it gates day-one app access, while intakeCompleted
-  // gates the deep, core-data features (results/review/mymirror/truthstream).
+  // gates the deep, core-data features (results/review/truthstream). MyMirror is
+  // ENTRY-gated — it renders the merged read-model, so Entry-only users see it.
   initialIntakeCompleted: boolean;
   subscriptionStatus: 'free' | 'premium' | 'enterprise';
   lastLogin?: string;
