@@ -53,15 +53,11 @@ import DevPage from './pages/DevPage';
 import MapPage from './pages/MapPage';
 import TermsPage from './pages/TermsPage';
 import FeedbackPage from './pages/FeedbackPage';
+import { getResolvedIntake } from './services/intakeResolver';
+import { getToken, getUserInfo } from './utils/token';
 
 // -----------------------------------------------------------------------------
-// Config: prefer same-origin; honor VITE_API_URL if explicitly set
-// -----------------------------------------------------------------------------
-const ROOT = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
-const API_BASE = ROOT ? `${ROOT}/mirror/api` : '/mirror/api';
-
-// -----------------------------------------------------------------------------
-// IntakeGate: minimal, data-driven router at "/" using existing latest endpoint
+// IntakeGate: minimal, data-driven router at "/" using the unified resolver
 //   - Success fetching latest intake -> /dashboard
 //   - Any error (401/404/500/parse)  -> /entry  (fast onboarding front door)
 //   - No auth                        -> /register
@@ -85,39 +81,28 @@ const IntakeGate: React.FC = () => {
 
     (async () => {
       try {
-        const userRaw = localStorage.getItem('user');
-        const token = localStorage.getItem('accessToken');
-        if (!userRaw || !token) {
+        const info = getUserInfo();
+        const token = getToken();
+        if (!info?.userId || !token) {
           // Cold, logged-out visitors go to signup (the front door), not the
           // returning-user "Welcome Back" login.
           navigate('/register', { replace: true });
           return;
         }
 
-        const user = JSON.parse(userRaw);
-        const res = await fetch(`${API_BASE}/intake/latest/${user.id}`, {
-          credentials: 'include',
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!res.ok) {
-          // Any failure fetching latest -> send to the fast Entry onboarding to
-          // (re)start; RouteProtection redirects established users onward.
-          navigate('/entry', { replace: true });
-          return;
-        }
-
-        // Sanity parse; if empty/unexpected, treat as not-ready
-        const json = await res.json().catch(() => null);
-        if (json) {
+        // Single unified resolver: merged Entry⊕Core (Core precedence). An
+        // Entry-only user now resolves to their data and reaches the dashboard
+        // instead of being bounced back into onboarding.
+        const resolved = await getResolvedIntake(info.userId);
+        if (resolved && resolved.intakeData && Object.keys(resolved.intakeData).length > 0) {
           navigate('/dashboard', { replace: true });
         } else {
+          // No resolvable intake (neither Entry nor Core) -> fast onboarding.
           navigate('/entry', { replace: true });
         }
       } catch {
+        // Auth/transport failure — send to onboarding; RouteProtection routes
+        // established users onward once their token re-hydrates.
         navigate('/entry', { replace: true });
       } finally {
         setChecking(false);

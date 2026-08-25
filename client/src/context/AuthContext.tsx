@@ -30,7 +30,8 @@ export const AccessLevel = {
   PUBLIC: 'public',           // Anyone can access
   AUTHENTICATED: 'authenticated',   // Must be logged in
   VERIFIED: 'verified',       // Must have verified email
-  INTAKE_REQUIRED: 'intake_required',    // Must complete intake process
+  ENTRY_REQUIRED: 'entry_required',      // Must complete the fast Entry intake (day-one access)
+  INTAKE_REQUIRED: 'intake_required',    // Must complete the deep Core intake process
   PREMIUM: 'premium',         // Must be premium user
   ADMIN: 'admin'             // Admin only
 } as const;
@@ -72,10 +73,14 @@ export interface AuthState {
   
   // Verification States
   isEmailVerified: boolean;
+  // Entry ("initial") intake completion — the fast onboarding. First-class
+  // trigger, peer to isIntakeCompleted/isPremiumUser: it gates day-one app
+  // access. Core-complete implies entry-satisfied (see hasEntryAccess()).
+  isInitialIntakeCompleted: boolean;
   isIntakeCompleted: boolean;
   isPremiumUser: boolean;
   isAdmin: boolean;
-  
+
   // Token Management
   accessToken: string | null;
   refreshToken: string | null;
@@ -245,6 +250,7 @@ const initialState: AuthState = {
   isAuthenticated: false,
   isLoading: true,
   isEmailVerified: false,
+  isInitialIntakeCompleted: false,
   isIntakeCompleted: false,
   isPremiumUser: false,
   isAdmin: false,
@@ -271,6 +277,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         user,
         isAuthenticated: true,
         isEmailVerified: user.emailVerified,
+        isInitialIntakeCompleted: user.initialIntakeCompleted,
         isIntakeCompleted: user.intakeCompleted,
         isPremiumUser: user.subscriptionStatus === 'premium' || user.subscriptionStatus === 'enterprise',
         isAdmin: user.tier === UserTier.ADMIN,
@@ -315,6 +322,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         ...state,
         user: updatedUser,
         isEmailVerified: updatedUser.emailVerified,
+        isInitialIntakeCompleted: updatedUser.initialIntakeCompleted,
         isIntakeCompleted: updatedUser.intakeCompleted,
         isPremiumUser: updatedUser.subscriptionStatus === 'premium' || updatedUser.subscriptionStatus === 'enterprise',
         isAdmin: updatedUser.tier === UserTier.ADMIN
@@ -695,7 +703,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (!permission) return true; // Default allow for undefined routes
     
     return canAccessRoute(route).allowed;
-  }, [state.user, state.isAuthenticated, state.isEmailVerified, state.isIntakeCompleted, state.isPremiumUser, state.isAdmin]);
+  }, [state.user, state.isAuthenticated, state.isEmailVerified, state.isInitialIntakeCompleted, state.isIntakeCompleted, state.isPremiumUser, state.isAdmin]);
 
   const hasSecurityLevel = useCallback((level: SecurityLevel): boolean => {
     switch (level) {
@@ -724,6 +732,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return state.isAuthenticated;
       case AccessLevel.VERIFIED:
         return state.isAuthenticated && state.isEmailVerified;
+      case AccessLevel.ENTRY_REQUIRED:
+        // Day-one access: the fast Entry intake is enough. A user who finished
+        // the deep Core intake trivially satisfies Entry too (core-implies-entry),
+        // which also protects legacy users whose initial flag was never backfilled.
+        return state.isAuthenticated && (state.isInitialIntakeCompleted || state.isIntakeCompleted);
       case AccessLevel.INTAKE_REQUIRED:
         return state.isAuthenticated && state.isIntakeCompleted;
       case AccessLevel.PREMIUM:
@@ -733,7 +746,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       default:
         return false;
     }
-  }, [state.isAuthenticated, state.isEmailVerified, state.isIntakeCompleted, state.isPremiumUser, state.isAdmin]);
+  }, [state.isAuthenticated, state.isEmailVerified, state.isInitialIntakeCompleted, state.isIntakeCompleted, state.isPremiumUser, state.isAdmin]);
 
   const canAccessRoute = useCallback((route: string): { allowed: boolean; reason?: string; redirectTo?: string } => {
     // Check cache first (5 minute cache)

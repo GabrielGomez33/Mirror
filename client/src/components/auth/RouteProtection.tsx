@@ -140,6 +140,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     isLoading,
     authChecked,
     user,
+    isInitialIntakeCompleted,
+    isIntakeCompleted,
     hasAccessLevel,
     hasSecurityLevel,
     setRedirectAfterLogin,
@@ -202,11 +204,15 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     '/entry', '/intake', '/login', '/register', '/home', '/landing', '/test',
   ]);
   const isExemptRoute = ENTRY_EXEMPT_ROUTES.has(pathname) || isIntakeRoute;
-  const hasAnyIntake = Boolean(user?.initialIntakeCompleted) || Boolean(user?.intakeCompleted);
+  // Read the first-class auth triggers (peers of isPremiumUser/isIntakeCompleted),
+  // not user.* directly. hasEntryAccess mirrors hasAccessLevel(ENTRY_REQUIRED):
+  // Entry done OR Core done (core implies entry — also covers legacy users whose
+  // initial_intake_completed was never backfilled).
+  const hasEntryAccess = isInitialIntakeCompleted || isIntakeCompleted;
 
   // Authenticated, has done NEITHER entry nor core, and this is not an
   // entry/intake/exempt route → send them to the fast Entry onboarding.
-  if (isAuthenticated && !hasAnyIntake && !isExemptRoute) {
+  if (isAuthenticated && !hasEntryAccess && !isExemptRoute) {
     return <Navigate to="/entry" replace />;
   }
 
@@ -278,7 +284,7 @@ export const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
 // ========== CONDITIONAL RENDERING ==========
 interface ConditionalRenderProps {
   children: React.ReactNode;
-  condition: 'authenticated' | 'unauthenticated' | 'verified' | 'unverified' | 'premium' | 'admin' | 'intake-completed';
+  condition: 'authenticated' | 'unauthenticated' | 'verified' | 'unverified' | 'premium' | 'admin' | 'entry-completed' | 'intake-completed';
   fallback?: React.ReactNode;
 }
 export const ConditionalRender: React.FC<ConditionalRenderProps> = ({ children, condition, fallback = null }) => {
@@ -287,6 +293,7 @@ export const ConditionalRender: React.FC<ConditionalRenderProps> = ({ children, 
     isEmailVerified,
     isPremiumUser,
     isAdmin,
+    isInitialIntakeCompleted,
     isIntakeCompleted,
     authChecked
   } = useAuth();
@@ -309,6 +316,8 @@ export const ConditionalRender: React.FC<ConditionalRenderProps> = ({ children, 
     (condition === 'unverified' && isAuthenticated && !isEmailVerified) ||
     (condition === 'premium' && isAuthenticated && isPremiumUser) ||
     (condition === 'admin' && isAuthenticated && isAdmin) ||
+    // Entry-satisfied: fast intake done OR the deeper core intake done (core implies entry).
+    (condition === 'entry-completed' && isAuthenticated && (isInitialIntakeCompleted || isIntakeCompleted)) ||
     (condition === 'intake-completed' && isAuthenticated && isIntakeCompleted);
   return shouldRender ? <>{children}</> : <>{fallback}</>;
 };
@@ -332,6 +341,8 @@ function getDefaultRedirectForAccessLevel(level: AccessLevel): string {
     case AccessLevel.AUTHENTICATED:
     case AccessLevel.VERIFIED:
       return '/login';
+    case AccessLevel.ENTRY_REQUIRED:
+      return '/entry';
     case AccessLevel.INTAKE_REQUIRED:
       return '/intake';
     case AccessLevel.PREMIUM:
@@ -363,6 +374,8 @@ function getDefaultErrorForAccessLevel(level: AccessLevel): string {
       return 'Please log in to access this page.';
     case AccessLevel.VERIFIED:
       return 'Email verification required.';
+    case AccessLevel.ENTRY_REQUIRED:
+      return 'Please complete your quick intro to continue.';
     case AccessLevel.INTAKE_REQUIRED:
       return 'Please complete the intake process first.';
     case AccessLevel.PREMIUM:
