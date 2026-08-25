@@ -8,6 +8,13 @@ import GlassCard, { GlassButton, GlassProgress } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import BasicScene from '../three/BasicScene';
 import CosmicLoader from '../ui/CosmicLoader';
+// Single source of truth for birthplace geocoding — shared with the Entry intake.
+import {
+  resolveLocationPublic,
+  formatLocation,
+  type ResolvedLocation,
+  type LocationFormat,
+} from './shared/astrology/resolveLocation';
 
 /**
  * PRODUCTION-READY AstroLogicalStep
@@ -120,13 +127,7 @@ type LocationResolveState =
   | { status: 'resolved' }
   | { status: 'error'; message: string };
 
-interface ResolvedLocation {
-  label: string;
-  lat: number;
-  lon: number;
-}
-
-type LocationFormat = 'label' | 'latlon' | 'pipe' | 'json';
+// ResolvedLocation + LocationFormat now imported from shared/astrology/resolveLocation.
 
 // --------------------------- Constants ---------------------------
 
@@ -213,17 +214,7 @@ function wholeSignHousesFromAsc(ascSign: SignName): HouseMap {
   return obj;
 }
 
-function formatLocation(loc: ResolvedLocation, fmt: LocationFormat): string {
-  const lat = loc.lat.toFixed(6);
-  const lon = loc.lon.toFixed(6);
-  switch (fmt) {
-    case 'label': return loc.label;
-    case 'latlon': return `${lat},${lon}`;
-    case 'pipe': return `${loc.label}|${lat}|${lon}`;
-    case 'json':
-    default: return JSON.stringify(loc);
-  }
-}
+// formatLocation now imported from shared/astrology/resolveLocation.
 
 function isValidLatLon(lat?: number, lon?: number) {
   return (
@@ -234,45 +225,7 @@ function isValidLatLon(lat?: number, lon?: number) {
   );
 }
 
-// -------------------- Client-only Location Resolve --------------------
-
-async function resolveLocationPublic(query: string): Promise<ResolvedLocation[] | null> {
-  const q = (query || '').trim();
-  if (q.length < 3) return null;
-
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&addressdetails=1&accept-language=en&q=${encodeURIComponent(q)}`;
-
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 3000);
-
-  try {
-    const res = await fetch(url, {
-      signal: ctrl.signal,
-      headers: { 'Accept': 'application/json' },
-    });
-    clearTimeout(timer);
-    if (!res.ok) return null;
-    const raw = await res.json();
-
-    const picks: ResolvedLocation[] = (raw || []).map((r: any) => {
-      const a = r.address || {};
-      const city = a.city || a.town || a.village || a.hamlet || a.municipality || a.suburb || a.county || '';
-      const region = a.state || a.region || a.province || a.county || '';
-      const country = a.country || '';
-      const label = [city, region, country].filter(Boolean).join(', ') || r.display_name || q;
-      return {
-        label,
-        lat: Number(r.lat),
-        lon: Number(r.lon),
-      };
-    }).filter((p: ResolvedLocation) => Number.isFinite(p.lat) && Number.isFinite(p.lon));
-
-    return picks.length ? picks : null;
-  } catch {
-    clearTimeout(timer);
-    return null;
-  }
-}
+// resolveLocationPublic now imported from shared/astrology/resolveLocation.
 
 // ----------------------- Astrology Calculations -----------------------
 
