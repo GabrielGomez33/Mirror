@@ -33,6 +33,9 @@ export interface VerifyTokenResponse {
     tier?: string;
     emailVerified: boolean;
     intakeCompleted: boolean;
+    // Entry ("initial") intake completion — decoupled from core intakeCompleted.
+    // Optional for forward/backward compat with servers that predate the field.
+    initialIntakeCompleted?: boolean;
     subscriptionStatus: string;
     sessionId: string;
   };
@@ -50,6 +53,9 @@ export interface AuthResponse {
     tier?: string;
     emailVerified: boolean;
     intakeCompleted: boolean;
+    // Entry ("initial") intake completion — decoupled from core intakeCompleted.
+    // Optional for forward/backward compat with servers that predate the field.
+    initialIntakeCompleted?: boolean;
     subscriptionStatus: string;
     lastLogin?: string;
     sessionId: string;
