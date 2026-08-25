@@ -218,6 +218,19 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // ========== INTAKE FLOW ROUTING ==========
   if (isAuthenticated && isIntakeRoute) {
+    const currentSegEarly = getCurrentIntakeSegment(pathname);
+
+    // ====== DEEPEN MODE: per-step deep link from the "Deepen your Mirror" card ======
+    // The user intentionally jumped to ONE Core step to enrich it, out of order
+    // (?deepen=1). Bypass the LEGACY sequential routing entirely — no snap-back to
+    // the first incomplete step, no auto-advance, and no "already completed ->
+    // dashboard" bounce (they may be re-visiting a finished step on purpose).
+    // Just render the exact step they asked for.
+    const deepen = new URLSearchParams(location.search).get('deepen') === '1';
+    if (deepen && currentSegEarly) {
+      return <>{children}</>;
+    }
+
     // completed? -> dashboard
     if (progress?.completed || user?.intakeCompleted) {
       return <Navigate to="/dashboard" replace />;
