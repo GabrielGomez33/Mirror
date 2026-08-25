@@ -63,8 +63,13 @@ const API_BASE = ROOT ? `${ROOT}/mirror/api` : '/mirror/api';
 // -----------------------------------------------------------------------------
 // IntakeGate: minimal, data-driven router at "/" using existing latest endpoint
 //   - Success fetching latest intake -> /dashboard
-//   - Any error (401/404/500/parse)  -> /intake
-//   - No auth                        -> /login
+//   - Any error (401/404/500/parse)  -> /entry  (fast onboarding front door)
+//   - No auth                        -> /register
+//
+// The failure fallback goes to the fast ENTRY intake, not the heavy Core intake:
+// a user with no resolvable latest intake has not completed onboarding, and
+// /entry is the ~4-min day-one path in the two-tier model. RouteProtection's
+// access gate then keeps established (core-complete) users out of /entry.
 // -----------------------------------------------------------------------------
 const IntakeGate: React.FC = () => {
   const [checking, setChecking] = useState(true);
@@ -99,8 +104,9 @@ const IntakeGate: React.FC = () => {
         });
 
         if (!res.ok) {
-          // Any failure fetching latest -> send to intake to (re)start/continue
-          navigate('/intake', { replace: true });
+          // Any failure fetching latest -> send to the fast Entry onboarding to
+          // (re)start; RouteProtection redirects established users onward.
+          navigate('/entry', { replace: true });
           return;
         }
 
@@ -109,10 +115,10 @@ const IntakeGate: React.FC = () => {
         if (json) {
           navigate('/dashboard', { replace: true });
         } else {
-          navigate('/intake', { replace: true });
+          navigate('/entry', { replace: true });
         }
       } catch {
-        navigate('/intake', { replace: true });
+        navigate('/entry', { replace: true });
       } finally {
         setChecking(false);
       }

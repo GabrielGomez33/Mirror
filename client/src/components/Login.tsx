@@ -378,8 +378,9 @@ const LogUserIn: React.FC = () => {
 
       // Post-login destination preference, most-specific-wins:
       //   1. explicit redirectAfterLogin (set by RouteProtection)
-      //   2. /intake/visual if intake isn't done yet
-      //   3. /dashboard
+      //   2. /entry if the user has done NEITHER entry nor core intake
+      //      (fast day-one onboarding — never force the heavy core flow)
+      //   3. /dashboard (established users; core is optional per-step enrichment)
       setTimeout(() => {
         const explicit = getRedirectAfterLogin();
         if (explicit && explicit !== '/dashboard') {
@@ -389,8 +390,12 @@ const LogUserIn: React.FC = () => {
         try {
           const raw = localStorage.getItem('userInfo');
           const parsed = raw ? JSON.parse(raw) : null;
-          if (parsed && parsed.intakeCompleted === false) {
-            navigate('/intake/visual');
+          // Mirror RouteProtection's access gate: core-complete implies
+          // entry-satisfied, so an established user is never sent to /entry.
+          const hasAnyIntake =
+            parsed?.initialIntakeCompleted === true || parsed?.intakeCompleted === true;
+          if (parsed && !hasAnyIntake) {
+            navigate('/entry');
             return;
           }
         } catch { /* fall through */ }

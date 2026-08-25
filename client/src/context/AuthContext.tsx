@@ -43,7 +43,12 @@ export interface User {
   email: string;
   tier: UserTier;
   emailVerified: boolean;
+  // Core (deep) intake completion — derived from per-step core_intake_progress.
   intakeCompleted: boolean;
+  // Entry ("initial") intake completion — the fast ~4-min onboarding. Decoupled
+  // from intakeCompleted: it gates day-one app access, while intakeCompleted
+  // gates the deep, core-data features (results/review/mymirror/truthstream).
+  initialIntakeCompleted: boolean;
   subscriptionStatus: 'free' | 'premium' | 'enterprise';
   lastLogin?: string;
   sessionId: string;
@@ -361,6 +366,7 @@ interface AuthContextType extends AuthState {
   updateUserProperty: (key: keyof User, value: any) => void;
   markEmailVerified: () => void;
   markIntakeCompleted: () => void;
+  markInitialIntakeCompleted: () => void;
   
   // Utility
   clearError: () => void;
@@ -454,6 +460,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         lastLogin: data.user.lastLogin,
         emailVerified: Boolean(data.user.emailVerified),
         intakeCompleted: Boolean(data.user.intakeCompleted),
+        initialIntakeCompleted: Boolean(data.user.initialIntakeCompleted),
         subscriptionStatus: data.user.subscriptionStatus || 'free',
         tier: data.user.tier || 'basic',
       };
@@ -485,6 +492,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         tier: mapBackendTierToUserTier(data.user.tier),
         emailVerified: data.user.emailVerified || false,
         intakeCompleted: data.user.intakeCompleted || false,
+        initialIntakeCompleted: Boolean(data.user.initialIntakeCompleted),
         subscriptionStatus: data.user.subscriptionStatus || 'free',
         lastLogin: data.user.lastLogin,
         sessionId: data.user.sessionId
@@ -598,6 +606,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             lastLogin: data.user.lastLogin,
             emailVerified: Boolean(data.user.emailVerified),
             intakeCompleted: Boolean(data.user.intakeCompleted),
+            initialIntakeCompleted: Boolean(data.user.initialIntakeCompleted),
             subscriptionStatus: data.user.subscriptionStatus || 'free',
             tier: data.user.tier || 'basic',
           }), 'userInfo');
@@ -623,6 +632,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           tier: mapBackendTierToUserTier(data.user.tier || 'basic'),
           emailVerified: Boolean(data.user.emailVerified),
           intakeCompleted: Boolean(data.user.intakeCompleted),
+          initialIntakeCompleted: Boolean(data.user.initialIntakeCompleted),
           subscriptionStatus: ['free', 'premium', 'enterprise'].includes(data.user.subscriptionStatus)
             ? data.user.subscriptionStatus as 'free' | 'premium' | 'enterprise'
             : 'free',
@@ -805,6 +815,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     updateUserProperty('intakeCompleted', true);
   }, [updateUserProperty]);
 
+  // Flip the in-memory Entry-intake flag the instant the user finishes the fast
+  // onboarding, so the RouteProtection access gate stops redirecting them back
+  // to /entry before the next verify-token round-trip re-hydrates it from the DB.
+  const markInitialIntakeCompleted = useCallback(() => {
+    updateUserProperty('initialIntakeCompleted', true);
+  }, [updateUserProperty]);
+
   // ========== UTILITY FUNCTIONS ==========
 
   const clearError = useCallback(() => {
@@ -849,7 +866,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             tier: mapBackendTierToUserTier(data.user!.tier || 'basic'),
             emailVerified: data.user!.emailVerified || false,
             intakeCompleted: data.user!.intakeCompleted || false,
-            subscriptionStatus: ['free', 'premium', 'enterprise'].includes(data.user!.subscriptionStatus) 
+            initialIntakeCompleted: Boolean(data.user!.initialIntakeCompleted),
+            subscriptionStatus: ['free', 'premium', 'enterprise'].includes(data.user!.subscriptionStatus)
               ? data.user!.subscriptionStatus as 'free' | 'premium' | 'enterprise'
               : 'free',
             sessionId: data.user!.sessionId
@@ -876,6 +894,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               email: data.user!.email,
               emailVerified: Boolean(data.user!.emailVerified),
               intakeCompleted: Boolean(data.user!.intakeCompleted),
+              initialIntakeCompleted: Boolean(data.user!.initialIntakeCompleted),
               subscriptionStatus: data.user!.subscriptionStatus || 'free',
               tier: data.user!.tier || prev.tier || 'basic',
             }), 'userInfo');
@@ -993,7 +1012,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     updateUserProperty,
     markEmailVerified,
     markIntakeCompleted,
-    
+    markInitialIntakeCompleted,
+
     // Utility
     clearError,
     isTokenExpiring,
