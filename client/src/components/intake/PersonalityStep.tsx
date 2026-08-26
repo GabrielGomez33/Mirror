@@ -1,9 +1,7 @@
 // src/components/intake/PersonalityStep.tsx
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useIntake } from '../../context/IntakeContext';
-import { saveCoreSection } from '../../services/coreIntakeSave';
-import { useDeepenMode } from '../../hooks/useDeepenMode';
+import { useReflectionSave, ReflectionComplete, ReturnToMirrorButton } from './shared/ReflectionComplete';
 import GlassCard, { GlassButton, GlassProgress } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import BasicScene from '../three/BasicScene';
@@ -162,8 +160,7 @@ function computeInitialState(): InitialState {
 }
 
 const PersonalityStep = () => {
-  const navigate = useNavigate();
-  const deepen = useDeepenMode();
+  const reflect = useReflectionSave();
   const { updateIntake, markStepComplete, getIntake } = useIntake();
 
   // Resolve saved progress (if any) exactly once. Resuming the exact question
@@ -385,14 +382,11 @@ const PersonalityStep = () => {
     } catch {
       /* noop */
     }
-    if (deepen) {
-      saveCoreSection({
-        personalityResult: getIntake.personalityResult,
-        personalityAnswers: getIntake.personalityAnswers,
-      }).finally(() => navigate('/dashboard'));
-      return;
-    }
-    navigate('/intake/submit');
+    // One reflection: persist this section, confirm, and return to the Mirror.
+    void reflect.save({
+      personalityResult: getIntake.personalityResult,
+      personalityAnswers: getIntake.personalityAnswers,
+    });
   };
 
   const restartAssessment = () => {
@@ -425,10 +419,16 @@ const PersonalityStep = () => {
     return { label: 'Assessment', color: 'bg-gray-500/20' };
   };
 
+  // ── Saving / saved / error — confirmation takes over and returns home ────
+  if (reflect.phase !== 'idle') {
+    return <ReflectionComplete label="Personality" phase={reflect.phase} error={reflect.error} onRetry={handleNext} />;
+  }
+
   // ── Disclaimer screen ──────────────────────────────────────────────────
   if (showDisclaimer) {
     return (
       <div className="min-h-screen relative overflow-hidden">
+        <ReturnToMirrorButton />
         <BasicScene />
         <motion.div
           initial={{ opacity: 0 }}
@@ -499,6 +499,7 @@ const PersonalityStep = () => {
   // ── Main screen ────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen relative overflow-hidden">
+      <ReturnToMirrorButton />
       <BasicScene />
       <motion.div
         initial={{ opacity: 0 }}

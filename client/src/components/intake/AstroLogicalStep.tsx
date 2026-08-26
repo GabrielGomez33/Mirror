@@ -1,9 +1,7 @@
 // src/components/intake/AstroLogicalStep.tsx
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useIntake } from '../../context/IntakeContext';
-import { saveCoreSection } from '../../services/coreIntakeSave';
-import { useDeepenMode } from '../../hooks/useDeepenMode';
+import { useReflectionSave, ReflectionComplete, ReturnToMirrorButton } from './shared/ReflectionComplete';
 import GlassCard, { GlassButton, GlassProgress } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import BasicScene from '../three/BasicScene';
@@ -393,8 +391,7 @@ function buildSynthesis(w: WesternAstrology, c: ChineseAstrology, a: AfricanAstr
 // ------------------------------ Component ------------------------------
 
 const AstroLogicalStep = () => {
-  const navigate = useNavigate();
-  const deepen = useDeepenMode();
+  const reflect = useReflectionSave();
   const { updateIntake, markStepComplete } = useIntake();
 
 
@@ -522,11 +519,8 @@ const AstroLogicalStep = () => {
 
   const goNext = () => {
     if (showResult) {
-      if (deepen && result) {
-        saveCoreSection({ astrologicalResult: result }).finally(() => navigate('/dashboard'));
-        return;
-      }
-      navigate('/intake/personality');
+      // One reflection: persist the chart, confirm, and return to the Mirror.
+      if (result) void reflect.save({ astrologicalResult: result });
       return;
     }
     if (currentStep < steps.length - 1) setCurrentStep(s => s + 1);
@@ -778,8 +772,13 @@ const AstroLogicalStep = () => {
     }
   };
 
+  if (reflect.phase !== 'idle') {
+    return <ReflectionComplete label="Astrology" phase={reflect.phase} error={reflect.error} onRetry={goNext} />;
+  }
+
   return (
     <div className="min-h-screen relative overflow-hidden">
+      <ReturnToMirrorButton />
       {/* Background Three.js scene */}
       <BasicScene />
 
@@ -996,9 +995,9 @@ const AstroLogicalStep = () => {
                   </span>
                 </GlassButton>
               ) : (
-                <GlassButton onClick={() => navigate('/intake/personality')}>
+                <GlassButton onClick={goNext}>
                   <span className="flex items-center gap-2">
-                    <span>Continue to Personality</span>
+                    <span>Complete reflection</span>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                   </span>
                 </GlassButton>
