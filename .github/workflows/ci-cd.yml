@@ -98,6 +98,11 @@ jobs:
       - name: TypeScript type-check
         run: npx tsc -b --noEmit
 
+      # BLOCKING: entry-flow logic + intake-progress derivation unit suites.
+      # A failure fails the pipeline before build/deploy.
+      - name: Unit tests
+        run: npm run test:ci
+
       - name: Compute release version
         id: version
         # Single source of truth for the version string. Matches the format
