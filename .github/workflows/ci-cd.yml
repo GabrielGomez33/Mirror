@@ -457,3 +457,67 @@ jobs:
       - name: Cleanup SSH key
         if: always()
         run: rm -f ~/.ssh/deploy_key
+  # ===========================================================================
+  # JOB: DEPLOY CLIENT TO STAGING  (staging pipeline gate 3)
+  # ---------------------------------------------------------------------------
+  # Builds the client with STAGING VITE_* values (Vite bakes them at build time —
+  # a prod dist cannot serve staging) and SCPs to the staging web root. Gated
+  # behind develop + STAGING_ENABLED, so inert until staging is provisioned.
+  # Prod deploy job above is untouched.
+  # ===========================================================================
+  deploy-staging:
+    name: Deploy Client to Staging
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' && vars.STAGING_ENABLED == 'true'
+    defaults:
+      run:
+        working-directory: client
+    environment:
+      name: staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (staging env)
+        env:
+          VITE_API_URL: ${{ secrets.STAGING_VITE_API_URL }}
+          VITE_PAYPAL_CLIENT_ID: ${{ secrets.STAGING_VITE_PAYPAL_CLIENT_ID }}
+          VITE_PAYPAL_PLAN_ID: ${{ secrets.STAGING_VITE_PAYPAL_PLAN_ID }}
+          VITE_APP_VERSION: staging-${{ github.sha }}
+        run: |
+          npm run build
+          test -f dist/index.html || { echo "::error::staging build missing index.html"; exit 1; }
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy dist to staging web root
+        run: |
+          DIST_PATH="${{ secrets.STAGING_DIST_PATH }}"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "rm -rf $DIST_PATH/*"
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -r \
+            dist/* ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:$DIST_PATH/
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "chmod -R a+rX $DIST_PATH"
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
