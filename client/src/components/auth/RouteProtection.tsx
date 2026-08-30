@@ -3,6 +3,17 @@ import React, { useEffect, useMemo } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth, AccessLevel, SecurityLevel } from '../../context/AuthContext';
 import { useIntake } from '../../context/IntakeContext';
+import {
+  type ProgressShape,
+  getCurrentIntakeSegment,
+  indexOfSeg,
+  isAfter,
+  getFirstIncompleteSegment,
+  isSegmentCompleted,
+  isIntakeRoute as isIntakeRoutePath,
+  entrySatisfied,
+  shouldRedirectToEntry,
+} from './intakeRouting';
 
 // ========== LOADING COMPONENT ==========
 const AuthLoadingScreen: React.FC = () => (
@@ -47,71 +58,10 @@ const AuthErrorScreen: React.FC<AuthErrorProps> = ({ error, onRetry, redirectTo 
   );
 };
 
-// ========== INTAKE ROUTING HELPERS ==========
-
-// URL segments used in routes under /intake/*
-const INTAKE_SEGMENTS = ['visual', 'vocal', 'iq', 'astrology', 'personality', 'submit', 'results'] as const;
-type IntakeSegment = typeof INTAKE_SEGMENTS[number];
-
-// Your IntakeContext progress step keys
-type ProgressStepKey =
-  | 'VisualStep'
-  | 'VocalStep'
-  | 'IQStep'
-  | 'AstroLogicalStep'
-  | 'PersonalityStep'
-  | 'SubmitStep'
-  | 'ResultsStep'
-  | 'IQStep';
-
-// Map URL segment → progress step key
-const SEGMENT_TO_PROGRESS: Record<IntakeSegment, ProgressStepKey> = {
-  visual: 'VisualStep',
-  vocal: 'VocalStep',
-  iq: 'IQStep',
-  astrology: 'AstroLogicalStep',
-  personality: 'PersonalityStep',
-  submit: 'SubmitStep',
-  results: 'ResultsStep',
-};
-
-// Minimal shape from your IntakeContext
-type StepStatus = { completed: boolean; data?: Record<string, unknown> };
-type ProgressShape = {
-  lastStep?: string;
-  completed?: boolean;
-  steps?: Partial<Record<ProgressStepKey, StepStatus>>;
-} | undefined;
-
-function getCurrentIntakeSegment(pathname: string): IntakeSegment | null {
-  const parts = pathname.split('/').filter(Boolean);
-  const idx = parts.indexOf('intake');
-  if (idx < 0) return null;
-  const seg = parts[idx + 1] || null;
-  return (seg && INTAKE_SEGMENTS.includes(seg as IntakeSegment)) ? (seg as IntakeSegment) : null;
-}
-
-function indexOfSeg(seg: IntakeSegment) {
-  return INTAKE_SEGMENTS.indexOf(seg);
-}
-
-function isAfter(a: IntakeSegment, b: IntakeSegment) {
-  return indexOfSeg(a) > indexOfSeg(b);
-}
-
-function getFirstIncompleteSegment(progress: ProgressShape): IntakeSegment {
-  for (const seg of INTAKE_SEGMENTS) {
-    const stepKey = SEGMENT_TO_PROGRESS[seg];
-    const s = progress?.steps?.[stepKey];
-    if (!s?.completed) return seg;
-  }
-  return 'results';
-}
-
-function isSegmentCompleted(progress: ProgressShape, seg: IntakeSegment): boolean {
-  const stepKey = SEGMENT_TO_PROGRESS[seg];
-  return Boolean(progress?.steps?.[stepKey]?.completed);
-}
+// Intake routing helpers (getCurrentIntakeSegment, getFirstIncompleteSegment,
+// isSegmentCompleted, isAfter, indexOfSeg) and the Entry-access decision
+// (entrySatisfied / isEntryExemptRoute / shouldRedirectToEntry) are imported
+// from ./intakeRouting so they can be unit-tested in isolation.
 
 // ========== PROTECTED ROUTE COMPONENT ==========
 interface ProtectedRouteProps {
@@ -199,20 +149,16 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   // initial_intake_completed=0. Treat core-complete as entry-satisfied so we
   // never bounce an established user into the Entry flow. New signups have
   // neither flag → they are routed to /entry (the fast onboarding).
-  const isIntakeRoute = pathname === '/intake' || pathname.startsWith('/intake/');
-  const ENTRY_EXEMPT_ROUTES = new Set([
-    '/entry', '/intake', '/login', '/register', '/home', '/landing', '/test',
-  ]);
-  const isExemptRoute = ENTRY_EXEMPT_ROUTES.has(pathname) || isIntakeRoute;
-  // Read the first-class auth triggers (peers of isPremiumUser/isIntakeCompleted),
-  // not user.* directly. hasEntryAccess mirrors hasAccessLevel(ENTRY_REQUIRED):
-  // Entry done OR Core done (core implies entry — also covers legacy users whose
-  // initial_intake_completed was never backfilled).
-  const hasEntryAccess = isInitialIntakeCompleted || isIntakeCompleted;
+  const isIntakeRoute = isIntakeRoutePath(pathname);
 
+  // Read the first-class auth triggers (peers of isPremiumUser/isIntakeCompleted),
+  // not user.* directly. The Entry-access decision (Entry done OR Core done —
+  // core implies entry, also covering legacy users whose initial_intake_completed
+  // was never backfilled) lives in intakeRouting so it is proven in isolation.
+  //
   // Authenticated, has done NEITHER entry nor core, and this is not an
   // entry/intake/exempt route → send them to the fast Entry onboarding.
-  if (isAuthenticated && !hasEntryAccess && !isExemptRoute) {
+  if (shouldRedirectToEntry({ isAuthenticated, isInitialIntakeCompleted, isIntakeCompleted, pathname })) {
     return <Navigate to="/entry" replace />;
   }
 
@@ -330,7 +276,7 @@ export const ConditionalRender: React.FC<ConditionalRenderProps> = ({ children, 
     (condition === 'premium' && isAuthenticated && isPremiumUser) ||
     (condition === 'admin' && isAuthenticated && isAdmin) ||
     // Entry-satisfied: fast intake done OR the deeper core intake done (core implies entry).
-    (condition === 'entry-completed' && isAuthenticated && (isInitialIntakeCompleted || isIntakeCompleted)) ||
+    (condition === 'entry-completed' && isAuthenticated && entrySatisfied(isInitialIntakeCompleted, isIntakeCompleted)) ||
     (condition === 'intake-completed' && isAuthenticated && isIntakeCompleted);
   return shouldRender ? <>{children}</> : <>{fallback}</>;
 };
