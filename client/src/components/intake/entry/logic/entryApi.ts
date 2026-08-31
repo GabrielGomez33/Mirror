@@ -6,6 +6,8 @@
 // ----------------------------------------------------------------------------
 
 import { getToken } from '../../../../utils/token';
+import { refreshTokenApi } from '../../../../services/authApi';
+import { withAuthRetry } from '../../../../utils/authRetry';
 
 const ENTRY_SUBMIT = '/mirror/api/intake/entry/submit';
 const ENTRY_STATUS = '/mirror/api/intake/entry/status';
@@ -19,10 +21,12 @@ export interface EntrySubmitPayload {
   displayName?: string;
 }
 
-async function authFetch(
+// One fetch attempt. Reads the (possibly just-refreshed) token at call time so a
+// retry after refresh picks up the fresh credential.
+async function attemptFetch(
   url: string,
-  init: RequestInit = {},
-  timeoutMs = 30000
+  init: RequestInit,
+  timeoutMs: number
 ): Promise<{ ok: boolean; status: number; json: any }> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
@@ -41,6 +45,18 @@ async function authFetch(
   } finally {
     clearTimeout(id);
   }
+}
+
+// Access tokens live ~15 min; a slow Entry completion can outlive one. Refresh
+// once and retry on 401 so the user never loses their intake to an expired
+// token. refreshTokenApi() persists a fresh access token to mirror_jwt, which
+// the retried attempt reads. On refresh failure the original 401 stands.
+async function authFetch(
+  url: string,
+  init: RequestInit = {},
+  timeoutMs = 30000
+): Promise<{ ok: boolean; status: number; json: any }> {
+  return withAuthRetry(() => attemptFetch(url, init, timeoutMs), refreshTokenApi);
 }
 
 /** Error thrown by the Entry API, carrying the HTTP status for the caller. */
