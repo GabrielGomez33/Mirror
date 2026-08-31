@@ -515,6 +515,11 @@ jobs:
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "rm -rf $DIST_PATH/*"
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -r \
             dist/* ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:$DIST_PATH/
+          # dist/* skips dotfiles; copy .htaccess explicitly. It carries the
+          # service-worker no-cache rule (prevents stale-sw.js lock), PWA MIME
+          # types, immutable asset caching, and the SPA history fallback.
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            dist/.htaccess ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:$DIST_PATH/
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "chmod -R a+rX $DIST_PATH"
 
