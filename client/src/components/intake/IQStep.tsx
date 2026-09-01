@@ -3,6 +3,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useIntake } from '../../context/IntakeContext';
 import { useReflectionSave, ReflectionComplete, ReturnToMirrorButton } from './shared/ReflectionComplete';
 import { useCoreDraftServerSync } from '../../hooks/useCoreDraftServerSync';
+import { localDraftKey } from '../../services/coreDraftLocal';
 import GlassCard, { GlassButton, GlassProgress } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import BasicScene from '../three/BasicScene';
@@ -467,7 +468,9 @@ function buildQuiz(): IQQuestion[] {
 // The quiz is randomized per attempt (question order + option order), and the
 // current index / recorded answers are tied to that exact randomized array.
 // So a reload-safe snapshot has to include `questions` too — not just progress.
-const PROGRESS_KEY = 'mirror:intake:iq:progress';
+// Resume key lives in the shared registry so the dashboard "Erase" affordance
+// clears the exact same localStorage entry this step reads on mount.
+const PROGRESS_KEY = localDraftKey('iq');
 
 interface SavedProgress {
   v: string; // item-set version; stale snapshots are discarded on bump

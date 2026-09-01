@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useIntake } from '../../context/IntakeContext';
 import { useCoreDraftServerSync } from '../../hooks/useCoreDraftServerSync';
+import { localDraftKey } from '../../services/coreDraftLocal';
 import { useReflectionSave, ReflectionComplete, ReturnToMirrorButton } from './shared/ReflectionComplete';
 import GlassCard, { GlassButton, GlassProgress } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -40,8 +41,9 @@ type AllQuestions =
 const REFLECTION_MIN_LENGTH = 20;
 const REFLECTION_MAX_LENGTH = 1000;
 // v3: stores the question order + index + answers (v2 only stored answers, which
-// could not pin the user back to the exact question after a reshuffle).
-const PROGRESS_STORAGE_KEY = 'mirror:intake:personality:progress:v3';
+// could not pin the user back to the exact question after a reshuffle). The key
+// lives in the shared registry so the dashboard "Erase" clears the same entry.
+const PROGRESS_STORAGE_KEY = localDraftKey('personality');
 const ADVANCE_DELAY_MS = 350;
 
 // Stable lookup of every question by id, used to rebuild a saved order on resume.
