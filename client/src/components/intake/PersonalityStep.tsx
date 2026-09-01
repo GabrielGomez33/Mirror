@@ -1,6 +1,7 @@
 // src/components/intake/PersonalityStep.tsx
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useIntake } from '../../context/IntakeContext';
+import { useCoreDraftServerSync } from '../../hooks/useCoreDraftServerSync';
 import { useReflectionSave, ReflectionComplete, ReturnToMirrorButton } from './shared/ReflectionComplete';
 import GlassCard, { GlassButton, GlassProgress } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -187,6 +188,21 @@ const PersonalityStep = () => {
   const restoredRef = useRef(false);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
+  // ── Server-backed cross-device draft sync (Phase 2) ─────────────────────
+  // One isolated concern: autosave partial answers to the server and, on a
+  // fresh mount, resume from the furthest-progress draft across devices. This
+  // layers on top of the localStorage resume above — it never gates render.
+  const draftServer = useCoreDraftServerSync('personality');
+  // touchedRef is the race guard: the instant the user answers anything, a
+  // late-arriving server hydrate can NEVER clobber their input.
+  const touchedRef = useRef(false);
+  // Latest-value refs so hydrate can read current local state without
+  // re-subscribing the effect on every keystroke.
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
+  const indexRef = useRef(currentQuestionIndex);
+  indexRef.current = currentQuestionIndex;
+
   const currentQuestion = questions[currentQuestionIndex];
   const progress = questions.length
     ? ((currentQuestionIndex + 1) / questions.length) * 100
@@ -207,22 +223,65 @@ const PersonalityStep = () => {
     };
   }, []);
 
+  // Replay answer content into the quality monitor (timing stays session-local
+  // so speed flags remain honest). Shared by the mount restore below and the
+  // cross-device server hydrate so both paths keep the monitor consistent.
+  const replayAnswersToMonitor = useCallback(
+    (map: AnswerMap) => {
+      for (const [id, ans] of Object.entries(map)) {
+        if (!ans) continue;
+        const q = ALL_QUESTION_BY_ID.get(id);
+        if (q?.category === 'attention') {
+          const expected = getAttentionExpectedValue(id);
+          if (expected && ans.value) qualityMonitor.validateAttentionCheck(id, expected, ans.value);
+        }
+        qualityMonitor.restoreResponse(id, ans);
+      }
+    },
+    [qualityMonitor]
+  );
+
   // Re-hydrate the quality monitor from restored answers, once. Navigation was
-  // already positioned by computeInitialState; here we only replay answer
-  // content (timing stays session-local so speed flags remain honest).
+  // already positioned by computeInitialState; here we only replay answer content.
   useEffect(() => {
     if (restoredRef.current) return;
     restoredRef.current = true;
     if (!initial.resumed) return;
-    for (const [id, ans] of Object.entries(initial.answers)) {
-      if (!ans) continue;
-      const q = ALL_QUESTION_BY_ID.get(id);
-      if (q?.category === 'attention') {
-        const expected = getAttentionExpectedValue(id);
-        if (expected && ans.value) qualityMonitor.validateAttentionCheck(id, expected, ans.value);
-      }
-      qualityMonitor.restoreResponse(id, ans);
-    }
+    replayAnswersToMonitor(initial.answers);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // One-shot cross-device hydrate: if the server holds a further-along draft AND
+  // the user has not touched this step since mount, adopt the server's answers
+  // and resume at the first still-unanswered question in the LOCAL order.
+  // (The local question order is fixed at mount and has no setter, so we resolve
+  //  position from answer content, which is order-independent — never from the
+  //  server's index, which was computed against a different shuffle.)
+  useEffect(() => {
+    const cleanup = draftServer.hydrateOnce({
+      localDraft: () => {
+        const map = answersRef.current;
+        if (!map || Object.keys(map).length === 0) return null;
+        return { orderIds: questions.map((q) => q.id), index: indexRef.current, answers: map };
+      },
+      isTouched: () => touchedRef.current,
+      apply: (draft) => {
+        const serverAnswers =
+          draft.answers && typeof draft.answers === 'object'
+            ? (draft.answers as AnswerMap)
+            : null;
+        if (!serverAnswers || Object.keys(serverAnswers).length === 0) return;
+        setAnswers(serverAnswers);
+        replayAnswersToMonitor(serverAnswers);
+        const firstUnanswered = questions.findIndex((q) =>
+          q.category === 'reflection' ? !serverAnswers[q.id]?.text : !serverAnswers[q.id]
+        );
+        setCurrentQuestionIndex(
+          firstUnanswered === -1 ? questions.length - 1 : firstUnanswered
+        );
+      },
+    });
+    return cleanup;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -231,20 +290,21 @@ const PersonalityStep = () => {
   useEffect(() => {
     if (showResult) return;
     if (Object.keys(answers).length === 0) return;
+    const snapshot = {
+      orderIds: questions.map((q) => q.id),
+      index: currentQuestionIndex,
+      answers,
+      ts: Date.now(),
+    };
     try {
-      localStorage.setItem(
-        PROGRESS_STORAGE_KEY,
-        JSON.stringify({
-          orderIds: questions.map((q) => q.id),
-          index: currentQuestionIndex,
-          answers,
-          ts: Date.now(),
-        })
-      );
+      localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(snapshot));
     } catch (err) {
       console.warn('[PersonalityStep] Failed to persist progress:', err);
     }
-  }, [answers, currentQuestionIndex, questions, showResult]);
+    // Mirror the same snapshot to the server (debounced, fail-safe). Media is
+    // stripped server-side; a personality draft carries only option/text answers.
+    draftServer.pushDraft(snapshot);
+  }, [answers, currentQuestionIndex, questions, showResult, draftServer]);
 
   // Reset the per-question timer and restore any prior selection when the
   // current question changes.
@@ -266,7 +326,10 @@ const PersonalityStep = () => {
     } catch {
       /* noop */
     }
-  }, []);
+    // Keep the server draft in lock-step with local: on completion or restart
+    // the resumable draft must be erased everywhere, not just on this device.
+    draftServer.clearServerDraft();
+  }, [draftServer]);
 
   // ── Scoring (crash-proof) ──────────────────────────────────────────────
   const calculateResults = useCallback(() => {
@@ -348,12 +411,14 @@ const PersonalityStep = () => {
   }, [currentQuestionIndex]);
 
   const handleOptionSelect = (option: { text: string; value: string; score: number }) => {
+    touchedRef.current = true; // user answered → server hydrate can no longer override
     commitOptionAnswer(option);
     // Snappy auto-advance for forward progress; Back/Next still available.
     advanceTimer.current = setTimeout(() => goToNext(), ADVANCE_DELAY_MS);
   };
 
   const handleReflectionComplete = () => {
+    touchedRef.current = true;
     if (!currentQuestion || !reflectionReady) return;
     const answer = { text: textInput.trim(), value: 'reflection', score: 0 };
     qualityMonitor.recordResponse(currentQuestion.id, answer, questionStartTime);
@@ -390,6 +455,7 @@ const PersonalityStep = () => {
   };
 
   const restartAssessment = () => {
+    touchedRef.current = true;
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
     setCurrentQuestionIndex(0);
     setAnswers({});
@@ -559,7 +625,7 @@ const PersonalityStep = () => {
                           <div className="mt-4">
                             <textarea
                               value={textInput}
-                              onChange={(e) => setTextInput(e.target.value)}
+                              onChange={(e) => { touchedRef.current = true; setTextInput(e.target.value); }}
                               placeholder={`Share your authentic self here… (minimum ${REFLECTION_MIN_LENGTH} characters for meaningful analysis)`}
                               className="w-full p-4 rounded-xl bg-white/10 text-white placeholder-white/50 border border-white/20 focus:border-white/40 focus:outline-none resize-none"
                               rows={6}

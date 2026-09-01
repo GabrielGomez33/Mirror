@@ -9,11 +9,20 @@
 // rather than breaking the dashboard.
 // ----------------------------------------------------------------------------
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchIntakeProgress, type IntakeProgressResponse, type StepStatus } from '../../services/intakeProgressApi';
+import { loadCoreDraft, clearCoreDraft } from '../../services/coreDraftApi';
+import { draftProgress, type CoreDraftStep } from '../../services/coreDraftMerge';
 import { INTAKE_STEP_CATALOG } from './intakeStepCatalog';
 import { statusOf, completedCount, progressPercent } from './intakeProgressLogic';
+
+// The two long steps carry a server-backed resumable draft (Phase 2). Only these
+// show a "X of Y answered" line and an Erase affordance; the short steps don't.
+const RESUMABLE: ReadonlySet<string> = new Set<CoreDraftStep>(['iq', 'personality']);
+const isResumable = (key: string): key is CoreDraftStep => RESUMABLE.has(key);
+
+interface DraftInfo { answered: number; total: number; percent: number }
 
 const STATUS_META: Record<StepStatus, { label: string; color: string; glow: string }> = {
   completed: { label: 'Completed', color: '#4ade80', glow: 'rgba(74,222,128,0.35)' },
@@ -73,6 +82,9 @@ export default function IntakeProgressCard() {
   const [data, setData] = useState<IntakeProgressResponse | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [open, setOpen] = useState(true);
+  // Per-step draft detail for the two resumable steps (null while unknown).
+  const [drafts, setDrafts] = useState<Partial<Record<CoreDraftStep, DraftInfo>>>({});
+  const [erasing, setErasing] = useState<Partial<Record<CoreDraftStep, boolean>>>({});
 
   useEffect(() => {
     let alive = true;
@@ -83,6 +95,46 @@ export default function IntakeProgressCard() {
       if (d && d.intakeCompleted) setOpen(false); // collapse when fully deep
     });
     return () => { alive = false; };
+  }, []);
+
+  // For each in-progress resumable step, load its draft so we can show
+  // "X of Y answered". Fail-safe: a null draft simply omits the detail line.
+  useEffect(() => {
+    if (!data) return;
+    let alive = true;
+    const inProgress = data.steps.filter(
+      (s) => s.status === 'in_progress' && isResumable(s.step)
+    );
+    if (inProgress.length === 0) { setDrafts({}); return; }
+    Promise.all(
+      inProgress.map(async (s) => {
+        const d = await loadCoreDraft(s.step as CoreDraftStep);
+        if (!d?.draftState) return null;
+        const p = draftProgress(s.step as CoreDraftStep, d.draftState);
+        return p.answered > 0 ? { step: s.step as CoreDraftStep, info: p } : null;
+      })
+    ).then((results) => {
+      if (!alive) return;
+      const next: Partial<Record<CoreDraftStep, DraftInfo>> = {};
+      for (const r of results) if (r) next[r.step] = r.info;
+      setDrafts(next);
+    });
+    return () => { alive = false; };
+  }, [data]);
+
+  // Erase one step's saved progress: confirm, DELETE server-side (never touches a
+  // completed step), then refresh so the row falls back to "Not started".
+  const eraseStep = useCallback(async (step: CoreDraftStep) => {
+    if (typeof window !== 'undefined' &&
+        !window.confirm('Erase your saved progress for this step? This cannot be undone.')) {
+      return;
+    }
+    setErasing((e) => ({ ...e, [step]: true }));
+    await clearCoreDraft(step);
+    const fresh = await fetchIntakeProgress();
+    setDrafts((d) => { const n = { ...d }; delete n[step]; return n; });
+    setErasing((e) => ({ ...e, [step]: false }));
+    if (fresh) setData(fresh);
   }, []);
 
   // Hide entirely until loaded, or if progress is unavailable (fail-safe).
@@ -126,6 +178,8 @@ export default function IntakeProgressCard() {
             const st = statusOf(steps, meta.key);
             const sm = STATUS_META[st];
             const isDone = st === 'completed';
+            const draft = isResumable(meta.key) && st === 'in_progress' ? drafts[meta.key] : undefined;
+            const isErasing = isResumable(meta.key) ? !!erasing[meta.key] : false;
             return (
               <div
                 key={meta.key}
@@ -145,19 +199,39 @@ export default function IntakeProgressCard() {
                 </div>
                 <p className="enhanced-glass-body" style={{ fontSize: 12, margin: '6px 0 2px', color: THEME.textBody, textShadow: TEXT_SHADOW }}>{meta.description}</p>
                 <p className="enhanced-glass-subtle" style={{ fontSize: 11, margin: 0, color: THEME.textPrimary, textShadow: TEXT_SHADOW }}>{meta.benefit}</p>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                {/* Resume detail: only for a long step that has a saved draft. */}
+                {draft && (
+                  <p className="enhanced-glass-subtle" style={{ fontSize: 11, margin: '6px 0 0', color: STATUS_META.in_progress.color, fontWeight: 600 }}>
+                    {draft.total > 0
+                      ? `${draft.answered} of ${draft.total} answered · ${draft.percent}%`
+                      : `${draft.answered} answered · in progress`}
+                  </p>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, gap: 8 }}>
                   <span className="enhanced-glass-subtle" style={{ fontSize: 10, color: THEME.textPrimary }}>~{meta.estMinutes} min</span>
                   {isDone ? (
                     <span style={{ fontSize: 11, color: STATUS_META.completed.color, fontWeight: 600 }}>✓ Done</span>
                   ) : (
-                    <button
-                      type="button"
-                      className="enhanced-action-button"
-                      style={{ fontSize: 12, padding: '6px 14px' }}
-                      onClick={() => navigate(`${meta.route}?deepen=1`)}
-                    >
-                      {st === 'in_progress' ? 'Continue →' : 'Start →'}
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {draft && (
+                        <button
+                          type="button"
+                          onClick={() => void eraseStep(meta.key as CoreDraftStep)}
+                          disabled={isErasing}
+                          style={{ fontSize: 11, padding: '5px 10px', borderRadius: 999, border: `1px solid ${STATUS_META.in_progress.color}55`, background: 'transparent', color: THEME.textBody, cursor: isErasing ? 'default' : 'pointer', opacity: isErasing ? 0.5 : 1, whiteSpace: 'nowrap' }}
+                        >
+                          {isErasing ? 'Erasing…' : 'Erase'}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="enhanced-action-button"
+                        style={{ fontSize: 12, padding: '6px 14px' }}
+                        onClick={() => navigate(`${meta.route}?deepen=1`)}
+                      >
+                        {st === 'in_progress' ? 'Continue →' : 'Start →'}
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>

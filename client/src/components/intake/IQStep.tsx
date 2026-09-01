@@ -2,6 +2,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useIntake } from '../../context/IntakeContext';
 import { useReflectionSave, ReflectionComplete, ReturnToMirrorButton } from './shared/ReflectionComplete';
+import { useCoreDraftServerSync } from '../../hooks/useCoreDraftServerSync';
 import GlassCard, { GlassButton, GlassProgress } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import BasicScene from '../three/BasicScene';
@@ -543,6 +544,29 @@ const IQStep = () => {
   const [selectedOptionValue, setSelectedOptionValue] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
 
+  // Server-backed cross-device draft sync (Phase 2). Local localStorage resume
+  // is unchanged; this adds a durable server copy + one-shot cross-device
+  // hydrate. touchedRef flips on the first answer so a late server load can
+  // never overwrite answers the user has already started entering here.
+  const draftServer = useCoreDraftServerSync('iq');
+  const touchedRef = useRef(false);
+  const userAnswersRef = useRef(userAnswers);
+  userAnswersRef.current = userAnswers;
+
+  // One-shot cross-device resume: if the server draft is further along than this
+  // device's local draft and the user hasn't answered yet, adopt it.
+  useEffect(() => draftServer.hydrateOnce({
+    localDraft: () => ({ userAnswers: userAnswersRef.current }),
+    isTouched: () => touchedRef.current,
+    apply: (d) => {
+      const draft = d as Partial<SavedProgress>;
+      if (Array.isArray(draft.questions) && draft.questions.length) setQuestions(draft.questions);
+      if (typeof draft.currentQuestionIndex === 'number') setCurrentQuestionIndex(draft.currentQuestionIndex);
+      if (draft.userAnswers && typeof draft.userAnswers === 'object') setUserAnswers(draft.userAnswers);
+      if (typeof draft.showResult === 'boolean') setShowResult(draft.showResult);
+    },
+  }), [draftServer]);
+
   // Save guard
 
   // Self-norm: how this score compares to other Mirror users (server-computed).
@@ -574,17 +598,21 @@ const IQStep = () => {
 
   // Persist a reload-safe snapshot whenever progress changes.
   useEffect(() => {
+    const snapshot: SavedProgress = {
+      v: ITEM_SET_VERSION,
+      questions,
+      currentQuestionIndex,
+      userAnswers,
+      showResult,
+    };
     try {
-      const snapshot: SavedProgress = {
-        v: ITEM_SET_VERSION,
-        questions,
-        currentQuestionIndex,
-        userAnswers,
-        showResult,
-      };
       localStorage.setItem(PROGRESS_KEY, JSON.stringify(snapshot));
     } catch { /* quota exceeded / localStorage unavailable */ }
-  }, [questions, currentQuestionIndex, userAnswers, showResult]);
+    // Mirror the same snapshot to the server (debounced, fail-safe) so a draft
+    // survives a device switch. Media is never in this snapshot; the server also
+    // strips any media defensively.
+    draftServer.pushDraft(snapshot);
+  }, [questions, currentQuestionIndex, userAnswers, showResult, draftServer]);
 
   const currentQuestion = questions[currentQuestionIndex];
   const totalQuestions = questions.length;
@@ -658,6 +686,7 @@ const IQStep = () => {
 
   const handleAnswer = (optionValue: string) => {
     if (selectedOptionValue) return; // guard against double-answer
+    touchedRef.current = true; // user is answering here — lock out server override
     setSelectedOptionValue(optionValue);
 
     const delay = 600 + Math.floor(Math.random() * 90); // 600–689ms
@@ -707,6 +736,7 @@ const IQStep = () => {
     updateIntake({ iqResults: iqResult, iqAnswers: userAnswers });
     markStepComplete('IQStep', { iqScore: iqResult.iqScore });
     clearSavedProgress(); // committed to intake — don't resurrect this attempt
+    draftServer.clearServerDraft(); // draft superseded by the committed submission
     await reflect.save({ iqResults: iqResult, iqAnswers: userAnswers });
   };
 
@@ -1058,6 +1088,9 @@ const IQStep = () => {
                       <GlassButton
                         onClick={() => {
                           // restart with a freshly randomized quiz
+                          clearSavedProgress();
+                          draftServer.clearServerDraft(); // erase the saved draft — true "start over"
+                          touchedRef.current = true;      // this is a deliberate reset, not a resume
                           setQuestions(buildQuiz());
                           setCurrentQuestionIndex(0);
                           setUserAnswers({});
