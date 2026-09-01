@@ -18,6 +18,7 @@ import {
   getUsage,
 } from '../services/subscriptionApi';
 import type { SubscriptionStatus, Plan } from '../services/subscriptionApi';
+import { trackFunnelStage } from '../services/conversionApi';
 
 // ============================================================================
 // TYPES
@@ -276,6 +277,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
       await activateSubscription(subscriptionId);
+      trackFunnelStage('premium_activated'); // anonymous funnel: premium purchase activated
       await refreshSubscription();
       dispatch({ type: 'CLOSE_UPGRADE_MODAL' });
     } catch (error: any) {
@@ -311,6 +313,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   // ========================================================================
 
   const openUpgradeModal = useCallback((feature?: string) => {
+    trackFunnelStage('premium_view'); // anonymous funnel: premium/upgrade wall seen
     dispatch({ type: 'OPEN_UPGRADE_MODAL', payload: feature || null });
   }, []);
 

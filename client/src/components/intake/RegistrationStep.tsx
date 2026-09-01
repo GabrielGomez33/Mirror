@@ -40,6 +40,8 @@ import BasicScene from '../three/BasicScene';
 import { acceptTerms } from '../../services/consentApi';
 import { TERMS_VERSION, TERMS_HREF, MINIMUM_AGE } from '../../config/legal';
 import { checkUsernameAvailability, type UsernameCheckStatus } from '../../services/usernameAvailability';
+import { useFunnelStage } from '../../hooks/useFunnelStage';
+import { trackFunnelStage } from '../../services/conversionApi';
 
 // ---------------------------------------------------------------------------
 // Constants — kept identical between client and server.
@@ -237,6 +239,7 @@ const RegistrationStep: React.FC = () => {
   const navigate = useNavigate();
   const { updateIntake } = useIntake();
   const { register: registerWithAuth } = useAuth();
+  useFunnelStage('signup_view'); // anonymous funnel: registration form seen
 
   // ----- Form state --------------------------------------------------------
   const [username, setUsername] = useState('');
@@ -589,6 +592,7 @@ const RegistrationStep: React.FC = () => {
 
     try {
       await registerWithAuth(trimmedUsername, trimmedEmail, normalizedPassword);
+      trackFunnelStage('signup_completed'); // anonymous funnel: account created (key signal)
       void acceptTerms(TERMS_VERSION).catch(() => undefined);
 
       updateIntake({

@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MyMirrorPanel } from '../components/home/MyMirrorPanel';
 import SakuraForestScene from '../components/three/SakuraForestScene';
+import { useFunnelStage } from '../hooks/useFunnelStage';
 
 // ============================================================================
 // INLINE STYLE CONSTANTS (matching TruthStreamPage / MirrorGroupsPage)
@@ -51,6 +52,7 @@ function useMediaQuery(query: string): boolean {
 export default function MyMirrorPage() {
   const navigate = useNavigate();
   const isMobile = useMediaQuery('(max-width: 640px)');
+  useFunnelStage('mymirror_view'); // anonymous funnel: MyMirror surface seen
 
   return (
     <>

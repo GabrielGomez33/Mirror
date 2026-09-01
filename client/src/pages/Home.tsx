@@ -2,9 +2,11 @@ import { useNavigate } from 'react-router-dom';
 import  { GlassButton } from '../components/ui/GlassCard';
 import BasicScene from '../components/three/BasicScene';
 import MirrorLogo from '../assets/logos/mirror-sakura.svg';
+import { useFunnelStage } from '../hooks/useFunnelStage';
 
 export default function Home() {
   const navigate = useNavigate();
+  useFunnelStage('landing_view'); // anonymous funnel: marketing landing seen
 
   return (
     <div className="min-h-screen relative overflow-hidden">

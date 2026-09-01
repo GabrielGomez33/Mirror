@@ -9,6 +9,12 @@ import App from './App.tsx'
 import { ThemeProvider, readStoredTheme } from './context/ThemeContext'
 import { initPWA } from './pwa'
 import { installIOSResizeBridge } from './utils/iosResizeBridge'
+import { initConversionAnalytics } from './services/conversionApi'
+
+// Initialize anonymous conversion analytics as early as possible so UTM
+// attribution is captured from the LANDING url before any client-side
+// navigation. No-ops entirely if GPC/DNT/opt-out is set. Fail-safe: never throws.
+initConversionAnalytics()
 
 // Apply the persisted colorway before first paint to avoid a flash of the
 // default (sakura) theme for users who chose cosmic. ThemeProvider keeps it
