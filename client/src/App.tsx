@@ -458,15 +458,21 @@ const App: React.FC = () => {
               }
             />
 
-            {/* TruthStream - Requires Completed Intake */}
+            {/* TruthStream — premium peer-review. It is a PREMIUM feature, and
+                premium gating lives IN the page (useSubscription + its own
+                flicker-free upgrade wall), NOT here. TruthStream also has its
+                own ProfileSetup, so it does NOT depend on the deep Core intake.
+                The route therefore gates only on day-one ENTRY access; a user
+                who lacks it lands on /mymirror (which shows their completed /
+                not-completed intakes + Deepen links) — never the deprecated
+                /intake flow that used to swallow premium clicks. */}
             <Route
               path="/truthstream"
               element={
                 <ProtectedRoute
-                  accessLevel={AccessLevel.INTAKE_REQUIRED}
+                  accessLevel={AccessLevel.ENTRY_REQUIRED}
                   securityLevel={SecurityLevel.BASIC}
-                  customCheck={(user) => user?.intakeCompleted === true}
-                  redirectTo="/intake"
+                  redirectTo="/mymirror"
                 >
                   <TruthStreamPage />
                 </ProtectedRoute>

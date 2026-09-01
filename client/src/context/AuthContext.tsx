@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
 import { getToken, setToken, clearToken } from '../utils/token';
 import { verifyTokenApi, refreshTokenApi, logoutApi } from '../services/authApi';
+import { entrySatisfied } from '../components/auth/intakeRouting';
 
 // ========== TYPES & INTERFACES ==========
 
@@ -737,7 +738,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Day-one access: the fast Entry intake is enough. A user who finished
         // the deep Core intake trivially satisfies Entry too (core-implies-entry),
         // which also protects legacy users whose initial flag was never backfilled.
-        return state.isAuthenticated && (state.isInitialIntakeCompleted || state.isIntakeCompleted);
+        return state.isAuthenticated && entrySatisfied(state.isInitialIntakeCompleted, state.isIntakeCompleted);
       case AccessLevel.INTAKE_REQUIRED:
         return state.isAuthenticated && state.isIntakeCompleted;
       case AccessLevel.PREMIUM:

@@ -1,9 +1,8 @@
 // src/components/intake/IQStep.tsx
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useIntake } from '../../context/IntakeContext';
-import { saveCoreSection } from '../../services/coreIntakeSave';
-import { useDeepenMode } from '../../hooks/useDeepenMode';
+import { useReflectionSave, ReflectionComplete, ReturnToMirrorButton } from './shared/ReflectionComplete';
+import { useCoreDraftServerSync } from '../../hooks/useCoreDraftServerSync';
 import GlassCard, { GlassButton, GlassProgress } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import BasicScene from '../three/BasicScene';
@@ -529,8 +528,7 @@ if (import.meta.env.DEV) {
 
 /** ---------- Component ---------- */
 const IQStep = () => {
-  const navigate = useNavigate();
-  const deepen = useDeepenMode();
+  const reflect = useReflectionSave();
   const { updateIntake, markStepComplete } = useIntake();
 
   // State
@@ -546,9 +544,30 @@ const IQStep = () => {
   const [selectedOptionValue, setSelectedOptionValue] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
 
+  // Server-backed cross-device draft sync (Phase 2). Local localStorage resume
+  // is unchanged; this adds a durable server copy + one-shot cross-device
+  // hydrate. touchedRef flips on the first answer so a late server load can
+  // never overwrite answers the user has already started entering here.
+  const draftServer = useCoreDraftServerSync('iq');
+  const touchedRef = useRef(false);
+  const userAnswersRef = useRef(userAnswers);
+  userAnswersRef.current = userAnswers;
+
+  // One-shot cross-device resume: if the server draft is further along than this
+  // device's local draft and the user hasn't answered yet, adopt it.
+  useEffect(() => draftServer.hydrateOnce({
+    localDraft: () => ({ userAnswers: userAnswersRef.current }),
+    isTouched: () => touchedRef.current,
+    apply: (d) => {
+      const draft = d as Partial<SavedProgress>;
+      if (Array.isArray(draft.questions) && draft.questions.length) setQuestions(draft.questions);
+      if (typeof draft.currentQuestionIndex === 'number') setCurrentQuestionIndex(draft.currentQuestionIndex);
+      if (draft.userAnswers && typeof draft.userAnswers === 'object') setUserAnswers(draft.userAnswers);
+      if (typeof draft.showResult === 'boolean') setShowResult(draft.showResult);
+    },
+  }), [draftServer]);
+
   // Save guard
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Self-norm: how this score compares to other Mirror users (server-computed).
   // null until fetched; .ready is false until enough users have completed.
@@ -579,17 +598,21 @@ const IQStep = () => {
 
   // Persist a reload-safe snapshot whenever progress changes.
   useEffect(() => {
+    const snapshot: SavedProgress = {
+      v: ITEM_SET_VERSION,
+      questions,
+      currentQuestionIndex,
+      userAnswers,
+      showResult,
+    };
     try {
-      const snapshot: SavedProgress = {
-        v: ITEM_SET_VERSION,
-        questions,
-        currentQuestionIndex,
-        userAnswers,
-        showResult,
-      };
       localStorage.setItem(PROGRESS_KEY, JSON.stringify(snapshot));
     } catch { /* quota exceeded / localStorage unavailable */ }
-  }, [questions, currentQuestionIndex, userAnswers, showResult]);
+    // Mirror the same snapshot to the server (debounced, fail-safe) so a draft
+    // survives a device switch. Media is never in this snapshot; the server also
+    // strips any media defensively.
+    draftServer.pushDraft(snapshot);
+  }, [questions, currentQuestionIndex, userAnswers, showResult, draftServer]);
 
   const currentQuestion = questions[currentQuestionIndex];
   const totalQuestions = questions.length;
@@ -663,6 +686,7 @@ const IQStep = () => {
 
   const handleAnswer = (optionValue: string) => {
     if (selectedOptionValue) return; // guard against double-answer
+    touchedRef.current = true; // user is answering here — lock out server override
     setSelectedOptionValue(optionValue);
 
     const delay = 600 + Math.floor(Math.random() * 90); // 600–689ms
@@ -703,26 +727,17 @@ const IQStep = () => {
     return () => { cancelled = true; };
   }, [showResult, iqResult]);
 
-  // Guarded proceed: block navigation on save failure
+  // Complete this reflection: record it in the in-memory intake context, then
+  // persist the single section to the server. The shared hook awaits + CHECKS
+  // the result and drives the confirmation/return-home (or a retryable error) —
+  // no silent failure. There is no "next step": each Core step stands alone.
   const handleNext = async () => {
     if (!iqResult) return;
-    setSaveError(null);
-    setSaving(true);
-    try {
-      await updateIntake({ iqResults: iqResult, iqAnswers: userAnswers });
-      await markStepComplete('IQStep', { iqScore: iqResult.iqScore });
-      clearSavedProgress(); // committed to intake — don't resurrect this attempt
-      if (deepen) {
-        await saveCoreSection({ iqResults: iqResult, iqAnswers: userAnswers });
-        navigate('/dashboard');
-        return;
-      }
-      navigate('/intake/astrology');
-    } catch {
-      setSaveError('We couldn’t save your results. Please check your connection and try again.');
-    } finally {
-      setSaving(false);
-    }
+    updateIntake({ iqResults: iqResult, iqAnswers: userAnswers });
+    markStepComplete('IQStep', { iqScore: iqResult.iqScore });
+    clearSavedProgress(); // committed to intake — don't resurrect this attempt
+    draftServer.clearServerDraft(); // draft superseded by the committed submission
+    await reflect.save({ iqResults: iqResult, iqAnswers: userAnswers });
   };
 
   // Focus first option on question change (keyboard UX); reset image state.
@@ -744,8 +759,14 @@ const IQStep = () => {
     }
   }, [showResult]);
 
+  // Saving / saved / error takes over the whole view (confirmation + auto-home).
+  if (reflect.phase !== 'idle') {
+    return <ReflectionComplete label="IQ" phase={reflect.phase} error={reflect.error} onRetry={handleNext} />;
+  }
+
   return (
     <div className="min-h-screen relative overflow-hidden">
+      <ReturnToMirrorButton />
       {/* Background */}
       <BasicScene />
 
@@ -1057,8 +1078,6 @@ const IQStep = () => {
                       norm-referenced IQ measurement. Scores are estimates based on this short test.
                     </p>
 
-                    {saveError && <div className="text-red-300 text-sm text-center">{saveError}</div>}
-
                     <motion.div
                       ref={resultActionsRef}
                       initial={{ opacity: 0 }}
@@ -1069,6 +1088,9 @@ const IQStep = () => {
                       <GlassButton
                         onClick={() => {
                           // restart with a freshly randomized quiz
+                          clearSavedProgress();
+                          draftServer.clearServerDraft(); // erase the saved draft — true "start over"
+                          touchedRef.current = true;      // this is a deliberate reset, not a resume
                           setQuestions(buildQuiz());
                           setCurrentQuestionIndex(0);
                           setUserAnswers({});
@@ -1083,18 +1105,14 @@ const IQStep = () => {
 
                       <GlassButton
                         onClick={handleNext}
-                        disabled={saving}
-                        aria-busy={saving ? true : undefined}
                         className="bg-gradient-to-r from-cyan-400/20 to-teal-400/20 hover:from-cyan-400/30 hover:to-teal-400/30"
                       >
-                        {saving ? 'Saving…' : (
-                          <span className="flex items-center space-x-2">
-                            <span>Continue</span>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
-                            </svg>
-                          </span>
-                        )}
+                        <span className="flex items-center space-x-2">
+                          <span>Complete reflection</span>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </span>
                       </GlassButton>
                     </motion.div>
                   </motion.div>

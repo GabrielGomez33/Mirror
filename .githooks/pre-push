@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# ----------------------------------------------------------------------------
+# Local pre-push gate (staging pipeline layer 1). Runs the SAME checks CI runs,
+# BEFORE code leaves your machine. The client lives in client/.
+#
+# Enable once per clone:   git config core.hooksPath .githooks
+# Bypass in an emergency:  git push --no-verify
+# ----------------------------------------------------------------------------
+set -euo pipefail
+
+echo "▶ pre-push: (client) npm run verify (unit tests + typecheck + build)…"
+cd "$(dirname "$0")/../client"
+if ! npm run verify; then
+  echo "✖ pre-push blocked: client verify failed. Fix it, or push with --no-verify." >&2
+  exit 1
+fi
+echo "✓ pre-push: client verify passed."

@@ -32,6 +32,8 @@ import {
   clampDraftStep,
   isValidBirthDate,
 } from './logic/entryFlowLogic';
+import { useFunnelStage } from '../../../hooks/useFunnelStage';
+import { trackFunnelStage } from '../../../services/conversionApi';
 
 type Answers = Record<string, { value: string; score: number }>;
 type LocStatus = 'idle' | 'resolving' | 'resolved' | 'error';
@@ -45,6 +47,8 @@ export default function EntryIntakeFlow() {
   // The display name is NOT asked here — the user just registered, so we greet
   // them by their session username and submit that as the displayName.
   const displayName = (user?.username || '').trim();
+
+  useFunnelStage('entry_started'); // anonymous funnel: Entry intake begun
 
   const [step, setStep] = useState<number>(STEP.WELCOME);
   const [birthDate, setBirthDate] = useState('');
@@ -194,6 +198,10 @@ export default function EntryIntakeFlow() {
       // RouteProtection access gate lets the user into /dashboard on the next
       // tap instead of bouncing them back here before verify-token re-hydrates.
       markInitialIntakeCompleted();
+
+      // Anonymous funnel: the user reached instant value (Entry result). This is
+      // the strongest single conversion signal for the Instagram-ads funnel.
+      trackFunnelStage('entry_first_value');
 
       setAstro(astrologyResult);
       setPersonality(personalityResult);

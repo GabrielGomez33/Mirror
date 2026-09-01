@@ -2,9 +2,11 @@ import {useNavigate} from 'react-router-dom'
 
 import PageWrapper from '../components/PageWrapper'
 import Button from '../components/Button'
+import { useFunnelStage } from '../hooks/useFunnelStage'
 
 const Landing = () => {
     const navigate = useNavigate()
+    useFunnelStage('landing_view') // anonymous funnel: marketing landing seen
     return (
     <PageWrapper>
       <div className="text-center space-y-6">

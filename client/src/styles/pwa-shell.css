@@ -43,6 +43,16 @@
 html,
 body {
 	min-height: 100%;
+
+	/* Horizontal-overflow guard. A single wide element (a raw 100vw child
+	   like <Background />, an un-wrapped long string, a fixed banner) is enough
+	   to make the whole page scroll sideways on iOS/Galaxy — the classic
+	   "why does my page jiggle left-right on mobile" bug. `clip` prevents that
+	   horizontal scroll WITHOUT establishing a scroll container, so
+	   position: sticky/fixed keep working (which `overflow-x: hidden` would
+	   break). Vertical scrolling is untouched. */
+	overflow-x: clip;
+	max-width: 100%;
 }
 
 body {
