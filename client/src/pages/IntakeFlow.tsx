@@ -9,8 +9,10 @@ import VisualStep from '../components/intake/VisualStep';
 import VocalStep from '../components/intake/VocalStep';
 import SubmitStep from '../components/intake/SubmitStep';
 import RegistrationStep from '../components/intake/RegistrationStep';
+import { useFunnelStage } from '../hooks/useFunnelStage';
 
 const IntakeFlow = () => {
+  useFunnelStage('core_started'); // anonymous funnel: deep Core intake begun
   return (
     // Remove IntakeProvider wrapper - it's already in App.tsx
     <Routes>

@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import GlassCard, { GlassButton } from '../ui/GlassCard';
 import BasicScene from '../three/BasicScene'; // 3js bg (same as VisualStep)
 import { getUserInfo, getToken } from '../../utils/token';
+import { trackFunnelStage } from '../../services/conversionApi';
 
 // ---------------- Types & constants (unchanged payload / endpoints) ----------------
 interface SubmissionState {
@@ -539,6 +540,7 @@ const SubmitStep = () => {
       // Mark intake completed on AuthContext so server-side checks work
       // (prevents re-routing to intake after cookie clear + re-login)
       markIntakeCompleted();
+      trackFunnelStage('core_completed'); // anonymous funnel: deep Core intake finished
 
       updateIntake({
         progress: {

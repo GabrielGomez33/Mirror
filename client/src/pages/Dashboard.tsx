@@ -10,6 +10,7 @@ import ZenGardenScene from '../components/three/ZenGardenScene';
 import MagicalSphereNavigation from '../components/home/MagicalSphereNavigation';
 import { useGroups } from '../context/GroupContext';
 import CreateGroupModal from '../components/mirrorgroups/CreateGroupModal';
+import { useFunnelStage } from '../hooks/useFunnelStage';
 
 // ============================================================================
 // MAIN COMPONENT
@@ -17,6 +18,7 @@ import CreateGroupModal from '../components/mirrorgroups/CreateGroupModal';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  useFunnelStage('dashboard_view'); // anonymous funnel: first dashboard view
 
   const {
     showCreateModal,
