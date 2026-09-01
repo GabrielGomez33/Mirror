@@ -282,6 +282,8 @@ const PersonalityStep = () => {
           firstUnanswered === -1 ? questions.length - 1 : firstUnanswered
         );
       },
+      // Erased on another device → wipe this device's stale draft and start over.
+      onServerErased: () => restartAssessment(),
     });
     return cleanup;
     // eslint-disable-next-line react-hooks/exhaustive-deps

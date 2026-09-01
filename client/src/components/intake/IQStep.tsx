@@ -556,8 +556,25 @@ const IQStep = () => {
   const userAnswersRef = useRef(userAnswers);
   userAnswersRef.current = userAnswers;
 
+  // Reset the quiz to a fresh, freshly-randomized state and clear the on-device
+  // draft. Shared by the "Retake" button (eraseServer: true — a deliberate local
+  // restart also clears the server copy) and the cross-device erase path
+  // (eraseServer: false — the server is already a tombstone).
+  const resetQuizState = useCallback((opts?: { eraseServer?: boolean }) => {
+    clearSavedProgress();
+    if (opts?.eraseServer) draftServer.clearServerDraft();
+    touchedRef.current = true; // a deliberate reset, not a resume
+    setQuestions(buildQuiz());
+    setCurrentQuestionIndex(0);
+    setUserAnswers({});
+    setShowResult(false);
+    setSelectedOptionValue(null);
+    setImageError(false);
+  }, [draftServer]);
+
   // One-shot cross-device resume: if the server draft is further along than this
-  // device's local draft and the user hasn't answered yet, adopt it.
+  // device's local draft and the user hasn't answered yet, adopt it — OR, if the
+  // server holds an erase tombstone, wipe this device's stale draft and start fresh.
   useEffect(() => draftServer.hydrateOnce({
     localDraft: () => ({ userAnswers: userAnswersRef.current }),
     isTouched: () => touchedRef.current,
@@ -568,7 +585,8 @@ const IQStep = () => {
       if (draft.userAnswers && typeof draft.userAnswers === 'object') setUserAnswers(draft.userAnswers);
       if (typeof draft.showResult === 'boolean') setShowResult(draft.showResult);
     },
-  }), [draftServer]);
+    onServerErased: () => resetQuizState({ eraseServer: false }), // erased elsewhere → wipe local
+  }), [draftServer, resetQuizState]);
 
   // Save guard
 
@@ -1089,18 +1107,7 @@ const IQStep = () => {
                       className="flex gap-3 justify-center pt-4"
                     >
                       <GlassButton
-                        onClick={() => {
-                          // restart with a freshly randomized quiz
-                          clearSavedProgress();
-                          draftServer.clearServerDraft(); // erase the saved draft — true "start over"
-                          touchedRef.current = true;      // this is a deliberate reset, not a resume
-                          setQuestions(buildQuiz());
-                          setCurrentQuestionIndex(0);
-                          setUserAnswers({});
-                          setShowResult(false);
-                          setSelectedOptionValue(null);
-                          setImageError(false);
-                        }}
+                        onClick={() => resetQuizState({ eraseServer: true })}
                         className="bg-white/10 hover:bg-white/20"
                       >
                         Retake Test

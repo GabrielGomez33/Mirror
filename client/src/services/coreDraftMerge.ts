@@ -72,6 +72,40 @@ export interface DraftChoice<T = unknown> {
  * Furthest-progress wins; a tie (or local ahead) keeps LOCAL. Absent drafts
  * score -1 so a present draft always beats nothing. Never throws.
  */
+/** What the server returned for a step's draft on hydrate (subset we act on). */
+export interface ServerDraftView {
+  erased?: boolean;
+  draftState?: Record<string, unknown> | null;
+}
+
+/** The one-shot hydrate decision, as a pure value the hook dispatches on. */
+export type HydrateAction =
+  | { type: 'none' }
+  | { type: 'erase' }
+  | { type: 'apply'; draft: Record<string, unknown> };
+
+/**
+ * Decide what a device should do on mount given the server's view and the local
+ * draft. Precedence:
+ *   1. erase tombstone  -> 'erase'  (authoritative across devices; wipe local)
+ *   2. server draft further along than local -> 'apply' (furthest-progress-wins)
+ *   3. otherwise -> 'none' (keep local; also the offline / never-started case)
+ * Pure + total: never throws, safe on null/garbage.
+ */
+export function decideHydrate(
+  step: CoreDraftStep,
+  server: ServerDraftView | null | undefined,
+  local: Record<string, unknown> | null,
+): HydrateAction {
+  if (!server) return { type: 'none' };
+  if (server.erased) return { type: 'erase' };
+  if (!server.draftState) return { type: 'none' };
+  const choice = chooseFurthestDraft(step, local, server.draftState);
+  return choice.source === 'server' && choice.draft
+    ? { type: 'apply', draft: choice.draft as Record<string, unknown> }
+    : { type: 'none' };
+}
+
 export function chooseFurthestDraft<T>(step: CoreDraftStep, local: T | null | undefined, server: T | null | undefined): DraftChoice<T> {
   const hasLocal = local !== null && local !== undefined;
   const hasServer = server !== null && server !== undefined;
