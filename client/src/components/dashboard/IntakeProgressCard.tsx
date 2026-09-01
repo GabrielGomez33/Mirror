@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchIntakeProgress, type IntakeProgressResponse, type StepStatus } from '../../services/intakeProgressApi';
 import { loadCoreDraft, clearCoreDraft } from '../../services/coreDraftApi';
+import { clearLocalCoreDraft } from '../../services/coreDraftLocal';
 import { draftProgress, type CoreDraftStep } from '../../services/coreDraftMerge';
 import { INTAKE_STEP_CATALOG } from './intakeStepCatalog';
 import { statusOf, completedCount, progressPercent } from './intakeProgressLogic';
@@ -130,6 +131,10 @@ export default function IntakeProgressCard() {
       return;
     }
     setErasing((e) => ({ ...e, [step]: true }));
+    // Erase BOTH tiers: the server draft AND this device's localStorage. Clearing
+    // only the server left the on-device draft intact, so the step's synchronous
+    // computeInitialState() still resumed from localStorage on the next Start.
+    clearLocalCoreDraft(step);
     await clearCoreDraft(step);
     const fresh = await fetchIntakeProgress();
     setDrafts((d) => { const n = { ...d }; delete n[step]; return n; });
