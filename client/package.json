@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "test:ci": "tsx scripts/entryLogic.test.ts && tsx scripts/intakeProgress.test.ts && tsx scripts/routing.test.ts && tsx scripts/responsive.test.ts && tsx scripts/authRetry.test.ts && tsx scripts/deprecatedIntake.test.ts",
+    "test:ci": "tsx scripts/entryLogic.test.ts && tsx scripts/intakeProgress.test.ts && tsx scripts/routing.test.ts && tsx scripts/responsive.test.ts && tsx scripts/authRetry.test.ts && tsx scripts/deprecatedIntake.test.ts && tsx scripts/coreDraft.test.ts",
     "verify": "npm run test:ci && tsc -b && vite build"
   },
   "dependencies": {
