@@ -56,6 +56,7 @@ import FeedbackPage from './pages/FeedbackPage';
 import { getResolvedIntake } from './services/intakeResolver';
 import { getToken, getUserInfo } from './utils/token';
 import { decideRootRoute, type RootResolveOutcome } from './components/auth/rootGate';
+import { entrySatisfied } from './components/auth/intakeRouting';
 
 // -----------------------------------------------------------------------------
 // IntakeGate: minimal, data-driven router at "/" using the unified resolver
@@ -84,6 +85,17 @@ const IntakeGate: React.FC = () => {
       const info = getUserInfo();
       const token = getToken();
       const hasIdentity = Boolean(info?.userId && token);
+
+      // FAST PATH: the persisted userInfo already tells us whether the user has
+      // onboarded (Entry OR Core). If so, route into the app IMMEDIATELY — no
+      // network resolve, no "Checking your intake…" spinner on refresh. The
+      // dashboard fetches its own merged data. entrySatisfied is the ONE shared
+      // definition of "onboarded" (also used by RouteProtection's access gate).
+      if (hasIdentity && entrySatisfied(Boolean(info!.initialIntakeCompleted), Boolean(info!.intakeCompleted))) {
+        navigate('/dashboard', { replace: true });
+        setChecking(false);
+        return;
+      }
 
       // Resolve the visitor's merged intake (Entry⊕Core, Core precedence).
       // CRITICAL DISTINCTION: getResolvedIntake RETURNS null only for a
