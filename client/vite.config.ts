@@ -59,6 +59,16 @@ export default defineConfig({
 			filename: 'sw.ts',
 			scope: '/Mirror/',
 
+			// Staging sits behind Apache HTTP Basic Auth on <Location /Mirror>.
+			// The browser fetches manifest.webmanifest WITHOUT credentials by
+			// default, so it 401s behind Basic Auth — breaking install + throwing
+			// a recurring sign-in popup on refresh. useCredentials injects
+			// `crossorigin="use-credentials"` on the <link rel="manifest">, so the
+			// manifest fetch carries the Basic-Auth credential (200). Harmless on
+			// prod (no Basic Auth; same-origin credentialed fetch is a no-op).
+			// This lives in SOURCE so a rebuild can never drop it again.
+			useCredentials: true,
+
 			manifest: {
 				id: '/Mirror/',
 				name: 'Mirror',
