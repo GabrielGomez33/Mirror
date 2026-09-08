@@ -1,7 +1,10 @@
 // src/services/authApi.ts
 import { getToken, setToken, clearToken } from '../utils/token';
 
-const BASE_URL = import.meta.env.VITE_API_URL;
+// Guarded access: import.meta.env is always defined under Vite, but undefined
+// under plain node/tsx (the test runner) — the `?.` keeps the module importable
+// in unit tests without changing any runtime behavior in the built app.
+const BASE_URL = (import.meta as any)?.env?.VITE_API_URL;
 
 // ========== TYPES ==========
 
@@ -595,6 +598,17 @@ export const getErrorMessage = (error: any): string => {
 
 export const isNetworkError = (error: any): boolean => {
   return error instanceof TypeError && error.message === 'Failed to fetch';
+};
+
+// A verify() failure that is TRANSIENT (retryable) rather than a definitive
+// auth failure: a network blip, or the server's CONTEXT_UNAVAILABLE (503) —
+// which the server returns when the token is VALID but the user-context DB read
+// failed. Neither means "this session is invalid", so the bootstrap must NOT
+// log the user out (or nuke a valid token) on these — it keeps the optimistic
+// session and lets a later verify reconcile.
+export const isTransientVerifyError = (error: any): boolean => {
+  if (isNetworkError(error)) return true;
+  return Boolean(isAuthError(error) && error.code === 'CONTEXT_UNAVAILABLE');
 };
 
 export const isTokenExpiredError = (error: any): boolean => {

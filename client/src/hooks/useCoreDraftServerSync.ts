@@ -17,7 +17,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { loadCoreDraft, saveCoreDraft, clearCoreDraft } from '../services/coreDraftApi';
-import { chooseFurthestDraft, type CoreDraftStep } from '../services/coreDraftMerge';
+import { decideHydrate, type CoreDraftStep } from '../services/coreDraftMerge';
 
 const SAVE_DEBOUNCE_MS = 1500;
 
@@ -40,24 +40,29 @@ export function useCoreDraftServerSync(step: CoreDraftStep) {
 
   /**
    * One-shot cross-device hydrate. Returns a cleanup that cancels a late load.
-   * Applies the server draft only when it wins "furthest progress" over the
-   * current local draft AND the user has not touched the step since mount.
+   * The decision is a pure function (decideHydrate):
+   *   - 'erase'  the server holds an erase tombstone → wipe this device's stale
+   *              local draft and reset the step to fresh (erase is authoritative
+   *              across every device, not just the one that clicked it).
+   *   - 'apply'  the server draft is further along → adopt it (furthest wins).
+   *   - 'none'   keep local (also the offline / never-started case).
+   * The isTouched() gate (re-checked after the await) means a user who has
+   * already started here is never overridden.
    */
   const hydrateOnce = useCallback((opts: {
     localDraft: () => Record<string, unknown> | null;
     isTouched: () => boolean;
     apply: (draft: Record<string, unknown>) => void;
+    onServerErased?: () => void;
   }) => {
     let cancelled = false;
     void (async () => {
       const server = await loadCoreDraft(step);
-      if (cancelled || opts.isTouched() || !server?.draftState) return;
-      const choice = chooseFurthestDraft(step, opts.localDraft(), server.draftState);
-      // Re-check isTouched() after the await: the user may have started while the
-      // request was in flight — never override active input.
-      if (choice.source === 'server' && choice.draft && !opts.isTouched()) {
-        opts.apply(choice.draft as Record<string, unknown>);
-      }
+      if (cancelled || opts.isTouched()) return;
+      const action = decideHydrate(step, server, opts.localDraft());
+      if (opts.isTouched()) return; // re-check post-await — never clobber active input
+      if (action.type === 'erase') opts.onServerErased?.();
+      else if (action.type === 'apply') opts.apply(action.draft);
     })();
     return () => { cancelled = true; };
   }, [step]);

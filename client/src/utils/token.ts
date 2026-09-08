@@ -39,6 +39,17 @@ export type StoredUserInfo = {
   username: string;
   email: string;
   lastLogin?: string;
+  // Optional identity/state fields the auth blob ALSO carries (written by
+  // login / register / the verify resync). Present at runtime; typed here so the
+  // bootstrap can hydrate the app OPTIMISTICALLY from cache — rendering the
+  // authenticated shell instantly on refresh instead of blanking behind the
+  // loading screen for the whole verify round-trip.
+  emailVerified?: boolean;
+  intakeCompleted?: boolean;
+  initialIntakeCompleted?: boolean;
+  subscriptionStatus?: string;
+  tier?: string;
+  sessionId?: string;
 };
 
 const PERSIST_FLAG_KEY = 'mirror_persistent';

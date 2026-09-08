@@ -55,6 +55,8 @@ import TermsPage from './pages/TermsPage';
 import FeedbackPage from './pages/FeedbackPage';
 import { getResolvedIntake } from './services/intakeResolver';
 import { getToken, getUserInfo } from './utils/token';
+import { decideRootRoute, type RootResolveOutcome } from './components/auth/rootGate';
+import { entrySatisfied } from './components/auth/intakeRouting';
 
 // -----------------------------------------------------------------------------
 // IntakeGate: minimal, data-driven router at "/" using the unified resolver
@@ -80,33 +82,46 @@ const IntakeGate: React.FC = () => {
     }
 
     (async () => {
-      try {
-        const info = getUserInfo();
-        const token = getToken();
-        if (!info?.userId || !token) {
-          // Cold, logged-out visitors go to signup (the front door), not the
-          // returning-user "Welcome Back" login.
-          navigate('/register', { replace: true });
-          return;
-        }
+      const info = getUserInfo();
+      const token = getToken();
+      const hasIdentity = Boolean(info?.userId && token);
 
-        // Single unified resolver: merged Entry⊕Core (Core precedence). An
-        // Entry-only user now resolves to their data and reaches the dashboard
-        // instead of being bounced back into onboarding.
-        const resolved = await getResolvedIntake(info.userId);
-        if (resolved && resolved.intakeData && Object.keys(resolved.intakeData).length > 0) {
-          navigate('/dashboard', { replace: true });
-        } else {
-          // No resolvable intake (neither Entry nor Core) -> fast onboarding.
-          navigate('/entry', { replace: true });
-        }
-      } catch {
-        // Auth/transport failure — send to onboarding; RouteProtection routes
-        // established users onward once their token re-hydrates.
-        navigate('/entry', { replace: true });
-      } finally {
+      // FAST PATH: the persisted userInfo already tells us whether the user has
+      // onboarded (Entry OR Core). If so, route into the app IMMEDIATELY — no
+      // network resolve, no "Checking your intake…" spinner on refresh. The
+      // dashboard fetches its own merged data. entrySatisfied is the ONE shared
+      // definition of "onboarded" (also used by RouteProtection's access gate).
+      if (hasIdentity && entrySatisfied(Boolean(info!.initialIntakeCompleted), Boolean(info!.intakeCompleted))) {
+        navigate('/dashboard', { replace: true });
         setChecking(false);
+        return;
       }
+
+      // Resolve the visitor's merged intake (Entry⊕Core, Core precedence).
+      // CRITICAL DISTINCTION: getResolvedIntake RETURNS null only for a
+      // definitive 404 ("no intake yet"); it THROWS for auth/transport failures
+      // (401/403/5xx/network). We must NOT conflate the two — a read failure is
+      // not "the user has no data". See rootGate.decideRootRoute for the proof.
+      let outcome: RootResolveOutcome = 'empty';
+      if (hasIdentity) {
+        try {
+          const resolved = await getResolvedIntake(info!.userId);
+          outcome =
+            resolved && resolved.intakeData && Object.keys(resolved.intakeData).length > 0
+              ? 'data'
+              : 'empty';
+        } catch {
+          // Read failure — e.g. an access token that expired at root-load,
+          // racing AuthContext's silent refresh. Do NOT treat as "no data":
+          // decideRootRoute hands this to /dashboard so authenticated routing
+          // (RouteProtection + token refresh) decides, and an onboarded user is
+          // never stranded in /entry (which is exempt from RouteProtection).
+          outcome = 'error';
+        }
+      }
+
+      navigate(decideRootRoute(hasIdentity, outcome), { replace: true });
+      setChecking(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);

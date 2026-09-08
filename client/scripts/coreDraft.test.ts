@@ -10,6 +10,7 @@ import {
   draftAnsweredCount,
   draftProgress,
   chooseFurthestDraft,
+  decideHydrate,
 } from '../src/services/coreDraftMerge';
 
 let pass = 0, fail = 0;
@@ -71,6 +72,26 @@ ok(chooseFurthestDraft('personality',
   const c = chooseFurthestDraft('iq', { userAnswers: { a: 1 } }, { userAnswers: { a: 1, b: 1, c: 1 } });
   ok(c.localCount === 1 && c.serverCount === 3 && (c.draft as any).userAnswers.c === 1, 'choice carries counts + the winning draft');
 }
+
+// --- decideHydrate: cross-device erase authority + furthest-wins -----------
+// erase tombstone wins over ANY local draft (authoritative across devices)
+ok(decideHydrate('iq', { erased: true }, { userAnswers: { a: 1, b: 1, c: 1 } }).type === 'erase',
+  'server erase tombstone -> erase, even with local progress');
+ok(decideHydrate('iq', { erased: true, draftState: null }, null).type === 'erase',
+  'erase wins regardless of draftState');
+// no server / never-started (no row) -> keep local
+ok(decideHydrate('iq', null, { userAnswers: { a: 1 } }).type === 'none', 'no server view -> none (keep local)');
+ok(decideHydrate('iq', { erased: false, draftState: null }, { userAnswers: { a: 1 } }).type === 'none',
+  'server not erased + no draft -> none (never-started, keep local)');
+// server further -> apply; local further/tie -> none
+{
+  const a = decideHydrate('iq', { erased: false, draftState: { userAnswers: { a: 1, b: 1, c: 1 } } }, { userAnswers: { a: 1 } });
+  ok(a.type === 'apply' && (a as any).draft.userAnswers.c === 1, 'server further -> apply the server draft');
+}
+ok(decideHydrate('iq', { erased: false, draftState: { userAnswers: { a: 1 } } }, { userAnswers: { a: 1, b: 1 } }).type === 'none',
+  'local further -> none (keep local)');
+ok(decideHydrate('personality', { erased: false, draftState: { answers: { a: 1 } } }, { answers: { a: 1 } }).type === 'none',
+  'tie -> none (no needless overwrite)');
 
 console.log(`\n${fail === 0 ? 'PASS' : 'FAIL'}: coreDraft ${pass} passed, ${fail} failed`);
 if (fail) throw new Error(`${fail} assertions failed`);

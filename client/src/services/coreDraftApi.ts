@@ -55,12 +55,17 @@ async function attempt(method: 'GET' | 'PUT' | 'DELETE', step: CoreDraftStep, bo
  */
 export async function loadCoreDraft(
   step: CoreDraftStep,
-): Promise<{ status: string; draftState: Record<string, unknown> | null } | null> {
+): Promise<{ status: string; draftState: Record<string, unknown> | null; erased: boolean } | null> {
   if (!getToken('mirror_jwt')) return null;
   try {
     const r = await withAuthRetry(() => attempt('GET', step), refreshTokenApi);
     if (!r.ok || !r.json?.success) return null;
-    return { status: String(r.json.status ?? 'not_started'), draftState: r.json.draftState ?? null };
+    return {
+      status: String(r.json.status ?? 'not_started'),
+      draftState: r.json.draftState ?? null,
+      // Cross-device erase tombstone: a not_started ROW the server marks erased.
+      erased: !!r.json.erased,
+    };
   } catch {
     return null;
   }

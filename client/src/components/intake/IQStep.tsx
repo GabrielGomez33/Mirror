@@ -3,6 +3,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useIntake } from '../../context/IntakeContext';
 import { useReflectionSave, ReflectionComplete, ReturnToMirrorButton } from './shared/ReflectionComplete';
 import { useCoreDraftServerSync } from '../../hooks/useCoreDraftServerSync';
+import { localDraftKey } from '../../services/coreDraftLocal';
 import GlassCard, { GlassButton, GlassProgress } from '../ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import BasicScene from '../three/BasicScene';
@@ -467,7 +468,9 @@ function buildQuiz(): IQQuestion[] {
 // The quiz is randomized per attempt (question order + option order), and the
 // current index / recorded answers are tied to that exact randomized array.
 // So a reload-safe snapshot has to include `questions` too — not just progress.
-const PROGRESS_KEY = 'mirror:intake:iq:progress';
+// Resume key lives in the shared registry so the dashboard "Erase" affordance
+// clears the exact same localStorage entry this step reads on mount.
+const PROGRESS_KEY = localDraftKey('iq');
 
 interface SavedProgress {
   v: string; // item-set version; stale snapshots are discarded on bump
@@ -553,8 +556,25 @@ const IQStep = () => {
   const userAnswersRef = useRef(userAnswers);
   userAnswersRef.current = userAnswers;
 
+  // Reset the quiz to a fresh, freshly-randomized state and clear the on-device
+  // draft. Shared by the "Retake" button (eraseServer: true — a deliberate local
+  // restart also clears the server copy) and the cross-device erase path
+  // (eraseServer: false — the server is already a tombstone).
+  const resetQuizState = useCallback((opts?: { eraseServer?: boolean }) => {
+    clearSavedProgress();
+    if (opts?.eraseServer) draftServer.clearServerDraft();
+    touchedRef.current = true; // a deliberate reset, not a resume
+    setQuestions(buildQuiz());
+    setCurrentQuestionIndex(0);
+    setUserAnswers({});
+    setShowResult(false);
+    setSelectedOptionValue(null);
+    setImageError(false);
+  }, [draftServer]);
+
   // One-shot cross-device resume: if the server draft is further along than this
-  // device's local draft and the user hasn't answered yet, adopt it.
+  // device's local draft and the user hasn't answered yet, adopt it — OR, if the
+  // server holds an erase tombstone, wipe this device's stale draft and start fresh.
   useEffect(() => draftServer.hydrateOnce({
     localDraft: () => ({ userAnswers: userAnswersRef.current }),
     isTouched: () => touchedRef.current,
@@ -565,7 +585,8 @@ const IQStep = () => {
       if (draft.userAnswers && typeof draft.userAnswers === 'object') setUserAnswers(draft.userAnswers);
       if (typeof draft.showResult === 'boolean') setShowResult(draft.showResult);
     },
-  }), [draftServer]);
+    onServerErased: () => resetQuizState({ eraseServer: false }), // erased elsewhere → wipe local
+  }), [draftServer, resetQuizState]);
 
   // Save guard
 
@@ -1086,18 +1107,7 @@ const IQStep = () => {
                       className="flex gap-3 justify-center pt-4"
                     >
                       <GlassButton
-                        onClick={() => {
-                          // restart with a freshly randomized quiz
-                          clearSavedProgress();
-                          draftServer.clearServerDraft(); // erase the saved draft — true "start over"
-                          touchedRef.current = true;      // this is a deliberate reset, not a resume
-                          setQuestions(buildQuiz());
-                          setCurrentQuestionIndex(0);
-                          setUserAnswers({});
-                          setShowResult(false);
-                          setSelectedOptionValue(null);
-                          setImageError(false);
-                        }}
+                        onClick={() => resetQuizState({ eraseServer: true })}
                         className="bg-white/10 hover:bg-white/20"
                       >
                         Retake Test

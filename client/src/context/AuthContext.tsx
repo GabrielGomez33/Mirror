@@ -1,7 +1,7 @@
 // src/context/AuthContext.tsx
 import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
-import { getToken, setToken, clearToken } from '../utils/token';
-import { verifyTokenApi, refreshTokenApi, logoutApi } from '../services/authApi';
+import { getToken, setToken, clearToken, getUserInfo } from '../utils/token';
+import { verifyTokenApi, refreshTokenApi, logoutApi, isTransientVerifyError } from '../services/authApi';
 import { entrySatisfied } from '../components/auth/intakeRouting';
 
 // ========== TYPES & INTERFACES ==========
@@ -869,6 +869,39 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
 
+      // OPTIMISTIC HYDRATION — render the authenticated app IMMEDIATELY from the
+      // persisted userInfo blob instead of blanking behind the loading screen
+      // for the entire verify round-trip (the "few seconds of white on refresh"
+      // jank). The network verify below then RECONCILES: fresh flags on success,
+      // a real logout ONLY on a definitive auth failure. Every data endpoint
+      // stays token-gated server-side, so an optimistic render never exposes
+      // data — at worst a stale flag self-corrects within ~1s.
+      const cached = getUserInfo();
+      const hydratedOptimistically = Boolean(cached);
+      if (cached) {
+        dispatch({ type: 'SET_USER', payload: {
+          id: cached.userId,
+          username: cached.username,
+          email: cached.email,
+          tier: mapBackendTierToUserTier(cached.tier || 'basic'),
+          emailVerified: Boolean(cached.emailVerified),
+          intakeCompleted: Boolean(cached.intakeCompleted),
+          initialIntakeCompleted: Boolean(cached.initialIntakeCompleted),
+          subscriptionStatus: ['free', 'premium', 'enterprise'].includes(cached.subscriptionStatus as string)
+            ? (cached.subscriptionStatus as 'free' | 'premium' | 'enterprise')
+            : 'free',
+          sessionId: cached.sessionId ?? '',
+        }});
+        dispatch({ type: 'SET_TOKENS', payload: {
+          accessToken: token,
+          refreshToken: getToken('refreshToken') || '',
+          expiresIn: 900,
+        }});
+        // Paint NOW; verify reconciles in the background below.
+        dispatch({ type: 'SET_AUTH_CHECKED', payload: true });
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }
+
       try {
         // Verify existing token using API service
         const data = await verifyTokenApi();
@@ -915,20 +948,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }), 'userInfo');
           } catch { /* non-fatal — falls back to existing blob */ }
         } else {
-          // Try to refresh token
+          // Token is definitively invalid — try one refresh, else a REAL logout
+          // (clear the optimistic session too, if we hydrated one).
           const refreshed = await refreshTokens();
           if (!refreshed) {
             clearToken();
             clearToken('refreshToken');
+            if (hydratedOptimistically) dispatch({ type: 'CLEAR_USER' });
           }
         }
       } catch (error) {
-        console.error('Auth initialization failed:', error);
-        // Try to refresh token on verification failure
-        const refreshed = await refreshTokens();
-        if (!refreshed) {
-          clearToken();
-          clearToken('refreshToken');
+        // Distinguish a TRANSIENT failure (network blip / server 503
+        // CONTEXT_UNAVAILABLE — token still valid) from a definitive auth
+        // failure. A transient error must NOT nuke a valid token or blank an
+        // optimistically-hydrated session — keep it and let a later verify
+        // reconcile. Only a definitive failure with a failed refresh logs out.
+        if (isTransientVerifyError(error)) {
+          console.warn('Auth verify hit a transient error; keeping session for retry:', (error as any)?.code || (error as Error)?.message);
+        } else {
+          console.error('Auth initialization failed:', error);
+          const refreshed = await refreshTokens();
+          if (!refreshed) {
+            clearToken();
+            clearToken('refreshToken');
+            if (hydratedOptimistically) dispatch({ type: 'CLEAR_USER' });
+          }
         }
       } finally {
         dispatch({ type: 'SET_AUTH_CHECKED', payload: true });
