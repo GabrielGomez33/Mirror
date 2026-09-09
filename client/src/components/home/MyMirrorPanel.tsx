@@ -8,6 +8,7 @@ import {
 } from '../../services/mirrorDashboard';
 const DataExportTab = lazy(() => import('./DataExportTab'));
 import IntakeProgressCard from '../dashboard/IntakeProgressCard';
+import RetakeSectionButton from './RetakeSectionButton';
 
 import type {
   PersonalAnalysisResult,
@@ -922,6 +923,21 @@ export function MyMirrorPanel() {
           </button>
         ))}
       </div>
+
+      {/* Per-section Retake: shown only on the five data-section tabs. Reuses
+          the full Core intake flow (draft + storage) via ?deepen=1. `available`
+          drives the label ("Retake" vs first-time "Take now") + confirm. */}
+      <RetakeSectionButton
+        tab={active}
+        available={
+          active === 'personality' ? !!data.completePersonalityData?.available
+          : active === 'astrology' ? !!data.completeAstrologicalData?.available
+          : active === 'cognitive' ? !!data.completeCognitiveData?.available
+          : active === 'emotional' ? !!data.completeEmotionalData?.available
+          : active === 'voice' ? !!data.completeVoiceData?.available
+          : false
+        }
+      />
 
       {/* CONTENT */}
       <AnimatePresence mode="wait">
