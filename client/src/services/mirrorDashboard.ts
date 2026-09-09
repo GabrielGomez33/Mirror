@@ -5,7 +5,10 @@
 import { getToken } from '../utils/token';
 import { dispatchPaywallEvent } from './paywallInterceptor';
 
-const BASE_URL = import.meta.env.VITE_API_URL;
+// Fall back to '' when VITE_API_URL is unset (same-origin staging/prod deploy)
+// so baseUrl is a relative `/mirror/api/...` Apache proxies — never the literal
+// "undefined/mirror/api/...". Matches authApi.ts / intakeResolver.ts.
+const BASE_URL = import.meta.env.VITE_API_URL || '';
 
 // ============================================================================
 // CACHING (matches truthStreamApi.ts pattern)

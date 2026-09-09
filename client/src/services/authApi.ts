@@ -1,10 +1,15 @@
 // src/services/authApi.ts
 import { getToken, setToken, clearToken } from '../utils/token';
 
-// Guarded access: import.meta.env is always defined under Vite, but undefined
-// under plain node/tsx (the test runner) — the `?.` keeps the module importable
-// in unit tests without changing any runtime behavior in the built app.
-const BASE_URL = (import.meta as any)?.env?.VITE_API_URL;
+// Resolve the API origin. VITE_API_URL is set only for a CROSS-ORIGIN deploy
+// (e.g. local dev pointing at a remote API); on the same-origin staging/prod
+// deploys it is UNSET, and MUST fall back to '' so baseUrl is a RELATIVE
+// `/mirror/api/...` that Apache proxies same-origin. Without the `|| ''` the
+// value is `undefined` and baseUrl becomes the literal "undefined/mirror/api/..."
+// — every request 404/401s and auth can't initialize. (See the same guard in
+// intakeResolver.ts / usernameAvailability.ts.) The `?.` also keeps the module
+// importable under plain node/tsx (unit tests), where import.meta.env is absent.
+const BASE_URL = (import.meta as any)?.env?.VITE_API_URL || '';
 
 // ========== TYPES ==========
 
