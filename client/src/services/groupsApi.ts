@@ -196,6 +196,25 @@ async function fetchWithRetry(
 }
 
 // ============================================================================
+// SHARED-DATA FRESHNESS (retake → "update what this group sees")
+// ============================================================================
+
+export interface GroupShareFreshnessEntry {
+  groupId: string;
+  groupName: string;
+  /** ISO time of the user's most recent share to this group, or null. */
+  sharedAt: string | null;
+  /** True when the user's intake changed after that share (prompt to re-share). */
+  outdated: boolean;
+  dataTypes: string[];
+}
+
+export interface GroupShareFreshnessResult {
+  groups: GroupShareFreshnessEntry[];
+  outdatedCount: number;
+}
+
+// ============================================================================
 // GROUPS API CLIENT CLASS
 // ============================================================================
 
@@ -597,6 +616,23 @@ class GroupsApiClient {
 
     cache.invalidate(`groups:/${groupId}`);
     return result;
+  }
+
+  /**
+   * Per-group freshness of THIS user's shared snapshot vs their current intake.
+   * Powers the "Update what this group sees" prompt after a retake. Not cached —
+   * it must reflect a just-completed retake. Fail-safe: an empty result on error.
+   */
+  async getSharedDataFreshness(): Promise<GroupShareFreshnessResult> {
+    try {
+      const response = await this.makeRequest<ApiResponse<GroupShareFreshnessResult>>(
+        `/shared-data/freshness`,
+        { method: 'GET' }
+      );
+      return response.data || { groups: [], outdatedCount: 0 };
+    } catch {
+      return { groups: [], outdatedCount: 0 };
+    }
   }
 
   async getSharedData(groupId: string): Promise<SharedData[]> {
@@ -1046,6 +1082,7 @@ export const rejectJoinRequest = (groupId: string, requestId: string) =>
 export const shareData = (groupId: string, request: ShareDataRequest) =>
   groupsApi.shareData(groupId, request);
 export const getSharedData = (groupId: string) => groupsApi.getSharedData(groupId);
+export const getSharedDataFreshness = () => groupsApi.getSharedDataFreshness();
 export const revokeSharedData = (groupId: string, dataType: string) =>
   groupsApi.revokeSharedData(groupId, dataType);
 

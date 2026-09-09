@@ -158,9 +158,15 @@ jobs:
             echo "Bundle size is within acceptable limits."
           fi
 
-      - name: Security audit
-        run: npm audit --audit-level=high
-        continue-on-error: true
+      # BLOCKING security gate (dependency half of the Phase-6 security review).
+      # --omit-dev: a static SPA ships only PRODUCTION deps, so build/dev-tooling
+      # advisories (tar, browserslist, postcss, …) are not the deployed attack
+      # surface. Fails on any production high/critical advisory not covered by a
+      # reviewed, unexpired entry in .security-audit-allowlist.json. The CODE half
+      # of the review (API-base "undefined" guard, XSS sinks, TLS, credentialed
+      # PWA) runs in the "Unit tests" step above via scripts/securityInvariants.test.ts.
+      - name: Security gate (dependency advisories)
+        run: node scripts/auditGate.mjs --omit-dev
 
       - name: Upload build artifact
         if: github.ref == 'refs/heads/master' || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy == 'true')

@@ -8,6 +8,7 @@ import {
 } from '../../services/mirrorDashboard';
 const DataExportTab = lazy(() => import('./DataExportTab'));
 import IntakeProgressCard from '../dashboard/IntakeProgressCard';
+import RetakeSectionButton from './RetakeSectionButton';
 
 import type {
   PersonalAnalysisResult,
@@ -923,6 +924,21 @@ export function MyMirrorPanel() {
         ))}
       </div>
 
+      {/* Per-section Retake: shown only on the five data-section tabs. Reuses
+          the full Core intake flow (draft + storage) via ?deepen=1. `available`
+          drives the label ("Retake" vs first-time "Take now") + confirm. */}
+      <RetakeSectionButton
+        tab={active}
+        available={
+          active === 'personality' ? !!data.completePersonalityData?.available
+          : active === 'astrology' ? !!data.completeAstrologicalData?.available
+          : active === 'cognitive' ? !!data.completeCognitiveData?.available
+          : active === 'emotional' ? !!data.completeEmotionalData?.available
+          : active === 'voice' ? !!data.completeVoiceData?.available
+          : false
+        }
+      />
+
       {/* CONTENT */}
       <AnimatePresence mode="wait">
         <motion.div
@@ -1261,9 +1277,21 @@ export function MyMirrorPanel() {
                         <span className="enhanced-glass-subtle">Confidence: {confidencePct}%</span>
                         <span className="enhanced-glass-subtle">{analysis.intakeSectionsAvailable} intake sections</span>
                       </div>
+                      {/* Freshness hint: the user changed their intake (e.g. a
+                          retake) after this report was generated, so it no longer
+                          reflects their data. The regenerate button below refreshes it. */}
+                      {analysis.outdated && (
+                        <div className="mt-3 rounded-xl p-3 border" style={{ background: 'rgba(250,204,21,0.10)', borderColor: 'rgba(250,204,21,0.35)' }}>
+                          <p className="enhanced-glass-subtle" style={{ fontSize: 11, margin: 0, color: '#b45309' }}>
+                            ↻ Your Mirror data has changed since this report{
+                              analysis.dataChangedAt ? ` (updated ${new Date(analysis.dataChangedAt).toLocaleDateString()})` : ''
+                            }. Regenerate to reflect your latest results.
+                          </p>
+                        </div>
+                      )}
                       <div className="mt-3 flex items-center gap-3 flex-wrap">
                         <button onClick={handleRequestAnalysis} disabled={isRequesting || isPolling} className="enhanced-action-button text-xs px-3 py-1" style={{ padding: '6px 12px', borderRadius: 10, opacity: (isRequesting || isPolling) ? 0.6 : 1, cursor: (isRequesting || isPolling) ? 'not-allowed' : 'pointer' }}>
-                          <span className="enhanced-glass-subtle" style={{ fontSize: 11 }}>{isRequesting ? 'Regenerating…' : 'Regenerate'}</span>
+                          <span className="enhanced-glass-subtle" style={{ fontSize: 11 }}>{isRequesting ? 'Regenerating…' : (analysis.outdated ? 'Regenerate now' : 'Regenerate')}</span>
                         </button>
                         {analysisError && (
                           <span role="alert" style={{ fontSize: 11, color: 'var(--mirror-amber, #b45309)' }}>{analysisError}</span>

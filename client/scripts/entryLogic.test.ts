@@ -25,7 +25,9 @@ ok(computeAstrology({ date: '1990-07-30' }).western.sunSign === 'Leo', 'sun=Leo 
 
 // --- Bank curation ---
 ok(entryBig5Questions.length >= 5, 'has Big5 items (' + entryBig5Questions.length + ')');
-ok(entryMbtiQuestions.length === 4, 'one MBTI item per axis (' + entryMbtiQuestions.length + ')');
+// TWO items per axis (one per pole) — the scorer needs both poles to compute a
+// real preference; one item/axis collapsed every user to ESTJ (see entryMbti.test.ts).
+ok(entryMbtiQuestions.length === 8, 'both MBTI poles per axis (' + entryMbtiQuestions.length + ')');
 
 // --- Personality: answer every mini question -> valid frozen result ---
 const answers: Record<string, { value: string; score: number }> = {};

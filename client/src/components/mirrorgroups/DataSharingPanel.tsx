@@ -1,9 +1,10 @@
 // src/components/mirrorgroups/DataSharingPanel.tsx
 // Data sharing consent and management
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useGroups } from '../../context/GroupContext';
 import type { ShareableDataType, GroupMember } from '../../types/groups';
+import { getSharedDataFreshness, type GroupShareFreshnessEntry } from '../../services/groupsApi';
 
 interface DataSharingPanelProps {
   groupId: string;
@@ -65,12 +66,50 @@ export default function DataSharingPanel({ groupId }: DataSharingPanelProps) {
   const [consentText, setConsentText] = useState('');
   const [isSharing, setIsSharing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  // Freshness of THIS group's snapshot vs the user's current intake (retake flow).
+  const [freshness, setFreshness] = useState<GroupShareFreshnessEntry | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Get current user's shared data (would need to be passed or fetched)
   const currentUserMember = currentMembers.find((m: GroupMember) => m.userId === getCurrentUserId());
   const alreadySharedTypes = new Set<ShareableDataType>(
     (currentUserMember?.sharedDataTypes || []) as ShareableDataType[]
   );
+
+  // Load this group's share freshness. Fail-safe: any error leaves freshness null
+  // so the panel renders exactly as before (no banner, sharing still works).
+  const refreshFreshness = useCallback(async () => {
+    try {
+      const result = await getSharedDataFreshness();
+      setFreshness(result.groups.find((g) => g.groupId === groupId) ?? null);
+    } catch {
+      setFreshness(null);
+    }
+  }, [groupId]);
+
+  useEffect(() => { void refreshFreshness(); }, [refreshFreshness]);
+
+  const isOutdated = Boolean(freshness?.outdated) && alreadySharedTypes.size > 0;
+
+  // "Update what this group sees": re-share EXACTLY the types already shared, with
+  // a fresh consent. The server reads current intake (forceFresh) so the snapshot
+  // is refreshed in place. Separate from the toggle flow, which ADDS new types.
+  const handleUpdateShared = useCallback(async () => {
+    const typesToRefresh = Array.from(alreadySharedTypes);
+    if (typesToRefresh.length === 0) return;
+    setIsUpdating(true);
+    clearError();
+    const success = await shareData(groupId, {
+      dataTypes: typesToRefresh,
+      consentText: 'I consent to update my previously shared Mirror data for this group with my latest results.',
+    });
+    setIsUpdating(false);
+    if (success) {
+      setShowSuccess(true);
+      await refreshFreshness();
+      setTimeout(() => setShowSuccess(false), 3000);
+    }
+  }, [alreadySharedTypes, shareData, groupId, clearError, refreshFreshness]);
 
   const toggleDataType = useCallback((type: ShareableDataType) => {
     setSelectedTypes((prev) => {
@@ -132,6 +171,33 @@ export default function DataSharingPanel({ groupId }: DataSharingPanelProps) {
           insights and compatibility analysis.
         </p>
       </div>
+
+      {/* Outdated snapshot → prompt to re-share (e.g. after a retake). Shows only
+          when the user's data changed since they last shared with this group. */}
+      {isOutdated && (
+        <div className="rounded-xl p-4 border" style={{ background: 'rgba(250,204,21,0.10)', borderColor: 'rgba(250,204,21,0.35)' }}>
+          <div className="flex items-start gap-3">
+            <span className="text-xl" aria-hidden>↻</span>
+            <div className="flex-1">
+              <h4 className="text-sm font-medium mb-1" style={{ color: '#b45309' }}>Your Mirror data has changed</h4>
+              <p className="enhanced-glass-subtle text-xs mb-3" style={{ color: 'var(--mg-body, #7e4151)' }}>
+                You've updated your assessments since you last shared with this group. This group still
+                sees your previous results. Update what they see to share your latest{
+                  freshness?.sharedAt ? ` (last shared ${new Date(freshness.sharedAt).toLocaleDateString()})` : ''
+                }.
+              </p>
+              <button
+                type="button"
+                onClick={() => void handleUpdateShared()}
+                disabled={isUpdating}
+                className="enhanced-action-button px-4 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isUpdating ? 'Updating…' : `↻ Update what this group sees (${alreadySharedTypes.size})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Already Shared */}
       {alreadySharedTypes.size > 0 && (
