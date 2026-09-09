@@ -2,6 +2,7 @@
 // Robust Journal API with security, caching, retry logic, and rate limiting
 
 import { getToken } from '../utils/token';
+import { authedFetch } from '../utils/authedFetch';
 import { dispatchPaywallEvent } from './paywallInterceptor';
 
 const API_BASE = '/mirror/api';
@@ -123,7 +124,7 @@ async function fetchWithRetry(
   retries: number = MAX_RETRIES
 ): Promise<Response> {
   try {
-    const response = await fetch(url, options);
+    const response = await authedFetch(url, options);
     
     // Don't retry on 4xx errors (client errors)
     if (response.status >= 400 && response.status < 500) {

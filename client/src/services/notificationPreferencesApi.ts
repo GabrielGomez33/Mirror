@@ -17,6 +17,7 @@
 // ============================================================================
 
 import { getToken } from '../utils/token';
+import { authedFetch } from '../utils/authedFetch';
 
 const BASE = import.meta.env.VITE_API_URL
 	? `${import.meta.env.VITE_API_URL}/mirror/api/user/notification-preferences`
@@ -100,7 +101,7 @@ async function request<T>(
 	};
 	if (body !== undefined) headers['Content-Type'] = 'application/json';
 
-	const response = await fetch(`${BASE}${path}`, {
+	const response = await authedFetch(`${BASE}${path}`, {
 		method,
 		headers,
 		body: body !== undefined ? JSON.stringify(body) : undefined,

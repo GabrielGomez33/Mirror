@@ -24,6 +24,7 @@
 // ============================================================================
 
 import { getToken } from '../utils/token';
+import { authedFetch } from '../utils/authedFetch';
 
 const BASE = import.meta.env.VITE_API_URL
 	? `${import.meta.env.VITE_API_URL}/mirror/api/push`
@@ -97,7 +98,7 @@ async function pushRequest<T>(
 
 	let response: Response;
 	try {
-		response = await fetch(`${BASE}${path}`, {
+		response = await authedFetch(`${BASE}${path}`, {
 			method,
 			headers,
 			body: body !== undefined ? JSON.stringify(body) : undefined,

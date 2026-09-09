@@ -15,6 +15,7 @@
  */
 
 import { getToken } from '../utils/token';
+import { authedFetch } from '../utils/authedFetch';
 import { TERMS_VERSION } from '../config/legal';
 
 const API_BASE = '/mirror/api';
@@ -37,7 +38,7 @@ export async function acceptTerms(
   const token = getToken();
   if (!token) return false;
   try {
-    const res = await fetch(`${API_BASE}/auth/accept-terms`, {
+    const res = await authedFetch(`${API_BASE}/auth/accept-terms`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -63,7 +64,7 @@ export async function getConsentStatus(): Promise<ConsentStatus> {
     return { termsVersion: null, acceptedAt: null, unavailable: true };
   }
   try {
-    const res = await fetch(`${API_BASE}/auth/consent-status`, {
+    const res = await authedFetch(`${API_BASE}/auth/consent-status`, {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: 'application/json',

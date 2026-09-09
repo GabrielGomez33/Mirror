@@ -2,6 +2,7 @@
 // User search and lookup API
 
 import { getToken } from '../utils/token';
+import { authedFetch } from '../utils/authedFetch';
 
 export interface SearchedUser {
   id: number;
@@ -49,7 +50,7 @@ export async function searchUsers(query: string, limit: number = 10): Promise<Se
       limit: String(limit),
     });
 
-    const response = await fetch(`${API_BASE}/search?${params}`, {
+    const response = await authedFetch(`${API_BASE}/search?${params}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -84,7 +85,7 @@ export async function getUserById(userId: number): Promise<GetUserResponse> {
   }
 
   try {
-    const response = await fetch(`${API_BASE}/${userId}`, {
+    const response = await authedFetch(`${API_BASE}/${userId}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },

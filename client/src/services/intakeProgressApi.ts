@@ -7,6 +7,7 @@
 // ----------------------------------------------------------------------------
 
 import { getToken } from '../utils/token';
+import { authedFetch } from '../utils/authedFetch';
 
 const PROGRESS_URL = '/mirror/api/intake/progress';
 
@@ -33,7 +34,7 @@ export async function fetchIntakeProgress(): Promise<IntakeProgressResponse | nu
   const token = getToken('mirror_jwt');
   if (!token) return null;
   try {
-    const res = await fetch(PROGRESS_URL, {
+    const res = await authedFetch(PROGRESS_URL, {
       headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
       credentials: 'include',
     });

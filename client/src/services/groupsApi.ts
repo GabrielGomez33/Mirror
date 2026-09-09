@@ -2,6 +2,7 @@
 // MirrorGroups API Service - Comprehensive backend communication
 
 import { getToken } from '../utils/token';
+import { authedFetch } from '../utils/authedFetch';
 import { dispatchPaywallEvent } from './paywallInterceptor';
 import type {
   Group,
@@ -171,7 +172,7 @@ async function fetchWithRetry(
   retries: number = MAX_RETRIES
 ): Promise<Response> {
   try {
-    const response = await fetch(url, options);
+    const response = await authedFetch(url, options);
 
     // Don't retry on 4xx errors
     if (response.status >= 400 && response.status < 500) {

@@ -15,6 +15,7 @@
 // ----------------------------------------------------------------------------
 
 import { getToken, getUserInfo } from '../utils/token';
+import { authedFetch } from '../utils/authedFetch';
 
 const ROOT = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 const API_BASE = ROOT ? `${ROOT}/mirror/api` : '/mirror/api';
@@ -59,7 +60,7 @@ export async function getResolvedIntake(userId?: number | string): Promise<Resol
   const token = getToken();
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}/intake/latest/${id}`, {
+    res = await authedFetch(`${API_BASE}/intake/latest/${id}`, {
       credentials: 'include',
       headers: {
         Accept: 'application/json',

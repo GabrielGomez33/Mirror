@@ -7,6 +7,7 @@
 // ============================================================================
 
 import { getToken } from '../utils/token';
+import { authedFetch } from '../utils/authedFetch';
 
 const API_BASE = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/mirror/api/student`
@@ -21,7 +22,7 @@ export interface ApiError {
 
 async function request<T>(path: string, options: RequestInit = {}, withAuth = true): Promise<T> {
   const token = withAuth ? getToken() : null;
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await authedFetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
