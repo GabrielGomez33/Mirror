@@ -14,6 +14,7 @@
 // ----------------------------------------------------------------------------
 
 import { getToken, getUserInfo } from '../utils/token';
+import { authedFetch } from '../utils/authedFetch';
 
 const STORE_URL = '/mirror/api/intake/store';
 
@@ -27,7 +28,7 @@ export async function saveCoreSection(section: Record<string, unknown>): Promise
   const user = getUserInfo();
   if (!token || !user) return false;
   try {
-    const res = await fetch(STORE_URL, {
+    const res = await authedFetch(STORE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       credentials: 'include',

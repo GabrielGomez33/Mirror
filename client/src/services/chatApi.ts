@@ -2,6 +2,7 @@
 // MirrorGroups Chat API Service - REST API communication for chat features
 
 import { getToken } from '../utils/token';
+import { authedFetch } from '../utils/authedFetch';
 import type {
   ChatMessage,
   ChatApiResponse,
@@ -148,7 +149,7 @@ async function fetchWithRetry(
   retries: number = MAX_RETRIES
 ): Promise<Response> {
   try {
-    const response = await fetch(url, options);
+    const response = await authedFetch(url, options);
 
     // Don't retry on 4xx errors (except 429)
     if (response.status >= 400 && response.status < 500 && response.status !== 429) {

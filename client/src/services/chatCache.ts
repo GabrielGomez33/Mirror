@@ -2,6 +2,7 @@
 // Simple cache for preloading chat messages before the Chat tab is opened
 
 import { getToken } from '../utils/token';
+import { authedFetch } from '../utils/authedFetch';
 
 interface CachedMessage {
   id: string;
@@ -88,7 +89,7 @@ export async function preloadGroupMessages(groupId: string): Promise<boolean> {
     }
 
     console.log(`[ChatCache] Preloading messages for group ${groupId}`);
-    const response = await fetch(`/mirror/api/groups/${groupId}/chat/messages`, {
+    const response = await authedFetch(`/mirror/api/groups/${groupId}/chat/messages`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },

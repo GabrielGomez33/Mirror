@@ -14,6 +14,7 @@
 // ============================================================================
 
 import { getToken } from '../utils/token';
+import { authedFetch } from '../utils/authedFetch';
 import { dispatchPaywallEvent } from './paywallInterceptor';
 
 const ROOT = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
@@ -106,7 +107,7 @@ function authHeaders(): HeadersInit {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${BASE}${path}`, {
+    res = await authedFetch(`${BASE}${path}`, {
       ...init,
       headers: { ...authHeaders(), ...(init.headers || {}) },
       credentials: 'include',

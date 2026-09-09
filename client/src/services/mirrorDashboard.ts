@@ -3,6 +3,7 @@
 // Follows the same patterns as truthStreamApi.ts (caching, retry, rate limiting)
 
 import { getToken } from '../utils/token';
+import { authedFetch } from '../utils/authedFetch';
 import { dispatchPaywallEvent } from './paywallInterceptor';
 
 // Fall back to '' when VITE_API_URL is unset (same-origin staging/prod deploy)
@@ -72,7 +73,7 @@ class MirrorDashboardService {
   }
 
   private async makeRequest<T>(url: string, options: RequestInit = {}): Promise<T> {
-    const response = await fetch(url, {
+    const response = await authedFetch(url, {
       ...options,
       headers: {
         ...this.getAuthHeaders(),

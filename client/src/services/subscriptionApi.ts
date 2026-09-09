@@ -6,6 +6,7 @@
 // ============================================================================
 
 import { getToken } from '../utils/token';
+import { authedFetch } from '../utils/authedFetch';
 
 const API_BASE = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/mirror/api/subscription`
@@ -58,7 +59,7 @@ async function apiRequest<T>(
 ): Promise<T> {
   const token = getToken();
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await authedFetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
