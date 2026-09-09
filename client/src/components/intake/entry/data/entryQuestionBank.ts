@@ -16,6 +16,19 @@ import { mbtiQuestions, type MBTIQuestion } from '../../personality/mbtiQuestion
 const BIG5_DIMENSIONS = ['openness', 'conscientiousness', 'extraversion', 'agreeableness', 'neuroticism'] as const;
 const MBTI_AXES = ['EI', 'SN', 'TF', 'JP'] as const;
 
+// The two poles of each axis, in the SAME order the scorer's DIMENSION_LETTERS
+// uses (mbtiScoring.ts). The scorer computes a preference by comparing the mean
+// of items keyed toward letter1 against items keyed toward letter2 — so the
+// Entry bank MUST include at least one item of EACH direction per axis, or the
+// axis is "indeterminate" and collapses to letter1 (E/S/T/J = "ESTJ") for every
+// user regardless of their answers. (Regression-tested in scripts/entryMbti.test.ts.)
+const AXIS_LETTERS: Record<(typeof MBTI_AXES)[number], readonly [string, string]> = {
+  EI: ['E', 'I'],
+  SN: ['S', 'N'],
+  TF: ['T', 'F'],
+  JP: ['J', 'P'],
+};
+
 function pickEntryBig5(): Question[] {
   const out: Question[] = [];
   for (const dim of BIG5_DIMENSIONS) {
@@ -33,8 +46,18 @@ function pickEntryBig5(): Question[] {
 function pickEntryMbti(): MBTIQuestion[] {
   const out: MBTIQuestion[] = [];
   for (const axis of MBTI_AXES) {
+    const [letter1, letter2] = AXIS_LETTERS[axis];
     const forAxis = mbtiQuestions.filter((q) => q.dimension === axis);
-    if (forAxis[0]) out.push(forAxis[0]);
+    // One item keyed toward EACH pole — the scorer needs both sides to compute a
+    // real preference. Without the letter2 item the axis is indeterminate and
+    // collapses to letter1 (the ESTJ bug).
+    const toward1 = forAxis.find((q) => q.direction === letter1);
+    const toward2 = forAxis.find((q) => q.direction === letter2);
+    if (toward1) out.push(toward1);
+    if (toward2) out.push(toward2);
+    // Defensive fallback: if the bank somehow lacks one pole, keep whatever
+    // exists so the step still renders (the axis stays honestly indeterminate).
+    if (!toward1 && !toward2 && forAxis[0]) out.push(forAxis[0]);
   }
   return out;
 }
