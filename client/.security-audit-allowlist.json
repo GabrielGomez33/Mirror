@@ -1,0 +1,7 @@
+{
+  "_comment": "Reviewed exceptions for scripts/auditGate.mjs (run with --omit-dev: a static SPA ships only production deps, so build/dev-tooling advisories are not the deployed attack surface). Each entry has an EXPIRY: past it the gate treats the advisory as a fresh offender. A brand-new production high/critical not listed here fails CI immediately. TODO: re-evaluate react-router in a deps PR once a fixed 7.x (or a planned 8.x migration) is available.",
+  "advisories": {
+    "1124276": { "package": "react-router", "severity": "high", "reason": "Unauthenticated DoS in react-router's SERVER data routers / SSR handler. This app is a pure client-side SPA (BrowserRouter, no SSR/RSC), so the vulnerable server path is never executed. Fix lands only outside our ^7 range. Tracked for deps PR.", "reviewedBy": "gabrielelythgomez@gmail.com", "expires": "2026-11-10" },
+    "1138769": { "package": "react-router", "severity": "high", "reason": "CSRF bypass specific to react-router RSC (React Server Components) mode, which this SPA does not use. Not exploitable in a client-only build. Fix lands only outside our ^7 range. Tracked for deps PR.", "reviewedBy": "gabrielelythgomez@gmail.com", "expires": "2026-11-10" }
+  }
+}
