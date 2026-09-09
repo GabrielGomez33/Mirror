@@ -58,6 +58,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useIntake } from '../context/IntakeContext';
 import { setRememberMe } from '../utils/token';
+import { getEntryStatus } from './intake/entry/logic/entryApi';
 import GlassCard from './ui/GlassCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import BasicScene from './three/BasicScene';
@@ -381,24 +382,29 @@ const LogUserIn: React.FC = () => {
       //   2. /entry if the user has done NEITHER entry nor core intake
       //      (fast day-one onboarding — never force the heavy core flow)
       //   3. /dashboard (established users; core is optional per-step enrichment)
-      setTimeout(() => {
+      setTimeout(async () => {
         const explicit = getRedirectAfterLogin();
         if (explicit && explicit !== '/dashboard') {
           navigate(explicit);
           return;
         }
+        // SERVER-AUTHORITATIVE onboarding gate. We ask the server (users row via
+        // GET /intake/entry/status) whether this account is onboarded, instead
+        // of trusting localStorage `userInfo` — which is erasable, and is absent
+        // entirely when "remember me" is off (tokens go to sessionStorage), both
+        // of which previously sent already-onboarded users back into /entry.
+        // Fail-safe: only route to /entry on an EXPLICIT server `false`; a null/
+        // errored/older-server response falls through to /dashboard so a
+        // transient read never strands an onboarded user in onboarding.
         try {
-          const raw = localStorage.getItem('userInfo');
-          const parsed = raw ? JSON.parse(raw) : null;
-          // Mirror RouteProtection's access gate: core-complete implies
-          // entry-satisfied, so an established user is never sent to /entry.
-          const hasAnyIntake =
-            parsed?.initialIntakeCompleted === true || parsed?.intakeCompleted === true;
-          if (parsed && !hasAnyIntake) {
+          const status = await getEntryStatus();
+          const satisfied = status?.entrySatisfied
+            ?? (status ? (status.completed || status.intakeCompleted) : undefined);
+          if (status && satisfied === false) {
             navigate('/entry');
             return;
           }
-        } catch { /* fall through */ }
+        } catch { /* fall through to dashboard */ }
         navigate(explicit || '/dashboard');
       }, 1500);
     } catch (error: any) {

@@ -79,8 +79,16 @@ export async function submitEntryIntake(payload: EntrySubmitPayload): Promise<an
   return json;
 }
 
-/** GET Entry completion status ({ completed, result }) or null on failure. */
-export async function getEntryStatus(): Promise<{ completed: boolean; result: any } | null> {
+/**
+ * GET server-authoritative onboarding status, or null on failure.
+ * `entrySatisfied` (entry OR core, read from the users row) is the field routing
+ * should gate on — never a localStorage cache. `completed`/`intakeCompleted`
+ * are the individual entry/core flags. Older servers omit the newer fields;
+ * callers treat a missing `entrySatisfied` as "unknown" and fail safe.
+ */
+export async function getEntryStatus(): Promise<
+  { completed: boolean; intakeCompleted?: boolean; entrySatisfied?: boolean; result: any } | null
+> {
   const { ok, json } = await authFetch(ENTRY_STATUS, { method: 'GET' });
   return ok ? json : null;
 }
