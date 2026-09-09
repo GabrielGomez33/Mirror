@@ -234,6 +234,10 @@ export interface PersonalAnalysisResult {
   journalEntriesAnalyzed: number;
   intakeSectionsAvailable: number;
   createdAt: string;
+  /** True when the user's intake changed after this report was generated. */
+  outdated?: boolean;
+  /** ISO time the user's intake last changed (for the "since" copy). */
+  dataChangedAt?: string | null;
 }
 
 export interface PersonalAnalysisHistoryItem {
