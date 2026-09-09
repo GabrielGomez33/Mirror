@@ -2,6 +2,7 @@
 // TruthStream API Service - Complete backend communication
 
 import { getToken } from '../utils/token';
+import { authedFetch } from '../utils/authedFetch';
 import type {
   TruthStreamProfile,
   TruthCardData,
@@ -141,7 +142,7 @@ async function fetchWithRetry(
   retries: number = MAX_RETRIES
 ): Promise<Response> {
   try {
-    const response = await fetch(url, options);
+    const response = await authedFetch(url, options);
     if (response.status >= 400 && response.status < 500) return response;
     if (!response.ok && retries > 0) {
       await new Promise((r) => setTimeout(r, RETRY_DELAY));

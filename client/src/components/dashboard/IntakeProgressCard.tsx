@@ -15,6 +15,8 @@ import { fetchIntakeProgress, type IntakeProgressResponse, type StepStatus } fro
 import { loadCoreDraft, clearCoreDraft } from '../../services/coreDraftApi';
 import { clearLocalCoreDraft } from '../../services/coreDraftLocal';
 import { draftProgress, type CoreDraftStep } from '../../services/coreDraftMerge';
+import { resetDraftForRetake, retakePathForStep, RETAKE_CONFIRM } from '../../services/retakeIntake';
+import type { CoreStepKey } from '../../services/intakeProgressApi';
 import { INTAKE_STEP_CATALOG } from './intakeStepCatalog';
 import { statusOf, completedCount, progressPercent } from './intakeProgressLogic';
 
@@ -86,6 +88,7 @@ export default function IntakeProgressCard() {
   // Per-step draft detail for the two resumable steps (null while unknown).
   const [drafts, setDrafts] = useState<Partial<Record<CoreDraftStep, DraftInfo>>>({});
   const [erasing, setErasing] = useState<Partial<Record<CoreDraftStep, boolean>>>({});
+  const [retaking, setRetaking] = useState<Partial<Record<CoreStepKey, boolean>>>({});
 
   useEffect(() => {
     let alive = true;
@@ -141,6 +144,21 @@ export default function IntakeProgressCard() {
     setErasing((e) => ({ ...e, [step]: false }));
     if (fresh) setData(fresh);
   }, []);
+
+  // Retake a COMPLETED step: confirm, clear any stale draft so it starts fresh
+  // like an initial intake, then deep-link into the step in deepen mode (which
+  // lets an already-completed step be re-entered). The new submission overlays
+  // the old via the read-model's leaf merge; an abandoned retake can't downgrade
+  // the completed step (the server refuses that).
+  const retakeStep = useCallback(async (step: CoreStepKey) => {
+    if (typeof window !== 'undefined' && !window.confirm(RETAKE_CONFIRM)) return;
+    setRetaking((r) => ({ ...r, [step]: true }));
+    try {
+      await resetDraftForRetake(step);
+    } finally {
+      navigate(retakePathForStep(step));
+    }
+  }, [navigate]);
 
   // Hide entirely until loaded, or if progress is unavailable (fail-safe).
   if (!loaded || !data) return null;
@@ -215,7 +233,18 @@ export default function IntakeProgressCard() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, gap: 8 }}>
                   <span className="enhanced-glass-subtle" style={{ fontSize: 10, color: THEME.textPrimary }}>~{meta.estMinutes} min</span>
                   {isDone ? (
-                    <span style={{ fontSize: 11, color: STATUS_META.completed.color, fontWeight: 600 }}>✓ Done</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 11, color: STATUS_META.completed.color, fontWeight: 600 }}>✓ Done</span>
+                      <button
+                        type="button"
+                        onClick={() => void retakeStep(meta.key as CoreStepKey)}
+                        disabled={!!retaking[meta.key as CoreStepKey]}
+                        title="Retake this assessment"
+                        style={{ fontSize: 11, padding: '5px 10px', borderRadius: 999, border: `1px solid ${ACCENT}55`, background: 'transparent', color: THEME.textBody, cursor: retaking[meta.key as CoreStepKey] ? 'default' : 'pointer', opacity: retaking[meta.key as CoreStepKey] ? 0.5 : 1, whiteSpace: 'nowrap' }}
+                      >
+                        {retaking[meta.key as CoreStepKey] ? 'Opening…' : '↻ Retake'}
+                      </button>
+                    </div>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       {draft && (

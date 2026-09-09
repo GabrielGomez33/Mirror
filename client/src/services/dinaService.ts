@@ -8,6 +8,7 @@
 // ============================================================================
 
 import { getToken } from '../utils/token';
+import { authedFetch } from '../utils/authedFetch';
 
 // ============================================================================
 // CONFIGURATION
@@ -153,7 +154,7 @@ export async function getDinaQueryStatus(groupId: string, queueId: string): Prom
   }
 
   try {
-    const response = await fetch(
+    const response = await authedFetch(
       `${API_BASE}/groups/${groupId}/dina/status/${queueId}`,
       {
         method: 'GET',
@@ -190,7 +191,7 @@ export async function getPendingDinaQueries(groupId: string): Promise<{
   }
 
   try {
-    const response = await fetch(
+    const response = await authedFetch(
       `${API_BASE}/groups/${groupId}/dina/pending`,
       {
         method: 'GET',
