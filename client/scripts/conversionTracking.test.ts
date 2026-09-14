@@ -38,6 +38,9 @@ import {
   isSessionToken,
   isTrackingSuppressedByBrowser,
   buildEventPayload,
+  hasUtmSignal,
+  mergeFirstTouchUtm,
+  coerceStoredUtm,
 } from '../src/services/conversionFunnel';
 import {
   initConversionAnalytics,
@@ -132,6 +135,39 @@ ok(!isTrackingSuppressedByBrowser(undefined), 'missing navigator -> not suppress
   ok(fetchCalls.length === 0, 'opt-out -> no beacon');
   setAnalyticsOptOut(false);
   ok(isAnalyticsEnabled(), 'opt back in -> enabled');
+}
+
+// --- FIRST-TOUCH UTM: pure helpers ------------------------------------------
+{
+  ok(hasUtmSignal({ utmSource: 'instagram', utmMedium: null, utmCampaign: null }), 'hasUtmSignal true when any field set');
+  ok(!hasUtmSignal({ utmSource: null, utmMedium: null, utmCampaign: null }), 'hasUtmSignal false when empty');
+  ok(!hasUtmSignal(null), 'hasUtmSignal false for null');
+  const url = { utmSource: 'fromurl', utmMedium: null, utmCampaign: null };
+  const stored = { utmSource: 'instagram', utmMedium: 'paid', utmCampaign: 'launch' };
+  ok(mergeFirstTouchUtm(url, stored).utmSource === 'instagram', 'first-touch: stored source wins over a later URL');
+  ok(mergeFirstTouchUtm(url, null).utmSource === 'fromurl', 'first-touch: URL used when nothing stored');
+  ok(mergeFirstTouchUtm(url, { utmSource: null, utmMedium: null, utmCampaign: null }).utmSource === 'fromurl', 'first-touch: empty stored ignored');
+  const c = coerceStoredUtm({ utmSource: 'ig<script>', utmMedium: 123, utmCampaign: 'launch' });
+  ok(c.utmSource === 'igscript' && c.utmMedium === null && c.utmCampaign === 'launch', 'coerceStoredUtm sanitizes + drops non-strings');
+}
+
+// --- FIRST-TOUCH UTM: survives a param-less reload/navigation ----------------
+// The exact bug this fixes: land on ?utm_source=instagram, then a later page
+// (no UTM in its URL) must still attribute its events to instagram, not (direct).
+{
+  fetchCalls.length = 0;
+  setNavigator({ doNotTrack: null });
+  (globalThis as any).localStorage.clear();
+  (globalThis as any).sessionStorage.clear();
+  __resetConversionAnalyticsForTest();
+  initConversionAnalytics({ search: '?utm_source=instagram&utm_campaign=launch', force: true }); // landing (tagged)
+  __resetConversionAnalyticsForTest();                    // simulate a full reload
+  initConversionAnalytics({ search: '', force: true });   // later page: NO utm in the URL
+  trackFunnelStage('signup_completed');
+  ok(fetchCalls.length === 1, 'first-touch: beacon fires on the later, param-less page');
+  const b = JSON.parse(fetchCalls[0].init.body);
+  ok(b.utmSource === 'instagram' && b.utmCampaign === 'launch', 'first-touch: later stage still attributed to the landing source (not (direct))');
+  ok(isSessionToken(b.sessionToken), 'first-touch: session token stays stable across the reload');
 }
 
 console.log(`\n${fail === 0 ? 'PASS' : 'FAIL'}: conversionTracking ${pass} passed, ${fail} failed`);

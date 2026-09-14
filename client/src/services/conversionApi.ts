@@ -23,12 +23,16 @@ import {
   isSessionToken,
   isTrackingSuppressedByBrowser,
   buildEventPayload,
+  mergeFirstTouchUtm,
+  hasUtmSignal,
+  coerceStoredUtm,
   type Utm,
   type FunnelStage,
 } from './conversionFunnel';
 
 const INGEST_URL = '/mirror/api/analytics/conversion';
 const SESSION_KEY = 'mirror:analytics:session';
+const UTM_KEY = 'mirror:analytics:utm';
 const OPTOUT_KEY = 'mirror:analytics:optout';
 
 interface AnalyticsState {
@@ -76,6 +80,36 @@ function ensureSessionToken(): string | null {
   return fresh;
 }
 
+/** Read the session's first-touch UTM from sessionStorage (sanitized), or null. */
+function readStoredUtm(ss: Storage | undefined): Utm | null {
+  const raw = safeGet(ss, UTM_KEY);
+  if (!raw) return null;
+  try {
+    const utm = coerceStoredUtm(JSON.parse(raw));
+    return hasUtmSignal(utm) ? utm : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve the UTM for this session with FIRST-TOUCH persistence: a UTM already
+ * stored for the session wins; otherwise adopt the current URL's UTM and, if it
+ * carries any signal, persist it so every later stage (across reloads and
+ * param-less navigations) stays attributed to the same source. Without this,
+ * only the landing event carries the source and later stages leak to `(direct)`.
+ */
+function resolveFirstTouchUtm(search: string): Utm {
+  const ss = typeof sessionStorage !== 'undefined' ? sessionStorage : undefined;
+  const urlUtm = parseUtmParams(search);
+  const stored = readStoredUtm(ss);
+  const resolved = mergeFirstTouchUtm(urlUtm, stored);
+  if (!hasUtmSignal(stored) && hasUtmSignal(resolved)) {
+    safeSet(ss, UTM_KEY, JSON.stringify(resolved));
+  }
+  return resolved;
+}
+
 /**
  * Initialize analytics once at app start. Computes consent (GPC/DNT/opt-out),
  * captures UTM from the landing URL, and provisions the session token. Idempotent
@@ -87,7 +121,9 @@ export function initConversionAnalytics(opts?: { search?: string; force?: boolea
   const suppressed = isTrackingSuppressedByBrowser(nav as never) || hasLocalOptOut();
   state.enabled = !suppressed;
   const search = opts?.search ?? (typeof window !== 'undefined' ? window.location.search : '');
-  state.utm = parseUtmParams(search);
+  // First-touch UTM: capture the landing source once and reuse it for every
+  // stage this session, even after reloads / param-less navigations.
+  state.utm = state.enabled ? resolveFirstTouchUtm(search) : parseUtmParams(search);
   state.sessionToken = ensureSessionToken();
   state.ready = true;
 }
