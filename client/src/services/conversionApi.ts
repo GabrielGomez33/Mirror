@@ -26,6 +26,7 @@ import {
   mergeFirstTouchUtm,
   hasUtmSignal,
   coerceStoredUtm,
+  readIncomingSessionToken,
   type Utm,
   type FunnelStage,
 } from './conversionFunnel';
@@ -80,6 +81,20 @@ function ensureSessionToken(): string | null {
   return fresh;
 }
 
+/**
+ * Cross-domain stitch: if the landing forwarded a valid `?sid=` and this tab has
+ * not already started a session, adopt that token so landing_view and the in-app
+ * stages share one session. First-touch: never overwrites an existing session
+ * token (a later navigation with a stale sid can't hijack the running session).
+ */
+function adoptIncomingSessionToken(search: string): void {
+  if (!state.enabled) return;
+  const ss = typeof sessionStorage !== 'undefined' ? sessionStorage : undefined;
+  if (isSessionToken(safeGet(ss, SESSION_KEY))) return; // session already established
+  const incoming = readIncomingSessionToken(search);
+  if (incoming) safeSet(ss, SESSION_KEY, incoming);
+}
+
 /** Read the session's first-touch UTM from sessionStorage (sanitized), or null. */
 function readStoredUtm(ss: Storage | undefined): Utm | null {
   const raw = safeGet(ss, UTM_KEY);
@@ -124,6 +139,9 @@ export function initConversionAnalytics(opts?: { search?: string; force?: boolea
   // First-touch UTM: capture the landing source once and reuse it for every
   // stage this session, even after reloads / param-less navigations.
   state.utm = state.enabled ? resolveFirstTouchUtm(search) : parseUtmParams(search);
+  // Cross-domain stitch: adopt the landing's session id (if forwarded) BEFORE
+  // minting our own, so the landing_view and in-app stages are one session.
+  if (state.enabled) adoptIncomingSessionToken(search);
   state.sessionToken = ensureSessionToken();
   state.ready = true;
 }

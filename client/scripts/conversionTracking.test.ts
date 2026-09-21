@@ -41,6 +41,7 @@ import {
   hasUtmSignal,
   mergeFirstTouchUtm,
   coerceStoredUtm,
+  readIncomingSessionToken,
 } from '../src/services/conversionFunnel';
 import {
   initConversionAnalytics,
@@ -168,6 +169,52 @@ ok(!isTrackingSuppressedByBrowser(undefined), 'missing navigator -> not suppress
   const b = JSON.parse(fetchCalls[0].init.body);
   ok(b.utmSource === 'instagram' && b.utmCampaign === 'launch', 'first-touch: later stage still attributed to the landing source (not (direct))');
   ok(isSessionToken(b.sessionToken), 'first-touch: session token stays stable across the reload');
+}
+
+// --- CROSS-DOMAIN SESSION STITCH: pure helper -------------------------------
+{
+  const tok = '11111111-2222-4333-8444-555555555555';
+  ok(readIncomingSessionToken('?sid=' + tok) === tok, 'readIncomingSessionToken accepts a valid uuid sid');
+  ok(readIncomingSessionToken('?sid=' + tok.toUpperCase()) === tok, 'readIncomingSessionToken lowercases the sid');
+  ok(readIncomingSessionToken('?utm_source=ig') === null, 'no sid -> null');
+  ok(readIncomingSessionToken('?sid=not-a-uuid') === null, 'malformed sid rejected');
+  ok(readIncomingSessionToken('') === null, 'empty search -> null');
+}
+
+// --- CROSS-DOMAIN SESSION STITCH: app adopts the landing's session ----------
+// The landing (trymirror.world) mints the token, fires landing_view with it,
+// and forwards ?sid= to the app (theundergroundrailroad.world). The app must
+// adopt it so both events correlate as ONE session across the domain hop.
+{
+  fetchCalls.length = 0;
+  setNavigator({ doNotTrack: null });
+  (globalThis as any).localStorage.clear();
+  (globalThis as any).sessionStorage.clear();
+  __resetConversionAnalyticsForTest();
+  const landingSid = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+  initConversionAnalytics({ search: `?utm_source=ig&utm_medium=social&sid=${landingSid}`, force: true });
+  trackFunnelStage('signup_view');
+  ok(fetchCalls.length === 1, 'stitch: beacon fires after adopting the landing sid');
+  const b = JSON.parse(fetchCalls[0].init.body);
+  ok(b.sessionToken === landingSid, 'stitch: in-app event uses the landing session token (one session across domains)');
+  ok(b.utmSource === 'ig' && b.utmMedium === 'social', 'stitch: forwarded UTM is attributed too');
+}
+
+// --- STITCH is first-touch: a stale sid never hijacks a running session -----
+{
+  fetchCalls.length = 0;
+  setNavigator({ doNotTrack: null });
+  (globalThis as any).localStorage.clear();
+  (globalThis as any).sessionStorage.clear();
+  __resetConversionAnalyticsForTest();
+  initConversionAnalytics({ search: '', force: true });      // app mints its own session first
+  trackFunnelStage('signup_view');
+  const own = JSON.parse(fetchCalls[0].init.body).sessionToken;
+  __resetConversionAnalyticsForTest();                        // later navigation, same tab
+  initConversionAnalytics({ search: '?sid=99999999-8888-4777-8666-555555555555', force: true });
+  trackFunnelStage('entry_started');
+  const after = JSON.parse(fetchCalls[1].init.body).sessionToken;
+  ok(after === own, 'stitch: an incoming sid does NOT overwrite an already-established session');
 }
 
 console.log(`\n${fail === 0 ? 'PASS' : 'FAIL'}: conversionTracking ${pass} passed, ${fail} failed`);

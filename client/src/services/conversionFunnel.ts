@@ -100,6 +100,24 @@ export function isSessionToken(x: unknown): x is string {
   return typeof x === 'string' && UUID_RE.test(x);
 }
 
+/**
+ * CROSS-DOMAIN SESSION STITCH: the marketing landing (a different origin) mints
+ * the session token, fires `landing_view` with it, and forwards it on the app
+ * CTA links as `?sid=`. The app adopts it here so landing_view and the in-app
+ * stages correlate as ONE session across the domain hop (sessionStorage does not
+ * cross origins). Returns the normalized (lowercased) token only if it is a
+ * well-formed session token, else null — a malformed/absent value is ignored and
+ * the app just mints its own, so this can never corrupt attribution.
+ */
+export function readIncomingSessionToken(search: string): string | null {
+  try {
+    const raw = new URLSearchParams(search || '').get('sid');
+    return isSessionToken(raw) ? (raw as string).toLowerCase() : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Generate a random session token (UUID v4). Falls back if crypto is absent. */
 export function newSessionToken(): string {
   try {
