@@ -53,6 +53,33 @@ function cleanUtm(value: string | null | undefined, max: number): string | null 
   return cleaned.length ? cleaned : null;
 }
 
+/** True when a UTM carries any attribution signal (at least one non-null field). */
+export function hasUtmSignal(u: Utm | null | undefined): boolean {
+  return !!(u && (u.utmSource || u.utmMedium || u.utmCampaign));
+}
+
+/**
+ * FIRST-TOUCH attribution: once a session has captured a UTM (from the landing
+ * URL), that original source sticks for the whole session — even after reloads
+ * or navigations whose URL no longer carries the params. Only when nothing has
+ * been captured yet do we adopt the current URL's UTM. This is what keeps every
+ * funnel event in a session attributed to the SAME source (e.g. `instagram`)
+ * instead of leaking later stages into `(direct)`.
+ */
+export function mergeFirstTouchUtm(urlUtm: Utm, storedUtm: Utm | null | undefined): Utm {
+  return hasUtmSignal(storedUtm) ? (storedUtm as Utm) : urlUtm;
+}
+
+/** Coerce an untrusted parsed object back into a sanitized Utm (for storage read-back). */
+export function coerceStoredUtm(raw: unknown): Utm {
+  const o = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {};
+  return {
+    utmSource: cleanUtm(typeof o.utmSource === 'string' ? o.utmSource : null, 64),
+    utmMedium: cleanUtm(typeof o.utmMedium === 'string' ? o.utmMedium : null, 64),
+    utmCampaign: cleanUtm(typeof o.utmCampaign === 'string' ? o.utmCampaign : null, 96),
+  };
+}
+
 /** Parse ONLY utm_source/medium/campaign from a query string; sanitized + bounded. */
 export function parseUtmParams(search: string): Utm {
   let params: URLSearchParams;
@@ -71,6 +98,24 @@ export function parseUtmParams(search: string): Utm {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function isSessionToken(x: unknown): x is string {
   return typeof x === 'string' && UUID_RE.test(x);
+}
+
+/**
+ * CROSS-DOMAIN SESSION STITCH: the marketing landing (a different origin) mints
+ * the session token, fires `landing_view` with it, and forwards it on the app
+ * CTA links as `?sid=`. The app adopts it here so landing_view and the in-app
+ * stages correlate as ONE session across the domain hop (sessionStorage does not
+ * cross origins). Returns the normalized (lowercased) token only if it is a
+ * well-formed session token, else null — a malformed/absent value is ignored and
+ * the app just mints its own, so this can never corrupt attribution.
+ */
+export function readIncomingSessionToken(search: string): string | null {
+  try {
+    const raw = new URLSearchParams(search || '').get('sid');
+    return isSessionToken(raw) ? (raw as string).toLowerCase() : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Generate a random session token (UUID v4). Falls back if crypto is absent. */

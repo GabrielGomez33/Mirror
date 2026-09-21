@@ -1060,5 +1060,104 @@
       });
     })();
   </script>
+
+  <!-- ===================================================================== -->
+  <!-- Anonymous funnel: attribution hand-off + landing_view beacon.          -->
+  <!-- The app lives on a DIFFERENT domain (theundergroundrailroad.world/     -->
+  <!-- Mirror), so campaign attribution and the session id must be carried    -->
+  <!-- across the hop on the CTA links, or the app records every ad click as  -->
+  <!-- "Direct". This also fires one anonymous landing_view so the true top   -->
+  <!-- of the funnel (people who land here and never click through) is        -->
+  <!-- visible. Same privacy posture as the app: nothing fires under GPC/DNT; -->
+  <!-- no PII, no cookies; only allowlisted campaign fields leave the page.   -->
+  <!-- ===================================================================== -->
+  <script>
+    (function () {
+      try {
+        var nav = navigator || {};
+        var suppressed = nav.globalPrivacyControl === true || nav.globalPrivacyControl === '1'
+          || nav.doNotTrack === '1' || nav.doNotTrack === 'yes' || nav.doNotTrack === 1;
+
+        // --- allowlisted attribution from the incoming (ad) URL --------------
+        var qs;
+        try { qs = new URLSearchParams(window.location.search || ''); } catch (e) { qs = null; }
+        var FWD = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'gclid'];
+        var attribution = {};
+        if (qs) {
+          for (var i = 0; i < FWD.length; i++) {
+            var v = qs.get(FWD[i]);
+            if (v) attribution[FWD[i]] = String(v).slice(0, 256);
+          }
+        }
+
+        // --- session id (minted here; stitches to the app via ?sid=) --------
+        function uuid() {
+          try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+          return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            var r = (Math.random() * 16) | 0, val = c === 'x' ? r : (r & 0x3) | 0x8;
+            return val.toString(16);
+          });
+        }
+        var SID_KEY = 'mirror:analytics:session';
+        var sid = null;
+        if (!suppressed) {
+          try {
+            sid = sessionStorage.getItem(SID_KEY);
+            if (!sid || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sid)) {
+              sid = uuid();
+              sessionStorage.setItem(SID_KEY, sid);
+            }
+            sid = sid.toLowerCase();
+          } catch (e) { sid = uuid(); } // private mode: use an ephemeral, un-stored id
+        }
+
+        // --- forward attribution (+ sid) onto every app CTA link ------------
+        // Matches links into the app domain; merges with any query already on
+        // the link and never clobbers an existing param.
+        function decorate() {
+          var links = document.getElementsByTagName('a');
+          for (var i = 0; i < links.length; i++) {
+            var a = links[i];
+            var href = a.getAttribute('href') || '';
+            if (href.indexOf('theundergroundrailroad.world/Mirror') === -1) continue;
+            var u;
+            try { u = new URL(a.href); } catch (e) { continue; }
+            for (var k in attribution) {
+              if (attribution.hasOwnProperty(k) && !u.searchParams.has(k)) u.searchParams.set(k, attribution[k]);
+            }
+            if (sid && !u.searchParams.has('sid')) u.searchParams.set('sid', sid);
+            a.setAttribute('href', u.toString());
+          }
+        }
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', decorate);
+        } else { decorate(); }
+
+        // --- fire one anonymous landing_view beacon -------------------------
+        // Posted to the app origin's ingest (absolute URL) so it works whether
+        // or not this marketing domain proxies /mirror/api. Cross-origin, so the
+        // app origin allowlists trymirror.world for CORS (mirror-server
+        // ALLOWED_ORIGINS). fetch+keepalive flushes even if the visitor clicks a
+        // CTA immediately. Anonymous: credentials omitted, no cookies.
+        var INGEST = 'https://www.theundergroundrailroad.world/mirror/api/analytics/conversion';
+        if (!suppressed && sid) {
+          var payload = JSON.stringify({
+            stage: 'landing_view',
+            sessionToken: sid,
+            utmSource: attribution.utm_source || null,
+            utmMedium: attribution.utm_medium || null,
+            utmCampaign: attribution.utm_campaign || null,
+            surface: 'web'
+          });
+          try {
+            fetch(INGEST, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: payload, credentials: 'omit', keepalive: true, mode: 'cors'
+            })['catch'](function () {});
+          } catch (e) { /* analytics must never break the page */ }
+        }
+      } catch (e) { /* never let instrumentation break the landing page */ }
+    })();
+  </script>
 </body>
 </html>

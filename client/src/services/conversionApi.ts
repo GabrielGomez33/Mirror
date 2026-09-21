@@ -23,12 +23,17 @@ import {
   isSessionToken,
   isTrackingSuppressedByBrowser,
   buildEventPayload,
+  mergeFirstTouchUtm,
+  hasUtmSignal,
+  coerceStoredUtm,
+  readIncomingSessionToken,
   type Utm,
   type FunnelStage,
 } from './conversionFunnel';
 
 const INGEST_URL = '/mirror/api/analytics/conversion';
 const SESSION_KEY = 'mirror:analytics:session';
+const UTM_KEY = 'mirror:analytics:utm';
 const OPTOUT_KEY = 'mirror:analytics:optout';
 
 interface AnalyticsState {
@@ -77,6 +82,50 @@ function ensureSessionToken(): string | null {
 }
 
 /**
+ * Cross-domain stitch: if the landing forwarded a valid `?sid=` and this tab has
+ * not already started a session, adopt that token so landing_view and the in-app
+ * stages share one session. First-touch: never overwrites an existing session
+ * token (a later navigation with a stale sid can't hijack the running session).
+ */
+function adoptIncomingSessionToken(search: string): void {
+  if (!state.enabled) return;
+  const ss = typeof sessionStorage !== 'undefined' ? sessionStorage : undefined;
+  if (isSessionToken(safeGet(ss, SESSION_KEY))) return; // session already established
+  const incoming = readIncomingSessionToken(search);
+  if (incoming) safeSet(ss, SESSION_KEY, incoming);
+}
+
+/** Read the session's first-touch UTM from sessionStorage (sanitized), or null. */
+function readStoredUtm(ss: Storage | undefined): Utm | null {
+  const raw = safeGet(ss, UTM_KEY);
+  if (!raw) return null;
+  try {
+    const utm = coerceStoredUtm(JSON.parse(raw));
+    return hasUtmSignal(utm) ? utm : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve the UTM for this session with FIRST-TOUCH persistence: a UTM already
+ * stored for the session wins; otherwise adopt the current URL's UTM and, if it
+ * carries any signal, persist it so every later stage (across reloads and
+ * param-less navigations) stays attributed to the same source. Without this,
+ * only the landing event carries the source and later stages leak to `(direct)`.
+ */
+function resolveFirstTouchUtm(search: string): Utm {
+  const ss = typeof sessionStorage !== 'undefined' ? sessionStorage : undefined;
+  const urlUtm = parseUtmParams(search);
+  const stored = readStoredUtm(ss);
+  const resolved = mergeFirstTouchUtm(urlUtm, stored);
+  if (!hasUtmSignal(stored) && hasUtmSignal(resolved)) {
+    safeSet(ss, UTM_KEY, JSON.stringify(resolved));
+  }
+  return resolved;
+}
+
+/**
  * Initialize analytics once at app start. Computes consent (GPC/DNT/opt-out),
  * captures UTM from the landing URL, and provisions the session token. Idempotent
  * within a page load unless `force` is set (used when the visitor toggles opt-out).
@@ -87,7 +136,12 @@ export function initConversionAnalytics(opts?: { search?: string; force?: boolea
   const suppressed = isTrackingSuppressedByBrowser(nav as never) || hasLocalOptOut();
   state.enabled = !suppressed;
   const search = opts?.search ?? (typeof window !== 'undefined' ? window.location.search : '');
-  state.utm = parseUtmParams(search);
+  // First-touch UTM: capture the landing source once and reuse it for every
+  // stage this session, even after reloads / param-less navigations.
+  state.utm = state.enabled ? resolveFirstTouchUtm(search) : parseUtmParams(search);
+  // Cross-domain stitch: adopt the landing's session id (if forwarded) BEFORE
+  // minting our own, so the landing_view and in-app stages are one session.
+  if (state.enabled) adoptIncomingSessionToken(search);
   state.sessionToken = ensureSessionToken();
   state.ready = true;
 }
