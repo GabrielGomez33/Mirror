@@ -22,7 +22,6 @@
 
 /// <reference lib="webworker" />
 
-import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
 import { registerRoute, setCatchHandler, NavigationRoute } from 'workbox-routing';
 import {
 	CacheFirst,
@@ -33,7 +32,11 @@ import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 import { clientsClaim } from 'workbox-core';
 
-declare const self: ServiceWorkerGlobalScope;
+// __WB_MANIFEST is injected by vite-plugin-pwa at build time. Its type used to
+// come from the workbox-precaching import; now that we precache manually, declare
+// it here so `self.__WB_MANIFEST` stays typed.
+type PrecacheEntry = string | { url: string; revision?: string | null };
+declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: PrecacheEntry[] };
 
 // ============================================================================
 // DEV vs PROD
@@ -90,51 +93,86 @@ self.addEventListener('message', (event) => {
 	}
 });
 
-// Delete the large runtime caches when storage is near the quota, so a bloated
-// cache (chiefly the 216 MB face-api models) can never block the SW from
-// updating. Best-effort: any failure is swallowed. Cache deletes free space
-// even when the origin is at 100% quota, which is what unblocks a stuck browser.
-async function reclaimQuota(): Promise<void> {
+// vite-plugin-pwa injects the precache list at `self.__WB_MANIFEST` — it MUST
+// appear literally exactly once or the plugin can't find its injection point.
+// We deliberately DO NOT use workbox `precacheAndRoute`: its install step is
+// FATAL if a cache write fails (full or corrupt CacheStorage), which is exactly
+// the deadlock that left browsers permanently stuck — the new SW couldn't
+// install, so the old broken one kept control. Instead we precache best-effort
+// (below) so install can NEVER fail, and serve everything network-first with a
+// raw fetch that doesn't depend on CacheStorage at all.
+const precacheManifest = self.__WB_MANIFEST;
+const PRECACHE_URLS: string[] = precacheManifest
+	.map((e) => (typeof e === 'string' ? e : e && typeof e === 'object' ? (e as { url?: string }).url : undefined))
+	.filter((u): u is string => typeof u === 'string');
+
+const SHELL_CACHE = 'mirror-shell';
+const SHELL_URL = '/Mirror/index.html';
+
+// Cleanup + quota reclaim. Best-effort throughout: a corrupt/full CacheStorage
+// may throw on open/delete, and we must never let that reject the lifecycle.
+//   * Always delete stale workbox precache caches left by older SW versions
+//     (we no longer use them) to free space.
+//   * Under quota pressure, drop the large runtime caches (216 MB face-api
+//     models dominate). Cache deletes succeed even at 100% quota, which is what
+//     frees a wedged browser.
+async function cleanupCaches(): Promise<void> {
+	try {
+		const names = await caches.keys();
+		for (const name of names) {
+			if (name.startsWith('workbox-precache')) {
+				try { await caches.delete(name); } catch { /* ignore */ }
+			}
+		}
+	} catch { /* CacheStorage unavailable — nothing to clean */ }
 	try {
 		const est = await self.navigator?.storage?.estimate?.();
 		const usage = est?.usage ?? 0;
 		const quota = est?.quota ?? 0;
 		if (quota > 0 && usage / quota > 0.8) {
-			// Largest offenders first; these re-download lazily on next need.
-			await caches.delete('mirror-faceapi-models');
-			await caches.delete('mirror-iq-images');
+			for (const name of ['mirror-faceapi-models', 'mirror-iq-images']) {
+				try { await caches.delete(name); } catch { /* ignore */ }
+			}
 		}
-	} catch {
-		/* best-effort; never block the lifecycle */
-	}
+	} catch { /* best-effort */ }
+}
+
+// Best-effort precache of the shell + small static assets. Wrapped so a failed
+// write (full/corrupt storage) can NEVER fail install. Large images that would
+// blow the quota are simply skipped; the app still works (served from network).
+async function precacheBestEffort(): Promise<void> {
+	if (IS_DEV_SW) return;
+	try {
+		const cache = await caches.open(SHELL_CACHE);
+		await Promise.all(
+			PRECACHE_URLS.map(async (url) => {
+				try { await cache.add(new Request(url, { cache: 'reload' })); } catch { /* skip this one */ }
+			}),
+		);
+	} catch { /* CacheStorage unusable — runtime network fetch covers us */ }
 }
 
 self.addEventListener('install', (event) => {
-	// Take over as soon as installed (no waiting behind a broken SW), and try to
-	// free space first so the precache write can't be starved by a full quota.
+	// Take over immediately (no waiting behind a broken SW). Free space, then
+	// best-effort precache. NONE of these can fail install.
 	event.waitUntil((async () => {
-		await reclaimQuota();
+		await cleanupCaches();
+		await precacheBestEffort();
 		await self.skipWaiting();
 	})());
 });
 
 self.addEventListener('activate', (event) => {
-	event.waitUntil(reclaimQuota());
+	// On activation of a NEW deploy, drop the hashed-asset cache: those bundles
+	// belong to the previous build and are dead weight (the current build's
+	// assets re-cache on next load via the network-fallback handler). This bounds
+	// the asset cache to one build and keeps storage from creeping up over
+	// deploys — the growth that led to the quota exhaustion in the first place.
+	event.waitUntil((async () => {
+		await cleanupCaches();
+		try { await caches.delete('mirror-assets'); } catch { /* best-effort */ }
+	})());
 });
-
-// ============================================================================
-// PRECACHE
-// ============================================================================
-// `self.__WB_MANIFEST` is replaced at build time by vite-plugin-pwa with
-// the list of precache assets (JS/CSS/HTML/icons per the globPatterns in
-// vite.config.ts injectManifest). It must appear literally exactly once for
-// the plugin to find its injection point — so we capture it unconditionally,
-// then only actually precache in production (see IS_DEV_SW note above).
-const precacheManifest = self.__WB_MANIFEST;
-if (!IS_DEV_SW) {
-	precacheAndRoute(precacheManifest);
-	cleanupOutdatedCaches();
-}
 
 // ============================================================================
 // SPA NAVIGATION — NetworkFirst app shell
@@ -153,21 +191,42 @@ if (!IS_DEV_SW) {
 // Deny-list: never serve HTML for API or WebSocket upgrade paths.
 // PRODUCTION-ONLY: in dev, navigations must fall through to Vite for fresh HTML
 // + correctly-versioned module URLs (see IS_DEV_SW note).
+// Custom handler (NOT a workbox strategy) so a corrupt/unavailable CacheStorage
+// can NEVER block serving the shell: we fetch index.html from the network with a
+// raw fetch first, and only TOUCH the cache best-effort (read fallback, write
+// update) inside try/catch. This is what makes a normal reload recover a wedged
+// browser — no hard-reload needed — because the app never depends on the cache
+// being healthy to load.
+async function fetchFreshShell(): Promise<Response> {
+	// 1. Network first — a plain fetch, unaffected by a broken CacheStorage.
+	try {
+		const net = await fetch(SHELL_URL, { cache: 'no-store' });
+		if (net && net.ok) {
+			// Best-effort: refresh the offline copy. Swallow any cache error.
+			try {
+				const cache = await caches.open(SHELL_CACHE);
+				await cache.put(SHELL_URL, net.clone());
+			} catch { /* cache unusable — serving from network is enough */ }
+			return net;
+		}
+	} catch { /* offline or fetch failed — fall through to cache */ }
+
+	// 2. Fallback: last good cached shell (best-effort; may throw if corrupt).
+	try {
+		const cache = await caches.open(SHELL_CACHE);
+		const hit = await cache.match(SHELL_URL);
+		if (hit) return hit;
+	} catch { /* cache unavailable */ }
+
+	// 3. Last resort: a plain fetch with no options (also serves offline error).
+	return fetch(SHELL_URL);
+}
+
 if (!IS_DEV_SW) {
-	const shellStrategy = new NetworkFirst({
-		cacheName: 'mirror-shell',
-		networkTimeoutSeconds: 3,
-		plugins: [new CacheableResponsePlugin({ statuses: [200] })],
-	});
 	registerRoute(
-		new NavigationRoute(
-			({ event }) =>
-				shellStrategy.handle({
-					event,
-					request: new Request('/Mirror/index.html'),
-				}),
-			{ denylist: [/^\/mirror\/api\//, /^\/mirror\/groups\/chat/] },
-		),
+		new NavigationRoute(() => fetchFreshShell(), {
+			denylist: [/^\/mirror\/api\//, /^\/mirror\/groups\/chat/],
+		}),
 	);
 }
 
@@ -184,21 +243,31 @@ if (!IS_DEV_SW) {
 // (where Workbox's size-limit machinery would complain) without
 // losing offline support: first visit downloads + caches the bundle,
 // subsequent visits serve from cache, offline launches do the same.
+// Hashed JS/CSS chunks are immutable per build, so cache-first is ideal for
+// repeat/offline loads. But a corrupt/unavailable CacheStorage must NEVER stop a
+// script from loading (that is a white screen even with a fresh shell), so this
+// is a hand-rolled cache-first with a guaranteed network fallback — every cache
+// op is best-effort and, if it throws, we serve straight from the network.
 registerRoute(
 	({ url, request }) =>
 		url.pathname.startsWith('/Mirror/assets/') &&
 		(request.destination === 'script' || request.destination === 'style'),
-	new CacheFirst({
-		cacheName: 'mirror-assets',
-		plugins: [
-			new CacheableResponsePlugin({ statuses: [0, 200] }),
-			new ExpirationPlugin({
-				maxEntries: 30,
-				maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
-				purgeOnQuotaError: true,
-			}),
-		],
-	}),
+	async ({ request }) => {
+		try {
+			const cache = await caches.open('mirror-assets');
+			const hit = await cache.match(request);
+			if (hit) return hit;
+			const net = await fetch(request);
+			if (net && (net.status === 200 || net.status === 0)) {
+				try { await cache.put(request, net.clone()); } catch { /* quota/corrupt — skip caching */ }
+			}
+			return net;
+		} catch {
+			// CacheStorage unusable — serve straight from the network so the app
+			// still boots. This is the corruption-proof path.
+			return fetch(request);
+		}
+	},
 );
 
 // face-api ML models (216 MB total, served from /Mirror/models/faceapi/).
@@ -294,11 +363,14 @@ registerRoute(
 setCatchHandler(async ({ request }) => {
 	// Offline document fallback is production-only — in dev there's no precache
 	// and we must let navigation failures surface to Vite rather than mask them
-	// with a blank cached shell (see IS_DEV_SW note).
+	// with a blank cached shell (see IS_DEV_SW note). Best-effort: a corrupt
+	// CacheStorage must not throw here either.
 	if (!IS_DEV_SW && request.destination === 'document') {
-		const cache = await caches.open('workbox-precache-v2-https://www.theundergroundrailroad.world/Mirror/');
-		const fallback = await cache.match('/Mirror/index.html');
-		if (fallback) return fallback;
+		try {
+			const cache = await caches.open(SHELL_CACHE);
+			const fallback = await cache.match(SHELL_URL);
+			if (fallback) return fallback;
+		} catch { /* cache unavailable — fall through */ }
 	}
 	return Response.error();
 });
