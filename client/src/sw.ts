@@ -22,7 +22,7 @@
 
 /// <reference lib="webworker" />
 
-import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
+import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
 import { registerRoute, setCatchHandler, NavigationRoute } from 'workbox-routing';
 import {
 	CacheFirst,
@@ -64,18 +64,62 @@ const IS_DEV_SW =
 // clientsClaim: take control of any uncontrolled clients on activation. This
 // makes a brand-new install start intercepting fetches immediately on the
 // page that just registered the SW, instead of waiting for the next nav.
-//
-// We do NOT call self.skipWaiting() unconditionally. With registerType:
-// 'prompt' in vite.config, the new SW must wait until the user clicks
-// "Reload" in UpdateBanner — only then do we skipWaiting via the message
-// listener below. This is what gives users a "no surprise activations
-// mid-journal-entry" experience.
 clientsClaim();
 
+// ----------------------------------------------------------------------------
+// SELF-UPDATING + SELF-HEALING (hardening)
+// ----------------------------------------------------------------------------
+// Previously the SW waited (registerType 'prompt') until the user clicked
+// "Reload". Combined with the app-shell being served from cache, a new deploy
+// could leave a browser serving a STALE index.html that points at a hashed
+// bundle the deploy already deleted -> 404 -> white screen, with no way to
+// recover except manually clearing site data. And if the cache had filled the
+// origin quota, the new SW couldn't even install to offer the prompt.
+//
+// The fix has three parts: (1) skipWaiting so a new SW takes over immediately
+// instead of queuing behind the broken one; (2) reclaimQuota() frees the big
+// runtime caches when storage is pressured, so a full quota can never deadlock
+// an update (cache deletes succeed even when writes fail); (3) the navigation
+// route below is NetworkFirst, so an online client always gets a FRESH shell
+// referencing the current bundle. Together these let a stuck browser self-heal
+// on its next reload/visit. We still never force a surprise reload — pwa.ts
+// only reloads on a user-approved update — so an in-session page is undisturbed.
 self.addEventListener('message', (event) => {
 	if (event.data && event.data.type === 'SKIP_WAITING') {
 		self.skipWaiting();
 	}
+});
+
+// Delete the large runtime caches when storage is near the quota, so a bloated
+// cache (chiefly the 216 MB face-api models) can never block the SW from
+// updating. Best-effort: any failure is swallowed. Cache deletes free space
+// even when the origin is at 100% quota, which is what unblocks a stuck browser.
+async function reclaimQuota(): Promise<void> {
+	try {
+		const est = await self.navigator?.storage?.estimate?.();
+		const usage = est?.usage ?? 0;
+		const quota = est?.quota ?? 0;
+		if (quota > 0 && usage / quota > 0.8) {
+			// Largest offenders first; these re-download lazily on next need.
+			await caches.delete('mirror-faceapi-models');
+			await caches.delete('mirror-iq-images');
+		}
+	} catch {
+		/* best-effort; never block the lifecycle */
+	}
+}
+
+self.addEventListener('install', (event) => {
+	// Take over as soon as installed (no waiting behind a broken SW), and try to
+	// free space first so the precache write can't be starved by a full quota.
+	event.waitUntil((async () => {
+		await reclaimQuota();
+		await self.skipWaiting();
+	})());
+});
+
+self.addEventListener('activate', (event) => {
+	event.waitUntil(reclaimQuota());
 });
 
 // ============================================================================
@@ -93,21 +137,37 @@ if (!IS_DEV_SW) {
 }
 
 // ============================================================================
-// SPA NAVIGATION FALLBACK
+// SPA NAVIGATION — NetworkFirst app shell
 // ============================================================================
-// Any route under /Mirror/* that isn't a real file should fall back to the
-// cached index.html. Workbox v7 expects us to register a NavigationRoute
-// that pulls from the precache.
+// Every navigation under /Mirror/* is served the app shell (index.html). We use
+// NetworkFirst against index.html specifically (not the requested path, so deep
+// links work regardless of server-side SPA fallback):
+//   * ONLINE  -> fetch the CURRENT index.html, which references the CURRENT
+//     hashed bundle. This is what eliminates the stale-shell -> deleted-bundle
+//     -> 404 white screen after a deploy, and lets a previously-stuck browser
+//     self-heal on its next reload.
+//   * OFFLINE / slow -> after a 3s timeout, serve the last good shell from the
+//     'mirror-shell' cache; if that's empty, setCatchHandler falls back to the
+//     precached index.html.
 //
-// Deny-list: never serve cached HTML for API or WebSocket upgrade paths.
-// PRODUCTION-ONLY: in dev, navigation requests must fall through to Vite so it
-// can serve fresh HTML + correctly-versioned module URLs (see IS_DEV_SW note).
+// Deny-list: never serve HTML for API or WebSocket upgrade paths.
+// PRODUCTION-ONLY: in dev, navigations must fall through to Vite for fresh HTML
+// + correctly-versioned module URLs (see IS_DEV_SW note).
 if (!IS_DEV_SW) {
-	const navigationHandler = createHandlerBoundToURL('/Mirror/index.html');
+	const shellStrategy = new NetworkFirst({
+		cacheName: 'mirror-shell',
+		networkTimeoutSeconds: 3,
+		plugins: [new CacheableResponsePlugin({ statuses: [200] })],
+	});
 	registerRoute(
-		new NavigationRoute(navigationHandler, {
-			denylist: [/^\/mirror\/api\//, /^\/mirror\/groups\/chat/],
-		}),
+		new NavigationRoute(
+			({ event }) =>
+				shellStrategy.handle({
+					event,
+					request: new Request('/Mirror/index.html'),
+				}),
+			{ denylist: [/^\/mirror\/api\//, /^\/mirror\/groups\/chat/] },
+		),
 	);
 }
 
@@ -169,6 +229,7 @@ registerRoute(
 			new ExpirationPlugin({
 				maxEntries: 50,
 				maxAgeSeconds: 60 * 60 * 24 * 30,
+				purgeOnQuotaError: true,
 			}),
 		],
 	}),
@@ -217,6 +278,7 @@ registerRoute(
 			new ExpirationPlugin({
 				maxEntries: 100,
 				maxAgeSeconds: 60 * 60 * 24,
+				purgeOnQuotaError: true,
 			}),
 		],
 	}),
