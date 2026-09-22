@@ -1111,9 +1111,34 @@
           } catch (e) { sid = uuid(); } // private mode: use an ephemeral, un-stored id
         }
 
-        // --- forward attribution (+ sid) onto every app CTA link ------------
-        // Matches links into the app domain; merges with any query already on
-        // the link and never clobbers an existing param.
+        // --- anonymous beacon to the app-origin ingest ----------------------
+        // Absolute URL (works whether or not this marketing domain proxies
+        // /mirror/api). Cross-origin, so the app origin allowlists trymirror.world
+        // for CORS (mirror-server ALLOWED_ORIGINS). fetch+keepalive flushes even
+        // when the visitor is navigating away (a CTA click). Anonymous: no cookies.
+        var INGEST = 'https://www.theundergroundrailroad.world/mirror/api/analytics/conversion';
+        function fireStage(stage) {
+          if (suppressed || !sid) return;
+          try {
+            fetch(INGEST, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                stage: stage,
+                sessionToken: sid,
+                utmSource: attribution.utm_source || null,
+                utmMedium: attribution.utm_medium || null,
+                utmCampaign: attribution.utm_campaign || null,
+                surface: 'web'
+              }),
+              credentials: 'omit', keepalive: true, mode: 'cors'
+            })['catch'](function () {});
+          } catch (e) { /* analytics must never break the page */ }
+        }
+
+        // --- forward attribution (+ sid) onto every app CTA link, AND fire a
+        //     one-time cta_click when the visitor taps into the app. That splits
+        //     the big landing drop-off into "never clicked" (landing/messaging)
+        //     vs "clicked but the app didn't load them in" (cross-domain / load).
         function decorate() {
           var links = document.getElementsByTagName('a');
           for (var i = 0; i < links.length; i++) {
@@ -1127,35 +1152,16 @@
             }
             if (sid && !u.searchParams.has('sid')) u.searchParams.set('sid', sid);
             a.setAttribute('href', u.toString());
+            // Fire once per link tap; keepalive lets it survive the navigation.
+            a.addEventListener('click', function () { fireStage('cta_click'); }, { passive: true });
           }
         }
         if (document.readyState === 'loading') {
           document.addEventListener('DOMContentLoaded', decorate);
         } else { decorate(); }
 
-        // --- fire one anonymous landing_view beacon -------------------------
-        // Posted to the app origin's ingest (absolute URL) so it works whether
-        // or not this marketing domain proxies /mirror/api. Cross-origin, so the
-        // app origin allowlists trymirror.world for CORS (mirror-server
-        // ALLOWED_ORIGINS). fetch+keepalive flushes even if the visitor clicks a
-        // CTA immediately. Anonymous: credentials omitted, no cookies.
-        var INGEST = 'https://www.theundergroundrailroad.world/mirror/api/analytics/conversion';
-        if (!suppressed && sid) {
-          var payload = JSON.stringify({
-            stage: 'landing_view',
-            sessionToken: sid,
-            utmSource: attribution.utm_source || null,
-            utmMedium: attribution.utm_medium || null,
-            utmCampaign: attribution.utm_campaign || null,
-            surface: 'web'
-          });
-          try {
-            fetch(INGEST, {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: payload, credentials: 'omit', keepalive: true, mode: 'cors'
-            })['catch'](function () {});
-          } catch (e) { /* analytics must never break the page */ }
-        }
+        // --- fire one anonymous landing_view beacon on load -----------------
+        fireStage('landing_view');
       } catch (e) { /* never let instrumentation break the landing page */ }
     })();
   </script>
