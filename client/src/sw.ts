@@ -23,13 +23,6 @@
 /// <reference lib="webworker" />
 
 import { registerRoute, setCatchHandler, NavigationRoute } from 'workbox-routing';
-import {
-	CacheFirst,
-	NetworkFirst,
-	StaleWhileRevalidate,
-} from 'workbox-strategies';
-import { ExpirationPlugin } from 'workbox-expiration';
-import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 import { clientsClaim } from 'workbox-core';
 
 // __WB_MANIFEST is injected by vite-plugin-pwa at build time. Its type used to
@@ -243,6 +236,51 @@ if (!IS_DEV_SW) {
 // (where Workbox's size-limit machinery would complain) without
 // losing offline support: first visit downloads + caches the bundle,
 // subsequent visits serve from cache, offline launches do the same.
+// ----------------------------------------------------------------------------
+// Corruption-proof cache helpers. On a corrupt/unavailable CacheStorage,
+// caches.open() itself rejects ("Failed to execute 'open' ... Unexpected
+// internal error"). Every SW cache op goes through these so such a rejection is
+// swallowed and the request always falls back to the network — no uncaught
+// promise errors, no broken responses, on any browser.
+async function safeMatch(cacheName: string, request: Request): Promise<Response | undefined> {
+	try {
+		const cache = await caches.open(cacheName);
+		return await cache.match(request);
+	} catch { return undefined; }
+}
+function safePut(cacheName: string, request: Request, response: Response): void {
+	// Fire-and-forget; never awaited on the response path, never throws.
+	void (async () => {
+		try {
+			const cache = await caches.open(cacheName);
+			await cache.put(request, response);
+		} catch { /* quota/corrupt — skip caching */ }
+	})();
+}
+function cacheFirstSafe(cacheName: string) {
+	return async ({ request }: { request: Request }): Promise<Response> => {
+		const hit = await safeMatch(cacheName, request);
+		if (hit) return hit;
+		const net = await fetch(request);
+		if (net && (net.status === 200 || net.status === 0)) safePut(cacheName, request, net.clone());
+		return net;
+	};
+}
+function networkFirstSafe(cacheName: string, timeoutMs = 3000) {
+	return async ({ request }: { request: Request }): Promise<Response> => {
+		try {
+			const net = await Promise.race([
+				fetch(request),
+				new Promise<Response>((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs)),
+			]);
+			if (net) { safePut(cacheName, request, net.clone()); return net; }
+		} catch { /* network failed/timed out — fall back to cache */ }
+		const hit = await safeMatch(cacheName, request);
+		if (hit) return hit;
+		return fetch(request); // last resort (surfaces the real network error)
+	};
+}
+
 // Hashed JS/CSS chunks are immutable per build, so cache-first is ideal for
 // repeat/offline loads. But a corrupt/unavailable CacheStorage must NEVER stop a
 // script from loading (that is a white screen even with a fresh shell), so this
@@ -270,87 +308,35 @@ registerRoute(
 	},
 );
 
-// face-api ML models (216 MB total, served from /Mirror/models/faceapi/).
-// Files have no extension (e.g. tiny_face_detector_model-shard1) so we
-// match by URL path. Each shard is content-stable per name → CacheFirst.
+// face-api ML models (216 MB, /Mirror/models/faceapi/) — content-stable per
+// filename. Safe cache-first: falls back to network on any cache error.
 registerRoute(
 	({ url }) => url.pathname.startsWith('/Mirror/models/faceapi/'),
-	new CacheFirst({
-		cacheName: 'mirror-faceapi-models',
-		plugins: [
-			new CacheableResponsePlugin({ statuses: [0, 200] }),
-			new ExpirationPlugin({
-				maxEntries: 30,
-				maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
-				purgeOnQuotaError: true,
-			}),
-		],
-	}),
+	cacheFirstSafe('mirror-faceapi-models'),
 );
 
 // IQ test reference images (SVGs).
 registerRoute(
 	({ url }) => url.pathname.startsWith('/Mirror/images/iq/'),
-	new CacheFirst({
-		cacheName: 'mirror-iq-images',
-		plugins: [
-			new CacheableResponsePlugin({ statuses: [0, 200] }),
-			new ExpirationPlugin({
-				maxEntries: 50,
-				maxAgeSeconds: 60 * 60 * 24 * 30,
-				purgeOnQuotaError: true,
-			}),
-		],
-	}),
+	cacheFirstSafe('mirror-iq-images'),
 );
 
-// Google Fonts CSS.
+// Google Fonts CSS + font files.
 registerRoute(
 	({ url }) => url.origin === 'https://fonts.googleapis.com',
-	new StaleWhileRevalidate({
-		cacheName: 'google-fonts-css',
-		plugins: [
-			new CacheableResponsePlugin({ statuses: [0, 200] }),
-			new ExpirationPlugin({
-				maxEntries: 10,
-				maxAgeSeconds: 60 * 60 * 24 * 7,
-			}),
-		],
-	}),
+	cacheFirstSafe('google-fonts-css'),
 );
-
-// Google Fonts files.
 registerRoute(
 	({ url }) => url.origin === 'https://fonts.gstatic.com',
-	new CacheFirst({
-		cacheName: 'google-fonts-files',
-		plugins: [
-			new CacheableResponsePlugin({ statuses: [0, 200] }),
-			new ExpirationPlugin({
-				maxEntries: 30,
-				maxAgeSeconds: 60 * 60 * 24 * 365,
-			}),
-		],
-	}),
+	cacheFirstSafe('google-fonts-files'),
 );
 
-// Mirror API GETs — NetworkFirst with 3s timeout. POST/PUT/DELETE bypass
-// the SW because the matcher only returns true for GET.
+// Mirror API GETs — network-first (3s timeout) with a safe cache fallback.
+// POST/PUT/DELETE bypass the SW because the matcher only returns true for GET.
 registerRoute(
 	({ url, request }) =>
 		request.method === 'GET' && url.pathname.startsWith('/mirror/api/'),
-	new NetworkFirst({
-		cacheName: 'mirror-api',
-		networkTimeoutSeconds: 3,
-		plugins: [
-			new CacheableResponsePlugin({ statuses: [0, 200] }),
-			new ExpirationPlugin({
-				maxEntries: 100,
-				maxAgeSeconds: 60 * 60 * 24,
-				purgeOnQuotaError: true,
-			}),
-		],
-	}),
+	networkFirstSafe('mirror-api', 3000),
 	'GET',
 );
 
