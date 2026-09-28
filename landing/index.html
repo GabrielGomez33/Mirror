@@ -953,18 +953,6 @@
       <p class="hero-note">Must be 18 or older. Verification confirms current enrollment via your school email.</p>
     </section>
 
-    <section id="waitlist">
-      <div class="waitlist">
-        <h2>Get thoughtful updates</h2>
-        <p>One short email a month. New features, real user stories, the occasional deep-dive from the founder. No noise.</p>
-        <form id="waitlist-form" novalidate>
-          <input type="email" name="email" placeholder="you@example.com" required aria-label="Your email" />
-          <button type="submit">Subscribe</button>
-        </form>
-        <div class="waitlist-msg" id="waitlist-msg" role="status" aria-live="polite"></div>
-      </div>
-    </section>
-
     <section id="faq">
       <h2 class="section-title">Common questions</h2>
       <div class="faq">
@@ -1019,47 +1007,6 @@
       <div>© Mirror · Personal intelligence, privately.</div>
     </footer>
   </div>
-
-  <script>
-    (function () {
-      var form = document.getElementById('waitlist-form');
-      var msg = document.getElementById('waitlist-msg');
-      if (!form) return;
-
-      form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        var email = form.email.value.trim();
-        if (!email || email.indexOf('@') < 1) {
-          msg.className = 'waitlist-msg error';
-          msg.textContent = 'Please enter a valid email address.';
-          return;
-        }
-        msg.className = 'waitlist-msg';
-        msg.textContent = 'Sending…';
-
-        fetch('/mirror/api/waitlist', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email, source: 'landing' })
-        }).then(function (r) {
-          if (r.ok) {
-            msg.className = 'waitlist-msg success';
-            msg.textContent = "You're on the list — check your email to confirm your spot.";
-            form.reset();
-          } else if (r.status === 404) {
-            msg.className = 'waitlist-msg success';
-            msg.textContent = "You're on the list. Thank you.";
-            form.reset();
-          } else {
-            throw new Error('bad status');
-          }
-        }).catch(function () {
-          msg.className = 'waitlist-msg error';
-          msg.textContent = "Something went wrong. Please try again in a moment.";
-        });
-      });
-    })();
-  </script>
 
   <!-- ===================================================================== -->
   <!-- Anonymous funnel: attribution hand-off + landing_view beacon.          -->
