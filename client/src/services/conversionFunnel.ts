@@ -17,6 +17,7 @@
 // MUST match mirror-server FUNNEL_STAGES exactly (order + spelling).
 export const FUNNEL_STAGES = [
   'landing_view',
+  'cta_click',
   'signup_view',
   'signup_completed',
   'entry_started',
